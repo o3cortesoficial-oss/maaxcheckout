@@ -1346,68 +1346,43 @@ a {
   box-shadow: 0 0 0 4px rgb(199 255 52 / 10%);
   animation: live-status-pulse 1.8s ease-in-out infinite;
 }
-.live-feed-list {
+.live-counter-grid {
   display: grid;
-  align-content: center;
-  gap: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 0;
   min-height: 0;
 }
-.live-feed-event,
-.live-feed-empty {
+.live-counter {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-}
-.live-feed-event {
-  animation: live-event-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--event-index) * 45ms);
-}
-.live-feed-event > i {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #777a72;
-}
-.live-feed-event:first-child > i {
-  background: var(--lime);
-}
-.live-feed-event > span,
-.live-feed-empty > span {
-  min-width: 0;
+  padding: 7px 13px;
+  border-left: 1px solid #2b2c28;
   display: grid;
-  gap: 2px;
+  gap: 5px;
 }
-.live-feed-event b,
-.live-feed-empty b {
+.live-counter:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.live-counter strong {
+  color: #f4f5f1;
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.live-counter span {
   overflow: hidden;
-  color: #f1f2ee;
-  font-size: 9px;
-  font-weight: 550;
+  color: #83867d;
+  font-size: 8px;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.live-feed-event small,
-.live-feed-empty small {
-  color: #7f8279;
-  font-size: 8px;
-}
-.live-feed-empty > svg {
-  color: #74776e;
-  font-size: 19px;
 }
 @keyframes live-status-pulse {
   50% {
     opacity: 0.45;
     transform: scale(0.86);
-  }
-}
-@keyframes live-event-enter {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
   }
 }
 .balance-actions {
@@ -1911,8 +1886,14 @@ a {
     border-top: 1px solid #343530;
     border-left: 0;
   }
-  .live-feed-list {
+  .live-counter-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 0;
     padding-top: 8px;
+  }
+  .live-counter:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
   }
   .metrics {
     grid-template-columns: 1fr 1fr;

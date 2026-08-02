@@ -907,7 +907,7 @@ export function RealDashboard({ navigate }) {
       payment_gateways: [],
       product_images: [],
       payment_attempts: [],
-      checkout_events: [],
+      checkout_event_counters: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -966,7 +966,7 @@ export function RealDashboard({ navigate }) {
       "payment_gateways",
       "product_images",
       "payment_attempts",
-      "checkout_events",
+      "checkout_event_counters",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -975,7 +975,7 @@ export function RealDashboard({ navigate }) {
           .select("*")
           .eq("workspace_id", ws.id)
           .order("created_at", { ascending: false })
-          .limit(t === "checkout_events" ? 12 : 1000),
+          .limit(1000),
       ),
     );
     const next = {};
@@ -1006,24 +1006,31 @@ export function RealDashboard({ navigate }) {
     } = supabase.auth.onAuthStateChange((_e, s) => {
       if (!s) navigate("/login");
     });
-    const liveEvents = supabase
-      .channel("checkout-live-events")
+    const liveCounters = supabase
+      .channel("checkout-live-counters")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "checkout_events" },
-        ({ new: event }) =>
+        {
+          event: "*",
+          schema: "public",
+          table: "checkout_event_counters",
+        },
+        ({ new: counter }) =>
           setData((current) => ({
             ...current,
-            checkout_events: [event, ...current.checkout_events]
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-              .slice(0, 12),
+            checkout_event_counters: [
+              counter,
+              ...current.checkout_event_counters.filter(
+                (item) => item.event_type !== counter.event_type,
+              ),
+            ],
           })),
       )
       .subscribe();
     const refreshTimer = window.setInterval(() => load(false, true), 30000);
     return () => {
       window.clearInterval(refreshTimer);
-      supabase.removeChannel(liveEvents);
+      supabase.removeChannel(liveCounters);
       subscription.unsubscribe();
     };
   }, []);
@@ -1243,18 +1250,15 @@ function Empty({ type }) {
   );
 }
 
-const checkoutEventLabels = {
-  checkout_opened: "Checkout acessado",
-  form_started: "Dados pessoais iniciados",
-  address_started: "Endereço de entrega iniciado",
-  payment_method_selected: "Forma de pagamento escolhida",
-  payment_submitted: "Pagamento enviado",
-  payment_created: "Cobrança gerada",
-  pix_generated: "QR Code Pix gerado",
-  payment_failed: "Falha ao gerar cobrança",
-};
-
-function CheckoutLiveFeed({ events = [] }) {
+function CheckoutLiveFeed({ counters = [] }) {
+  const totalFor = (eventType) =>
+    Number(counters.find((counter) => counter.event_type === eventType)?.total || 0);
+  const stages = [
+    ["Acessos", totalFor("checkout_opened")],
+    ["Preenchimentos", totalFor("form_started")],
+    ["Pagamentos enviados", totalFor("payment_submitted")],
+    ["Pix gerados", totalFor("pix_generated")],
+  ];
   return (
     <div className="checkout-live-feed">
       <div className="live-feed-head">
@@ -1264,39 +1268,13 @@ function CheckoutLiveFeed({ events = [] }) {
         </div>
         <small>tempo real</small>
       </div>
-      <div className="live-feed-list" aria-live="polite">
-        {events.length ? (
-          events.slice(0, 4).map((event, index) => (
-            <div
-              className="live-feed-event"
-              key={event.id}
-              style={{ "--event-index": index }}
-            >
-              <i />
-              <span>
-                <b>{checkoutEventLabels[event.event_type] || "Evento do checkout"}</b>
-                <small>
-                  {event.payment_method
-                    ? `${event.payment_method.toUpperCase()} · `
-                    : ""}
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  }).format(new Date(event.created_at))}
-                </small>
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="live-feed-empty">
-            <Crosshair />
-            <span>
-              <b>Aguardando atividade</b>
-              <small>Os acessos aparecerão aqui automaticamente.</small>
-            </span>
+      <div className="live-counter-grid" aria-live="polite">
+        {stages.map(([label, total]) => (
+          <div className="live-counter" key={label}>
+            <strong>{new Intl.NumberFormat("pt-BR").format(total)}</strong>
+            <span>{label}</span>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -1318,7 +1296,7 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
             <CheckCircle /> Total de pagamentos aprovados
           </p>
         </div>
-        <CheckoutLiveFeed events={data.checkout_events} />
+        <CheckoutLiveFeed counters={data.checkout_event_counters} />
       </section>
       <div className="metrics">
         <Stat
