@@ -3937,25 +3937,30 @@ function SubscriptionPlansPreview({ revenue }) {
         title="Assinaturas"
         description="Planos futuros definidos pelo faturamento pago no checkout."
       />
-      <div className="plans-preview-note">
-        <span>
-          <i /> Prévia não ativa
-        </span>
-        <p>
-          Seu faturamento pago atual: <b>{money(revenue)}</b>. Nenhuma cobrança de
-          assinatura será realizada nesta fase.
-        </p>
-      </div>
-      <section className="subscription-plan-grid">
-        {plans.map((plan) => (
+      <section className="plans-showcase">
+        <div className="plans-preview-note">
+          <div>
+            <span>
+              <i /> Prévia não ativa
+            </span>
+            <h2>Um plano que acompanha o seu volume.</h2>
+          </div>
+          <p>
+            Faturamento pago atual <b>{money(revenue)}</b>
+            <small>Nenhuma mensalidade será cobrada nesta fase.</small>
+          </p>
+        </div>
+        <div className="subscription-plan-grid">
+        {plans.map((plan, index) => (
           <article
             className={`subscription-plan ${plan.featured ? "featured" : ""}`}
             key={plan.name}
           >
             <header>
-              <span>{plan.featured ? "MAIS INDICADO" : "PLANO"}</span>
+              <span>0{index + 1}</span>
               <small>Em breve</small>
             </header>
+            {plan.featured && <em>MAIS INDICADO</em>}
             <h2>{plan.name}</h2>
             <strong>{plan.range}</strong>
             <p>{plan.description}</p>
@@ -3975,6 +3980,7 @@ function SubscriptionPlansPreview({ revenue }) {
             </button>
           </article>
         ))}
+        </div>
       </section>
     </div>
   );
