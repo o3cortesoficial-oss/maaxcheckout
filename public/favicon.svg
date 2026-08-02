@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="#171815"/>
+  <path
+    d="M14 42V25.5h6.1v2.2c1.5-1.9 3.5-2.8 6-2.8 2.8 0 4.9 1.1 6.2 3.2 1.7-2.1 4-3.2 6.8-3.2 5.1 0 7.9 3.1 7.9 8.8V42h-6.5v-7.5c0-2.8-1.1-4.1-3.2-4.1-2.3 0-3.6 1.6-3.6 4.6v7h-6.5v-7.5c0-2.8-1.1-4.1-3.2-4.1-2.3 0-3.6 1.6-3.6 4.6v7H14Z"
+    fill="#fff"
+  />
+  <circle cx="48.5" cy="18" r="4.5" fill="#bfff22">
+    <animate attributeName="r" values="3.2;4.8;3.2" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".72;1;.72" dur="1.8s" repeatCount="indefinite"/>
+  </circle>
+</svg>
