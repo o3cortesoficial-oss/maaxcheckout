@@ -46,7 +46,16 @@ export default async function handler(request, response) {
       : productQuery.eq("slug", slug);
     const { data: product, error: productError } =
       await productQuery.maybeSingle();
-    if (productError || !product)
+    if (productError) {
+      console.error("Pagamaster payin product lookup failed", {
+        code: productError.code,
+        message: productError.message,
+      });
+      return response.status(500).json({
+        error: "Não foi possível consultar o produto. Tente novamente em instantes.",
+      });
+    }
+    if (!product)
       return response.status(404).json({
         error: "Produto indisponível. Atualize o checkout e tente novamente.",
       });
