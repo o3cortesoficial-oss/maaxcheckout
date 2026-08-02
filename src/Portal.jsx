@@ -7,6 +7,7 @@ import {
   CheckCircle,
   Copy,
   CreditCard,
+  Crosshair,
   CurrencyDollar,
   House,
   Link as LinkIcon,
@@ -198,6 +199,7 @@ const nav = [
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
   ["checkout", "Checkout", CreditCard],
+  ["tracking", "Rastreamento", Crosshair],
   ["extrato", "Extrato", Receipt],
   ["clientes", "Clientes", Users],
   ["assinaturas", "Assinaturas", CreditCard],
@@ -2945,6 +2947,198 @@ function ProductEditor({
   );
 }
 
+const trackingPlatforms = [
+  {
+    id: "meta",
+    name: "Meta",
+    description: "Facebook e Instagram Ads",
+    placeholder: "Ex.: 123456789012345",
+  },
+  {
+    id: "google",
+    name: "Google",
+    description: "Google Ads e Google Analytics",
+    placeholder: "Ex.: G-XXXXXXXXXX ou AW-XXXXXXXXX",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    description: "TikTok Ads Manager",
+    placeholder: "Ex.: CXXXXXXXXXXXXXXX",
+  },
+];
+
+function TrackingPage({ workspace }) {
+  const [config, setConfig] = useState(null);
+  const [pixels, setPixels] = useState({ meta: [], google: [], tiktok: [] });
+  const [drafts, setDrafts] = useState({ meta: "", google: "", tiktok: "" });
+  const [state, setState] = useState("Carregando...");
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("checkout_configs")
+      .select("id,settings,modules,status")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setState(error.message);
+          return;
+        }
+        setConfig(data);
+        setPixels({
+          meta: data?.settings?.tracking_pixels?.meta || [],
+          google: data?.settings?.tracking_pixels?.google || [],
+          tiktok: data?.settings?.tracking_pixels?.tiktok || [],
+        });
+        setState("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspace.id]);
+
+  const persist = async (nextPixels) => {
+    setState("Salvando...");
+    const settings = {
+      ...defaultCheckout,
+      ...(config?.settings || {}),
+      tracking_pixels: nextPixels,
+    };
+    const query = config?.id
+      ? supabase
+          .from("checkout_configs")
+          .update({ settings })
+          .eq("id", config.id)
+      : supabase
+          .from("checkout_configs")
+          .insert({
+            workspace_id: workspace.id,
+            settings,
+            modules: defaultModules,
+            status: "draft",
+          })
+          .select("id,settings,modules,status")
+          .single();
+    const { data, error } = await query;
+    if (error) {
+      setState(error.message);
+      return false;
+    }
+    if (data) setConfig(data);
+    setPixels(nextPixels);
+    setState("Alterações salvas");
+    setTimeout(() => setState(""), 2200);
+    return true;
+  };
+
+  const addPixel = async (platform) => {
+    const value = drafts[platform].trim();
+    if (!value) return setState("Informe o ID do pixel");
+    if (pixels[platform].some((item) => item.id === value))
+      return setState("Este pixel já está cadastrado");
+    const next = {
+      ...pixels,
+      [platform]: [
+        ...pixels[platform],
+        { id: value, created_at: new Date().toISOString() },
+      ],
+    };
+    if (await persist(next))
+      setDrafts((current) => ({ ...current, [platform]: "" }));
+  };
+
+  const removePixel = (platform, id) =>
+    persist({
+      ...pixels,
+      [platform]: pixels[platform].filter((item) => item.id !== id),
+    });
+
+  return (
+    <div className="page-enter tracking-page">
+      <PageTitle
+        kicker="MARKETING"
+        title="Rastreamento"
+        description="Gerencie os pixels usados para medir visitas e conversões dos checkouts"
+      />
+      <div className="tracking-note">
+        <Crosshair />
+        <div>
+          <b>Múltiplos pixels por plataforma</b>
+          <span>
+            Cadastre todos os IDs necessários. As chaves ficam vinculadas a este
+            workspace.
+          </span>
+        </div>
+        {state && <small>{state}</small>}
+      </div>
+      <div className="tracking-grid">
+        {trackingPlatforms.map((platform) => (
+          <section
+            className={`tracking-card tracking-${platform.id}`}
+            key={platform.id}
+          >
+            <header>
+              <div className="tracking-brand">
+                <span>{platform.name.slice(0, 1)}</span>
+                <div>
+                  <b>{platform.name}</b>
+                  <small>{platform.description}</small>
+                </div>
+              </div>
+              <em>{pixels[platform.id].length} ativos</em>
+            </header>
+            <div className="tracking-add">
+              <label>
+                ID do pixel
+                <input
+                  value={drafts[platform.id]}
+                  placeholder={platform.placeholder}
+                  onChange={(event) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [platform.id]: event.target.value,
+                    }))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") addPixel(platform.id);
+                  }}
+                />
+              </label>
+              <button onClick={() => addPixel(platform.id)}>
+                <Plus /> Adicionar
+              </button>
+            </div>
+            <div className="tracking-list">
+              {pixels[platform.id].length ? (
+                pixels[platform.id].map((pixel) => (
+                  <div key={pixel.id}>
+                    <i />
+                    <span>
+                      <b>{pixel.id}</b>
+                      <small>Configurado em {date(pixel.created_at)}</small>
+                    </span>
+                    <button
+                      title="Remover pixel"
+                      onClick={() => removePixel(platform.id, pixel.id)}
+                    >
+                      <Trash />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p>Nenhum pixel cadastrado nesta plataforma.</p>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DataView({
   type,
   data,
@@ -2979,6 +3173,7 @@ function DataView({
     );
   }
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
+  if (type === "tracking") return <TrackingPage workspace={workspace} />;
   const config = {
     vendas: [
       "OPERAÇÃO",
