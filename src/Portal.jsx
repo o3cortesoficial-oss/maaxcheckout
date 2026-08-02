@@ -1971,6 +1971,7 @@ export function PublicCheckout({ slug }) {
 function PaymentResult({ result }) {
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const resultRef = useRef(null);
   const pixCode = result?.pix?.qrcode || "";
   useEffect(() => {
     let active = true;
@@ -1989,9 +1990,19 @@ function PaymentResult({ result }) {
       active = false;
     };
   }, [pixCode]);
+  useEffect(() => {
+    if (!pixCode) return undefined;
+    const timer = window.setTimeout(() => {
+      resultRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [pixCode]);
   if (!result) return null;
   return (
-    <div className="payment-result" role="status">
+    <div ref={resultRef} className="payment-result" role="status">
       {pixCode && (
         <>
           <b>Pix gerado</b>
