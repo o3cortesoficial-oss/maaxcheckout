@@ -992,12 +992,12 @@ const defaultModules = [
   },
   {
     id: "shopper_message",
-    label: "Shopper: Mensagem para loja",
+    label: "Shopper: Nome e contato",
     enabled: true,
   },
   {
     id: "shopper_invoice",
-    label: "Shopper: CPF na nota fiscal",
+    label: "Shopper: CPF do cliente",
     enabled: true,
   },
   { id: "shopper_shipping", label: "Shopper: Opção de entrega", enabled: true },
@@ -1592,32 +1592,73 @@ function ShopperCheckout({
             </label>
           )}
         </section>
-        {(enabled("coupon") ||
-          enabled("shopper_message") ||
-          enabled("shopper_invoice")) && (
+        {enabled("coupon") && (
           <section className="shopper-options">
-            {enabled("coupon") && (
-              <label>
-                <span>Cupom de desconto</span>
-                <input placeholder="Digite o código" />
-              </label>
-            )}
-            {enabled("shopper_message") && (
-              <label>
-                <span>Mensagem para a loja</span>
-                <input placeholder="Escreva uma observação" />
-              </label>
-            )}
-            {enabled("shopper_invoice") && (
-              <label>
-                <span>CPF na nota fiscal</span>
-                <input
-                  required
-                  inputMode="numeric"
-                  placeholder="000.000.000-00"
-                />
-              </label>
-            )}
+            <label>
+              <span>Cupom de desconto</span>
+              <input name="coupon_code" placeholder="Digite o código" />
+            </label>
+          </section>
+        )}
+        {(enabled("shopper_message") || enabled("shopper_invoice")) && (
+          <section className="shopper-customer">
+            <div className="shopper-customer-heading">
+              <b>Dados pessoais</b>
+              <small>Usados somente para processar seu pagamento</small>
+            </div>
+            <div className="shopper-customer-grid">
+              {enabled("shopper_message") && (
+                <label>
+                  <span>Nome completo</span>
+                  <input
+                    required
+                    name="customer_name"
+                    autoComplete="name"
+                    minLength="3"
+                    placeholder="Digite seu nome completo"
+                  />
+                </label>
+              )}
+              {enabled("shopper_message") && (
+                <label>
+                  <span>E-mail</span>
+                  <input
+                    required
+                    type="email"
+                    name="customer_email"
+                    autoComplete="email"
+                    placeholder="voce@exemplo.com"
+                  />
+                </label>
+              )}
+              {enabled("shopper_message") && (
+                <label>
+                  <span>Telefone</span>
+                  <input
+                    required
+                    type="tel"
+                    name="customer_phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    maxLength="15"
+                    placeholder="(11) 99999-9999"
+                  />
+                </label>
+              )}
+              {enabled("shopper_invoice") && (
+                <label>
+                  <span>CPF</span>
+                  <input
+                    required
+                    name="customer_document"
+                    autoComplete="off"
+                    inputMode="numeric"
+                    maxLength="14"
+                    placeholder="000.000.000-00"
+                  />
+                </label>
+              )}
+            </div>
           </section>
         )}
         {isPhysical && enabled("shopper_shipping") && (
