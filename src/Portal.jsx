@@ -944,11 +944,18 @@ const defaultCheckout = {
   payment_methods: ["pix", "card", "boleto"],
 };
 const defaultModules = [
+  { id: "secure_badge", label: "Selo Compra segura", enabled: true },
   { id: "contact", label: "Dados de contato", enabled: true },
   { id: "payment", label: "Pagamento", enabled: true },
   { id: "trust", label: "Compra segura", enabled: true },
   { id: "summary", label: "Resumo do pedido", enabled: true },
   { id: "coupon", label: "Cupom de desconto", enabled: true },
+];
+const mergeCheckoutModules = (saved = []) => [
+  ...saved,
+  ...defaultModules.filter(
+    (module) => !saved.some((item) => item.id === module.id),
+  ),
 ];
 export function PublicCheckout({ slug }) {
   const [state, setState] = useState({
@@ -1006,9 +1013,7 @@ export function PublicCheckout({ slug }) {
           ...defaultCheckout,
           ...(configResult.data?.settings || {}),
         },
-        modules: configResult.data?.modules?.length
-          ? configResult.data.modules
-          : defaultModules,
+        modules: mergeCheckoutModules(configResult.data?.modules || []),
         error: "",
       });
     };
@@ -1083,9 +1088,11 @@ export function PublicCheckout({ slug }) {
         ) : (
           <strong>{settings.brand_name}</strong>
         )}
-        <span>
-          <Bank /> Ambiente seguro
-        </span>
+        {enabled("secure_badge") && (
+          <span>
+            <Bank /> Ambiente seguro
+          </span>
+        )}
       </header>
       <main className={settings.layout === "compact" ? "compact" : ""}>
         <form className="public-checkout-form" onSubmit={submit}>
@@ -1421,7 +1428,7 @@ function CheckoutEditor({ workspace }) {
         if (data) {
           setConfigId(data.id);
           setSettings({ ...defaultCheckout, ...data.settings });
-          setModules(data.modules?.length ? data.modules : defaultModules);
+          setModules(mergeCheckoutModules(data.modules || []));
           setStatus(data.status);
         }
         ready.current = true;
@@ -1807,9 +1814,11 @@ function CheckoutPreview({ settings, modules }) {
             ) : (
               <strong>{settings.brand_name}</strong>
             )}
-            <span>
-              <Bank /> Compra segura
-            </span>
+            {enabled("secure_badge") && (
+              <span>
+                <Bank /> Compra segura
+              </span>
+            )}
           </header>
           <main>
             <div className="checkout-form">
