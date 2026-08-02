@@ -1285,16 +1285,22 @@ function CheckoutLiveFeed({ counters = [], presence = [] }) {
     const timer = window.setInterval(() => setNow(Date.now()), 5000);
     return () => window.clearInterval(timer);
   }, []);
-  const totalFor = (eventType) =>
-    Number(counters.find((counter) => counter.event_type === eventType)?.total || 0);
-  const activeAccesses = presence.filter(
+  const activeSessions = presence.filter(
     (item) => now - new Date(item.last_seen_at).getTime() < 30000,
-  ).length;
+  );
+  const activeAt = (...eventTypes) =>
+    activeSessions.filter((item) => eventTypes.includes(item.stage)).length;
   const stages = [
-    ["Acessos agora", activeAccesses],
-    ["Preenchimentos", totalFor("form_started")],
-    ["Pagamentos enviados", totalFor("payment_submitted")],
-    ["Pix gerados", totalFor("pix_generated")],
+    ["Acessos agora", activeSessions.length],
+    [
+      "Preenchimentos",
+      activeAt("form_started", "address_started", "payment_method_selected"),
+    ],
+    [
+      "Pagamentos enviados",
+      activeAt("payment_submitted", "payment_created", "payment_failed"),
+    ],
+    ["Pix gerados", activeAt("pix_generated")],
   ];
   return (
     <div className="checkout-live-feed">

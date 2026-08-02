@@ -44,6 +44,20 @@ export default async function handler(request, response) {
       payment_method: paymentMethod || null,
     });
     if (error) throw error;
+
+    const { error: presenceError } = await supabase
+      .from("checkout_presence")
+      .upsert(
+        {
+          session_id: sessionId,
+          workspace_id: product.workspace_id,
+          product_id: product.id,
+          stage: eventType,
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: "session_id" },
+      );
+    if (presenceError) throw presenceError;
     return response.status(202).json({ received: true });
   } catch (error) {
     console.error("Checkout event capture failed", error);
