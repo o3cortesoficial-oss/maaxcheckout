@@ -26,3 +26,14 @@
 .balance-actions{min-height:60px;display:flex;align-items:center}
 .balance-actions .btn{margin-bottom:0}
 @media(max-width:900px){.side-head>button:not(.logo){display:block}.dash-title>div:first-child{display:block}.balance-actions{min-height:0;display:block}}
+
+@media(max-width:900px){
+  .dash-main>header:before{content:"maax";position:absolute;left:58px;top:50%;transform:translateY(-52%);font-size:19px;font-weight:800;letter-spacing:-1.4px;color:#171815}
+  .dash-main>header:after{content:"";position:absolute;left:99px;top:25px;width:4px;height:4px;border-radius:50%;background:var(--lime)}
+  .resource-table{overflow:hidden}
+  .resource-head{min-width:0}
+  .generic-table{min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-ms-overflow-style:none}
+  .generic-table::-webkit-scrollbar{display:none}
+  .generic-table .generic-row{min-width:700px}
+  .real-empty{min-width:0}
+}
