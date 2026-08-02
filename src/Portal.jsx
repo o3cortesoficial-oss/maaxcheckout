@@ -3,6 +3,8 @@ import {
   ArrowRight,
   Bank,
   Bell,
+  CaretLeft,
+  CaretRight,
   ChartLineUp,
   CheckCircle,
   Copy,
@@ -3986,6 +3988,153 @@ function SubscriptionPlansPreview({ revenue }) {
   );
 }
 
+function CustomersView({ customers = [], orders = [] }) {
+  const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const rows = useMemo(
+    () =>
+      customers
+        .map((customer) => {
+          const customerOrders = orders.filter(
+            (order) => order.customer_id === customer.id,
+          );
+          const approvedOrders = customerOrders.filter(
+            (order) => order.status === "approved",
+          );
+          const latestOrder = [...customerOrders].sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at),
+          )[0];
+          return {
+            ...customer,
+            orders: customerOrders.length,
+            approvedOrders: approvedOrders.length,
+            paid: approvedOrders.length > 0,
+            paidCents: approvedOrders.reduce(
+              (total, order) => total + Number(order.total_cents || 0),
+              0,
+            ),
+            latestOrderAt: latestOrder?.created_at || customer.created_at,
+          };
+        })
+        .filter((customer) => customer.orders > 0)
+        .sort(
+          (a, b) => new Date(b.latestOrderAt) - new Date(a.latestOrderAt),
+        ),
+    [customers, orders],
+  );
+  const filteredRows = rows.filter((customer) =>
+    filter === "all" ? true : filter === "paid" ? customer.paid : !customer.paid,
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => setPage(1), [filter]);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  return (
+    <div className="page-enter">
+      <PageTitle
+        kicker="RELACIONAMENTO"
+        title="Clientes"
+        description="Compradores com pedidos pagos e pagamentos pendentes."
+      />
+      <section className="resource-table customer-resource">
+        <div className="resource-head customer-head">
+          <div>
+            <span>REGISTROS</span>
+            <h2>Clientes</h2>
+          </div>
+          <div className="customer-filters" role="group" aria-label="Filtrar clientes">
+            {[
+              ["all", "Todos"],
+              ["paid", "Pagos"],
+              ["unpaid", "Não pagos"],
+            ].map(([id, label]) => (
+              <button
+                type="button"
+                className={filter === id ? "active" : ""}
+                onClick={() => setFilter(id)}
+                key={id}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {visibleRows.length ? (
+          <div className="customer-table-wrap">
+            <div className="customer-table">
+              <div className="customer-row customer-th">
+                <span>Cliente</span>
+                <span>Contato</span>
+                <span>Pedidos</span>
+                <span>Total pago</span>
+                <span>Situação</span>
+                <span>Último pedido</span>
+              </div>
+              {visibleRows.map((customer) => (
+                <div className="customer-row" key={customer.id}>
+                  <span className="customer-identity">
+                    <i>{customer.name.slice(0, 1).toUpperCase()}</i>
+                    <b>{customer.name}</b>
+                  </span>
+                  <span>
+                    <b>{customer.email}</b>
+                    <small>{customer.phone || "Telefone não informado"}</small>
+                  </span>
+                  <span>
+                    <b>{customer.orders}</b>
+                    <small>{customer.approvedOrders} pagos</small>
+                  </span>
+                  <span>
+                    <b>{money(customer.paidCents)}</b>
+                  </span>
+                  <span>
+                    <em className={customer.paid ? "paid" : "unpaid"}>
+                      {customer.paid ? "Pago" : "Não pago"}
+                    </em>
+                  </span>
+                  <span>{date(customer.latestOrderAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Empty type="clientes" />
+        )}
+        <footer className="customer-pagination">
+          <span>
+            {filteredRows.length
+              ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredRows.length)} de ${filteredRows.length}`
+              : "0 clientes"}
+          </span>
+          <div>
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((current) => current - 1)}
+              aria-label="Página anterior"
+            >
+              <CaretLeft />
+            </button>
+            <b>{page} / {totalPages}</b>
+            <button
+              type="button"
+              disabled={page === totalPages}
+              onClick={() => setPage((current) => current + 1)}
+              aria-label="Próxima página"
+            >
+              <CaretRight />
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function DataView({
   type,
   data,
@@ -4022,6 +4171,8 @@ function DataView({
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
   if (type === "tracking") return <TrackingPage workspace={workspace} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
+  if (type === "clientes")
+    return <CustomersView customers={data.customers} orders={data.orders} />;
   if (type === "assinaturas")
     return <SubscriptionPlansPreview revenue={metrics.revenue} />;
   const config = {

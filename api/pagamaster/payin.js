@@ -187,10 +187,57 @@ export default async function handler(request, response) {
     if (result.amount != null && Number(result.amount) !== expectedAmount)
       riskReasons.push("amount_mismatch");
     const normalizedStatus = String(result.status || "PENDING").toUpperCase();
+    const customerEmail = String(customer.email || "").trim().toLowerCase();
+    let customerRecord = null;
+    if (customerEmail) {
+      const existingCustomer = await supabase
+        .from("customers")
+        .select("id")
+        .eq("workspace_id", product.workspace_id)
+        .ilike("email", customerEmail)
+        .maybeSingle();
+      if (existingCustomer.data) {
+        const updatedCustomer = await supabase
+          .from("customers")
+          .update({
+            name: String(customer.name || "").trim(),
+            document: digits(customer.document) || null,
+            phone: digits(customer.phone) || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingCustomer.data.id)
+          .select("id")
+          .single();
+        customerRecord = updatedCustomer.data || existingCustomer.data;
+      } else {
+        const insertedCustomer = await supabase
+          .from("customers")
+          .insert({
+            workspace_id: product.workspace_id,
+            name: String(customer.name || "").trim(),
+            email: customerEmail,
+            document: digits(customer.document) || null,
+            phone: digits(customer.phone) || null,
+          })
+          .select("id")
+          .single();
+        customerRecord = insertedCustomer.data;
+        if (!customerRecord) {
+          const concurrentCustomer = await supabase
+            .from("customers")
+            .select("id")
+            .eq("workspace_id", product.workspace_id)
+            .ilike("email", customerEmail)
+            .maybeSingle();
+          customerRecord = concurrentCustomer.data;
+        }
+      }
+    }
     const { data: order } = await supabase
       .from("orders")
       .insert({
         workspace_id: product.workspace_id,
+        customer_id: customerRecord?.id || null,
         status: normalizedStatus === "APPROVED" ? "approved" : "pending",
         payment_method: apiMethod.toLowerCase(),
         subtotal_cents: expectedAmount,
