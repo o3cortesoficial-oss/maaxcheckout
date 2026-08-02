@@ -3908,6 +3908,78 @@ function TrackingPage({ workspace }) {
   );
 }
 
+function SubscriptionPlansPreview({ revenue }) {
+  const plans = [
+    {
+      name: "Essencial",
+      range: "Até R$ 10 mil/mês",
+      description: "Para operações que estão começando a faturar pelo checkout.",
+      features: ["Checkout completo", "Pix, cartão e boleto", "Painel de vendas"],
+    },
+    {
+      name: "Crescimento",
+      range: "De R$ 10 mil a R$ 50 mil/mês",
+      description: "Para operações com volume recorrente e mais controle.",
+      features: ["Tudo do Essencial", "Rastreamento avançado", "Suporte prioritário"],
+      featured: true,
+    },
+    {
+      name: "Escala",
+      range: "Acima de R$ 50 mil/mês",
+      description: "Condições preparadas para operações de maior volume.",
+      features: ["Tudo do Crescimento", "Condições personalizadas", "Acompanhamento dedicado"],
+    },
+  ];
+  return (
+    <div className="page-enter">
+      <PageTitle
+        kicker="PLANOS"
+        title="Assinaturas"
+        description="Planos futuros definidos pelo faturamento pago no checkout."
+      />
+      <div className="plans-preview-note">
+        <span>
+          <i /> Prévia não ativa
+        </span>
+        <p>
+          Seu faturamento pago atual: <b>{money(revenue)}</b>. Nenhuma cobrança de
+          assinatura será realizada nesta fase.
+        </p>
+      </div>
+      <section className="subscription-plan-grid">
+        {plans.map((plan) => (
+          <article
+            className={`subscription-plan ${plan.featured ? "featured" : ""}`}
+            key={plan.name}
+          >
+            <header>
+              <span>{plan.featured ? "MAIS INDICADO" : "PLANO"}</span>
+              <small>Em breve</small>
+            </header>
+            <h2>{plan.name}</h2>
+            <strong>{plan.range}</strong>
+            <p>{plan.description}</p>
+            <div className="plan-price-placeholder">
+              <b>Valor em definição</b>
+              <small>mensalidade ainda não configurada</small>
+            </div>
+            <ul>
+              {plan.features.map((feature) => (
+                <li key={feature}>
+                  <CheckCircle /> {feature}
+                </li>
+              ))}
+            </ul>
+            <button type="button" disabled>
+              Indisponível no momento
+            </button>
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 function DataView({
   type,
   data,
@@ -3944,6 +4016,8 @@ function DataView({
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
   if (type === "tracking") return <TrackingPage workspace={workspace} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
+  if (type === "assinaturas")
+    return <SubscriptionPlansPreview revenue={metrics.revenue} />;
   const config = {
     vendas: [
       "OPERAÇÃO",
