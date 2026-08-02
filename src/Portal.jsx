@@ -943,7 +943,14 @@ const defaultModules = [
   { id: "coupon", label: "Cupom de desconto", enabled: true },
 ];
 export function PublicCheckout({ slug }) {
-  const [state, setState] = useState({ loading: true, product: null, images: [], settings: defaultCheckout, modules: defaultModules, error: "" });
+  const [state, setState] = useState({
+    loading: true,
+    product: null,
+    images: [],
+    settings: defaultCheckout,
+    modules: defaultModules,
+    error: "",
+  });
   const [payment, setPayment] = useState("pix");
   const [submitState, setSubmitState] = useState("");
   useEffect(() => {
@@ -957,55 +964,297 @@ export function PublicCheckout({ slug }) {
         .maybeSingle();
       if (!active) return;
       if (error || !product) {
-        setState((current) => ({ ...current, loading: false, error: "Este checkout não está disponível." }));
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: "Este checkout não está disponível.",
+        }));
         return;
       }
       const [configResult, imageResult] = await Promise.all([
-        supabase.from("checkout_configs").select("settings,modules,status").eq("workspace_id", product.workspace_id).maybeSingle(),
-        supabase.from("product_images").select("*").eq("product_id", product.id).order("position"),
+        supabase
+          .from("checkout_configs")
+          .select("settings,modules,status")
+          .eq("workspace_id", product.workspace_id)
+          .maybeSingle(),
+        supabase
+          .from("product_images")
+          .select("*")
+          .eq("product_id", product.id)
+          .order("position"),
       ]);
       if (!active) return;
       setState({
         loading: false,
         product,
         images: imageResult.data || [],
-        settings: { ...defaultCheckout, ...(configResult.data?.settings || {}) },
-        modules: configResult.data?.modules?.length ? configResult.data.modules : defaultModules,
+        settings: {
+          ...defaultCheckout,
+          ...(configResult.data?.settings || {}),
+        },
+        modules: configResult.data?.modules?.length
+          ? configResult.data.modules
+          : defaultModules,
         error: "",
       });
     };
     loadCheckout();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [slug]);
-  if (state.loading) return <div className="public-checkout-loading"><div/><div/><div/></div>;
-  if (state.error) return <div className="public-checkout-error"><Mark/><h1>Checkout indisponível</h1><p>{state.error}</p></div>;
+  if (state.loading)
+    return (
+      <div className="public-checkout-loading">
+        <div />
+        <div />
+        <div />
+      </div>
+    );
+  if (state.error)
+    return (
+      <div className="public-checkout-error">
+        <Mark />
+        <h1>Checkout indisponível</h1>
+        <p>{state.error}</p>
+      </div>
+    );
   const { product, settings, modules, images } = state;
-  const enabled = (id) => modules.find((module) => module.id === id)?.enabled !== false;
+  const enabled = (id) =>
+    modules.find((module) => module.id === id)?.enabled !== false;
+  const isPhysical = ["physical", "fisico", "físico"].includes(
+    (product.product_type || "").toLowerCase(),
+  );
   const submit = (event) => {
     event.preventDefault();
     setSubmitState("Processando pagamento...");
-    setTimeout(() => setSubmitState("Conecte um gateway ativo para receber pagamentos neste checkout."), 700);
+    setTimeout(
+      () =>
+        setSubmitState(
+          "Conecte um gateway ativo para receber pagamentos neste checkout.",
+        ),
+      700,
+    );
   };
   return (
-    <div className="public-checkout" style={{ "--checkout-accent": settings.accent, "--checkout-bg": settings.background, "--checkout-radius": `${settings.radius}px` }}>
-      {settings.banner_url && <div className="public-checkout-banner"><img src={settings.banner_url} alt="Banner da loja"/></div>}
+    <div
+      className="public-checkout"
+      style={{
+        "--checkout-accent": settings.accent,
+        "--checkout-bg": settings.background,
+        "--checkout-radius": `${settings.radius}px`,
+      }}
+    >
+      {settings.banner_url && (
+        <div className="public-checkout-banner">
+          <img src={settings.banner_url} alt="Banner da loja" />
+        </div>
+      )}
       <header>
-        {settings.logo_url ? <img src={settings.logo_url} alt={settings.brand_name}/> : <strong>{settings.brand_name}</strong>}
-        <span><Bank/> Ambiente seguro</span>
+        {settings.logo_url ? (
+          <img src={settings.logo_url} alt={settings.brand_name} />
+        ) : (
+          <strong>{settings.brand_name}</strong>
+        )}
+        <span>
+          <Bank /> Ambiente seguro
+        </span>
       </header>
       <main className={settings.layout === "compact" ? "compact" : ""}>
         <form className="public-checkout-form" onSubmit={submit}>
           <div className="public-product-mobile">
-            {images[0] ? <img src={images[0].url} alt={product.name}/> : <Package/>}
-            <span><b>{product.name}</b><small>{money(product.price_cents)}</small></span>
+            {images[0] ? (
+              <img src={images[0].url} alt={product.name} />
+            ) : (
+              <Package />
+            )}
+            <span>
+              <b>{product.name}</b>
+              <small>{money(product.price_cents)}</small>
+            </span>
           </div>
-          {enabled("contact") && <section><span>01</span><h2>Seus dados</h2><label>E-mail<input type="email" required placeholder="voce@email.com"/></label><div className="field-pair"><label>Nome<input required placeholder="Seu nome"/></label><label>CPF<input required inputMode="numeric" placeholder="000.000.000-00"/></label></div></section>}
-          {enabled("payment") && <section><span>02</span><h2>Pagamento</h2><div className="payment-choice"><button type="button" className={payment === "pix" ? "selected" : ""} onClick={() => setPayment("pix")}>Pix<em>Aprovação imediata</em></button><button type="button" className={payment === "card" ? "selected" : ""} onClick={() => setPayment("card")}>Cartão</button></div></section>}
-          {enabled("trust") && <div className="checkout-trust"><CheckCircle/> Seus dados estão protegidos e criptografados.</div>}
-          {submitState && <p className="public-submit-state" role="status">{submitState}</p>}
-          <button className="checkout-submit" type="submit">{settings.button_text}<ArrowRight/></button>
+          {enabled("contact") && (
+            <section>
+              <span>01</span>
+              <h2>Seus dados</h2>
+              <label>
+                E-mail
+                <input type="email" required placeholder="voce@email.com" />
+              </label>
+              <div className="field-pair">
+                <label>
+                  Nome
+                  <input required placeholder="Seu nome" />
+                </label>
+                <label>
+                  CPF
+                  <input
+                    required
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                  />
+                </label>
+              </div>
+            </section>
+          )}
+          {isPhysical && (
+            <section className="shipping-section">
+              <span>02</span>
+              <h2>Endereço de entrega</h2>
+              <label>
+                CEP
+                <input
+                  required
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  placeholder="00000-000"
+                />
+              </label>
+              <div className="shipping-address-grid">
+                <label>
+                  Endereço
+                  <input
+                    required
+                    autoComplete="street-address"
+                    placeholder="Rua ou avenida"
+                  />
+                </label>
+                <label>
+                  Número
+                  <input required inputMode="numeric" placeholder="123" />
+                </label>
+              </div>
+              <div className="shipping-address-grid city">
+                <label>
+                  Bairro
+                  <input required placeholder="Seu bairro" />
+                </label>
+                <label>
+                  Cidade
+                  <input
+                    required
+                    autoComplete="address-level2"
+                    placeholder="Sua cidade"
+                  />
+                </label>
+                <label>
+                  Estado
+                  <select
+                    required
+                    autoComplete="address-level1"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      UF
+                    </option>
+                    {[
+                      "AC",
+                      "AL",
+                      "AP",
+                      "AM",
+                      "BA",
+                      "CE",
+                      "DF",
+                      "ES",
+                      "GO",
+                      "MA",
+                      "MT",
+                      "MS",
+                      "MG",
+                      "PA",
+                      "PB",
+                      "PR",
+                      "PE",
+                      "PI",
+                      "RJ",
+                      "RN",
+                      "RS",
+                      "RO",
+                      "RR",
+                      "SC",
+                      "SP",
+                      "SE",
+                      "TO",
+                    ].map((uf) => (
+                      <option key={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label>
+                Complemento <small>Opcional</small>
+                <input placeholder="Apartamento, bloco ou referência" />
+              </label>
+            </section>
+          )}
+          {enabled("payment") && (
+            <section>
+              <span>{isPhysical ? "03" : "02"}</span>
+              <h2>Pagamento</h2>
+              <div className="payment-choice">
+                <button
+                  type="button"
+                  className={payment === "pix" ? "selected" : ""}
+                  onClick={() => setPayment("pix")}
+                >
+                  Pix<em>Aprovação imediata</em>
+                </button>
+                <button
+                  type="button"
+                  className={payment === "card" ? "selected" : ""}
+                  onClick={() => setPayment("card")}
+                >
+                  Cartão
+                </button>
+              </div>
+            </section>
+          )}
+          {enabled("trust") && (
+            <div className="checkout-trust">
+              <CheckCircle /> Seus dados estão protegidos e criptografados.
+            </div>
+          )}
+          {submitState && (
+            <p className="public-submit-state" role="status">
+              {submitState}
+            </p>
+          )}
+          <button className="checkout-submit" type="submit">
+            {settings.button_text}
+            <ArrowRight />
+          </button>
         </form>
-        {enabled("summary") && <aside className="public-order-summary"><small>SEU PEDIDO</small><div className="public-product-image">{images[0] ? <img src={images[0].url} alt={product.name}/> : <Package/>}</div><h1>{product.name}</h1>{product.description && <p>{product.description}</p>}{product.compare_at_price_cents && <del>{money(product.compare_at_price_cents)}</del>}<strong>{money(product.price_cents)}</strong>{enabled("coupon") && <div className="coupon-preview"><input placeholder="Cupom de desconto"/><button type="button">Aplicar</button></div>}<div className="preview-total"><span>Total</span><strong>{money(product.price_cents)}</strong></div><p className="public-guarantee"><CheckCircle/> Compra protegida</p></aside>}
+        {enabled("summary") && (
+          <aside className="public-order-summary">
+            <small>SEU PEDIDO</small>
+            <div className="public-product-image">
+              {images[0] ? (
+                <img src={images[0].url} alt={product.name} />
+              ) : (
+                <Package />
+              )}
+            </div>
+            <h1>{product.name}</h1>
+            {product.description && <p>{product.description}</p>}
+            {product.compare_at_price_cents && (
+              <del>{money(product.compare_at_price_cents)}</del>
+            )}
+            <strong>{money(product.price_cents)}</strong>
+            {enabled("coupon") && (
+              <div className="coupon-preview">
+                <input placeholder="Cupom de desconto" />
+                <button type="button">Aplicar</button>
+              </div>
+            )}
+            <div className="preview-total">
+              <span>Total</span>
+              <strong>{money(product.price_cents)}</strong>
+            </div>
+            <p className="public-guarantee">
+              <CheckCircle /> Compra protegida
+            </p>
+          </aside>
+        )}
       </main>
       <footer>Pagamento processado com segurança por Maax</footer>
     </div>
@@ -1442,7 +1691,12 @@ function ProductEditor({
             product.cost_cents == null ? "" : Number(product.cost_cents) / 100,
           tags: Array.isArray(product.tags) ? product.tags.join(", ") : "",
         }
-      : { status: "active", billing_type: "one_time", track_inventory: false },
+      : {
+          status: "active",
+          billing_type: "one_time",
+          track_inventory: false,
+          product_type: "digital",
+        },
   );
   const [images, setImages] = useState([]);
   const [savedImages, setSavedImages] = useState(productImages);
@@ -1501,7 +1755,7 @@ function ProductEditor({
       inventory_quantity: form.track_inventory
         ? Number(form.inventory_quantity || 0)
         : 0,
-      product_type: form.product_type || null,
+      product_type: form.product_type === "physical" ? "physical" : "digital",
       tags: form.tags
         ? form.tags
             .split(",")
@@ -1629,7 +1883,12 @@ function ProductEditor({
                   </div>
                 ))}
                 {previews.map((item, index) => (
-                  <div key={item.url} className={!savedImages.length && index === 0 ? "featured" : ""}>
+                  <div
+                    key={item.url}
+                    className={
+                      !savedImages.length && index === 0 ? "featured" : ""
+                    }
+                  >
                     <img src={item.url} alt="Prévia do produto" />
                     <button
                       type="button"
@@ -1641,7 +1900,9 @@ function ProductEditor({
                     >
                       <X />
                     </button>
-                    {!savedImages.length && index === 0 && <span>Principal</span>}
+                    {!savedImages.length && index === 0 && (
+                      <span>Principal</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1765,11 +2026,25 @@ function ProductEditor({
           </section>
           <section className="product-panel">
             <b>Organização</b>
-            <Field
-              label="Tipo de produto"
-              value={form.product_type || ""}
-              onChange={(e) => set("product_type", e.target.value)}
-            />
+            <label className="data-field">
+              Tipo de produto
+              <select
+                value={
+                  ["physical", "fisico", "físico"].includes(
+                    (form.product_type || "").toLowerCase(),
+                  )
+                    ? "physical"
+                    : "digital"
+                }
+                onChange={(e) => set("product_type", e.target.value)}
+              >
+                <option value="digital">Digital</option>
+                <option value="physical">Físico</option>
+              </select>
+              <small className="product-type-help">
+                Produtos físicos solicitam endereço de entrega no checkout.
+              </small>
+            </label>
             <Field
               label="Tags"
               placeholder="curso, oferta, digital"
@@ -1988,13 +2263,21 @@ function ProductRows({ products, onEdit, onReload }) {
     setTimeout(() => setFeedback(""), 2500);
   };
   const remove = async (product) => {
-    if (!confirm(`Excluir o produto “${product.name}”? Esta ação não pode ser desfeita.`)) return;
+    if (
+      !confirm(
+        `Excluir o produto “${product.name}”? Esta ação não pode ser desfeita.`,
+      )
+    )
+      return;
     const { error: imageError } = await supabase
       .from("product_images")
       .delete()
       .eq("product_id", product.id);
     if (imageError) return setFeedback(imageError.message);
-    const { error } = await supabase.from("products").delete().eq("id", product.id);
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id);
     if (error) return setFeedback(error.message);
     await onReload();
     setFeedback("Produto excluído.");
@@ -2002,22 +2285,59 @@ function ProductRows({ products, onEdit, onReload }) {
   return (
     <div className="generic-table product-table">
       <div className="generic-row generic-th">
-        <span>Produto</span><span>Tipo</span><span>Preço</span><span>Status</span><span>Ações</span>
+        <span>Produto</span>
+        <span>Tipo</span>
+        <span>Preço</span>
+        <span>Status</span>
+        <span>Ações</span>
       </div>
       {products.map((product) => (
         <div className="generic-row" key={product.id}>
-          <span><b>{product.name}</b><small>/{product.slug}</small></span>
-          <span>{product.billing_type === "subscription" ? "Assinatura" : "Pagamento único"}</span>
+          <span>
+            <b>{product.name}</b>
+            <small>/{product.slug}</small>
+          </span>
+          <span>
+            {product.billing_type === "subscription"
+              ? "Assinatura"
+              : "Pagamento único"}
+          </span>
           <span>{money(product.price_cents)}</span>
           <span>{labels[product.status] || product.status}</span>
           <span className="product-actions">
-            <button type="button" onClick={() => copyLink(product)} aria-label={`Copiar link de ${product.name}`} title="Copiar link"><Copy /></button>
-            <button type="button" onClick={() => onEdit(product)} aria-label={`Editar ${product.name}`} title="Editar"><PencilSimple /></button>
-            <button type="button" className="danger" onClick={() => remove(product)} aria-label={`Excluir ${product.name}`} title="Excluir"><Trash /></button>
+            <button
+              type="button"
+              onClick={() => copyLink(product)}
+              aria-label={`Copiar link de ${product.name}`}
+              title="Copiar link"
+            >
+              <Copy />
+            </button>
+            <button
+              type="button"
+              onClick={() => onEdit(product)}
+              aria-label={`Editar ${product.name}`}
+              title="Editar"
+            >
+              <PencilSimple />
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => remove(product)}
+              aria-label={`Excluir ${product.name}`}
+              title="Excluir"
+            >
+              <Trash />
+            </button>
           </span>
         </div>
       ))}
-      {feedback && <div className="table-feedback" role="status">{feedback}</div>}
+      {feedback && (
+        <div className="table-feedback" role="status">
+          {feedback}
+        </div>
+      )}
     </div>
   );
 }
