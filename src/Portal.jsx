@@ -934,6 +934,7 @@ const defaultCheckout = {
   button_text: "Finalizar pagamento",
   logo_url: "",
   banner_url: "",
+  payment_methods: ["pix", "card", "boleto"],
 };
 const defaultModules = [
   { id: "contact", label: "Dados de contato", enabled: true },
@@ -952,6 +953,12 @@ export function PublicCheckout({ slug }) {
     error: "",
   });
   const [payment, setPayment] = useState("pix");
+  const [card, setCard] = useState({
+    number: "",
+    name: "",
+    expiry: "",
+    cvv: "",
+  });
   const [submitState, setSubmitState] = useState("");
   useEffect(() => {
     let active = true;
@@ -1020,6 +1027,12 @@ export function PublicCheckout({ slug }) {
       </div>
     );
   const { product, settings, modules, images } = state;
+  const paymentMethods = settings.payment_methods?.length
+    ? settings.payment_methods
+    : ["pix"];
+  const selectedPayment = paymentMethods.includes(payment)
+    ? payment
+    : paymentMethods[0];
   const enabled = (id) =>
     modules.find((module) => module.id === id)?.enabled !== false;
   const isPhysical = ["physical", "fisico", "físico"].includes(
@@ -1194,19 +1207,135 @@ export function PublicCheckout({ slug }) {
               <div className="payment-choice">
                 <button
                   type="button"
-                  className={payment === "pix" ? "selected" : ""}
+                  hidden={!paymentMethods.includes("pix")}
+                  className={selectedPayment === "pix" ? "selected" : ""}
                   onClick={() => setPayment("pix")}
                 >
                   Pix<em>Aprovação imediata</em>
                 </button>
                 <button
                   type="button"
-                  className={payment === "card" ? "selected" : ""}
+                  hidden={!paymentMethods.includes("card")}
+                  className={selectedPayment === "card" ? "selected" : ""}
                   onClick={() => setPayment("card")}
                 >
                   Cartão
                 </button>
+                {paymentMethods.includes("boleto") && (
+                  <button
+                    type="button"
+                    className={selectedPayment === "boleto" ? "selected" : ""}
+                    onClick={() => setPayment("boleto")}
+                  >
+                    Boleto <em>Vencimento em 3 dias</em>
+                  </button>
+                )}
               </div>
+              {selectedPayment === "card" && (
+                <div className="card-payment">
+                  <div className="virtual-card">
+                    <div className="virtual-card-top">
+                      <span className="virtual-chip" />
+                      <b>maax</b>
+                    </div>
+                    <strong>{card.number || "0000 0000 0000 0000"}</strong>
+                    <div>
+                      <span>
+                        <small>NOME NO CARTÃO</small>
+                        {card.name || "SEU NOME"}
+                      </span>
+                      <span>
+                        <small>VALIDADE</small>
+                        {card.expiry || "MM/AA"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="card-fields">
+                    <label>
+                      Número do cartão
+                      <input
+                        required
+                        inputMode="numeric"
+                        autoComplete="cc-number"
+                        maxLength="19"
+                        value={card.number}
+                        placeholder="0000 0000 0000 0000"
+                        onChange={(e) =>
+                          setCard((current) => ({
+                            ...current,
+                            number: e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 16)
+                              .replace(/(.{4})/g, "$1 ")
+                              .trim(),
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      Nome impresso
+                      <input
+                        required
+                        autoComplete="cc-name"
+                        value={card.name}
+                        placeholder="Como aparece no cartão"
+                        onChange={(e) =>
+                          setCard((current) => ({
+                            ...current,
+                            name: e.target.value.toUpperCase().slice(0, 24),
+                          }))
+                        }
+                      />
+                    </label>
+                    <div className="field-pair">
+                      <label>
+                        Validade
+                        <input
+                          required
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
+                          maxLength="5"
+                          value={card.expiry}
+                          placeholder="MM/AA"
+                          onChange={(e) =>
+                            setCard((current) => ({
+                              ...current,
+                              expiry: e.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 4)
+                                .replace(/^(\d{2})(\d)/, "$1/$2"),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label>
+                        CVV
+                        <input
+                          required
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
+                          maxLength="4"
+                          value={card.cvv}
+                          placeholder="123"
+                          onChange={(e) =>
+                            setCard((current) => ({
+                              ...current,
+                              cvv: e.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 4),
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {selectedPayment === "boleto" && (
+                <p className="payment-note">
+                  O boleto será gerado após a confirmação dos dados.
+                </p>
+              )}
             </section>
           )}
           {enabled("trust") && (
@@ -1314,6 +1443,21 @@ function CheckoutEditor({ workspace }) {
     return () => clearTimeout(timer);
   }, [settings, modules]);
   const change = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const togglePaymentMethod = (method) => {
+    const current = settings.payment_methods?.length
+      ? settings.payment_methods
+      : ["pix", "card", "boleto"];
+    if (current.includes(method) && current.length === 1) {
+      setSaveState("Mantenha ao menos uma forma de pagamento");
+      return;
+    }
+    change(
+      "payment_methods",
+      current.includes(method)
+        ? current.filter((item) => item !== method)
+        : [...current, method],
+    );
+  };
   const uploadAsset = async (kind, file) => {
     if (!file) return;
     const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
@@ -1513,6 +1657,35 @@ function CheckoutEditor({ workspace }) {
             </label>
           </section>
           <section>
+            <b>Formas de pagamento</b>
+            <small>Escolha uma ou combine diferentes opções.</small>
+            <div className="payment-method-editor">
+              {[
+                ["pix", "Pix", "Aprovação imediata"],
+                ["card", "Cartão", "Crédito à vista"],
+                ["boleto", "Boleto", "Vencimento em 3 dias"],
+              ].map(([id, label, detail]) => {
+                const active = (
+                  settings.payment_methods || defaultCheckout.payment_methods
+                ).includes(id);
+                return (
+                  <button
+                    type="button"
+                    key={id}
+                    className={active ? "active" : ""}
+                    onClick={() => togglePaymentMethod(id)}
+                  >
+                    <span>
+                      <b>{label}</b>
+                      <small>{detail}</small>
+                    </span>
+                    <i />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+          <section>
             <b>Blocos do checkout</b>
             <small>Ative e organize os módulos.</small>
             <div className="module-list">
@@ -1618,10 +1791,22 @@ function CheckoutPreview({ settings, modules }) {
                   <small>02</small>
                   <h3>Pagamento</h3>
                   <div className="payment-choice">
-                    <button className="selected">
-                      Pix <em>Aprovação imediata</em>
-                    </button>
-                    <button>Cartão</button>
+                    {(
+                      settings.payment_methods ||
+                      defaultCheckout.payment_methods
+                    ).map((method, index) => (
+                      <button
+                        key={method}
+                        className={index === 0 ? "selected" : ""}
+                      >
+                        {method === "pix"
+                          ? "Pix"
+                          : method === "card"
+                            ? "Cartão"
+                            : "Boleto"}
+                        {method === "pix" && <em>Aprovação imediata</em>}
+                      </button>
+                    ))}
                   </div>
                 </section>
               )}
