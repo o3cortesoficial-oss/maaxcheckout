@@ -17,3 +17,12 @@
 
 /* Keep the keyboard shortcut optically centered and on one line. */
 .search kbd{min-width:42px;height:28px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap;line-height:1;flex-shrink:0;border:1px solid #e6e7e1;border-radius:7px;color:#777a72}
+
+/* Dashboard alignment corrections. */
+.side-head>.logo{display:inline-block}
+.side-head>button:not(.logo){display:none}
+.dash-title>div:first-child{display:block}
+.dash-title>div:last-child:not(:first-child){display:flex;gap:9px}
+.balance-actions{min-height:60px;display:flex;align-items:center}
+.balance-actions .btn{margin-bottom:0}
+@media(max-width:900px){.side-head>button:not(.logo){display:block}.dash-title>div:first-child{display:block}.balance-actions{min-height:0;display:block}}
