@@ -5884,6 +5884,219 @@ html {
 .dashboard > aside .side-head > button {
   color: #f5f6f2;
 }
+.dashboard > aside .side-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 4px 24px;
+}
+.business-switcher {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+.business-trigger {
+  width: 100%;
+  height: 40px;
+  padding: 0 9px 0 11px;
+  border: 1px solid #35372f;
+  border-radius: 10px;
+  background: #22231f;
+  color: #f5f6f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  text-align: left;
+  transition: border-color .25s ease, background .25s ease, transform .2s ease;
+}
+.business-trigger:hover {
+  border-color: #505349;
+  background: #282a25;
+}
+.business-trigger:active {
+  transform: scale(.98);
+}
+.business-trigger > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.business-trigger small {
+  color: #85887e;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.business-trigger b {
+  overflow: hidden;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.business-trigger > svg {
+  flex: 0 0 auto;
+  color: #9da096;
+  font-size: 12px;
+  transition: transform .25s cubic-bezier(.16,1,.3,1);
+}
+.business-trigger > svg.open {
+  transform: rotate(180deg);
+}
+.business-menu {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: 210px;
+  padding: 10px;
+  border: 1px solid #35372f;
+  border-radius: 14px;
+  background: #1d1e1a;
+  box-shadow: 0 22px 55px rgba(7,8,6,.34);
+  animation: pageIn .22s cubic-bezier(.16,1,.3,1);
+  z-index: 12;
+}
+.business-menu header {
+  height: 28px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #777a71;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.business-menu header small {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: #292b26;
+  display: grid;
+  place-items: center;
+  color: #b5b8ae;
+  font-size: 7px;
+}
+.business-options {
+  max-height: 238px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #55584f transparent;
+}
+.business-options > button {
+  width: 100%;
+  min-height: 49px;
+  padding: 7px;
+  border-radius: 9px;
+  display: grid;
+  grid-template-columns: 31px minmax(0,1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  color: #dfe1db;
+  text-align: left;
+  transition: background .2s ease;
+}
+.business-options > button:hover {
+  background: #282a25;
+}
+.business-options > button.selected {
+  background: #2b2d27;
+}
+.business-options > button > i {
+  width: 31px;
+  height: 31px;
+  border: 1px solid #41443b;
+  border-radius: 8px;
+  background: #242620;
+  display: grid;
+  place-items: center;
+  color: var(--lime);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 750;
+}
+.business-options > button > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.business-options b,
+.business-options small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.business-options b {
+  color: #f5f6f2;
+  font-size: 9px;
+}
+.business-options small {
+  color: #7f8278;
+  font-size: 6px;
+}
+.business-options svg {
+  color: var(--lime);
+  font-size: 14px;
+}
+.business-create {
+  width: 100%;
+  height: 38px;
+  margin-top: 8px;
+  border-radius: 9px;
+  background: var(--lime);
+  color: #171815;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 8px;
+  font-weight: 800;
+  transition: transform .2s ease, filter .2s ease;
+}
+.business-create:hover { filter: brightness(.96); }
+.business-create:active { transform: scale(.98); }
+.business-create svg { font-size: 13px; }
+.business-modal-intro {
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid #dfe1da;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.business-modal-intro > i {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 11px;
+  background: #171815;
+  color: var(--lime);
+  display: grid;
+  place-items: center;
+  font-style: normal;
+}
+.business-modal-intro svg { font-size: 20px; }
+.business-modal-intro b {
+  color: #20211e;
+  font-size: 11px;
+}
+.business-modal-intro p {
+  margin: 4px 0 0;
+  color: #85887f;
+  font-size: 8px;
+  line-height: 1.5;
+}
+.business-form > small {
+  margin-top: -8px;
+  color: #91948b;
+  font-size: 8px;
+}
 .dashboard > aside .side-nav > span {
   color: #777a72;
 }

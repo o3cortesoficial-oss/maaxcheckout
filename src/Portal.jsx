@@ -3,6 +3,8 @@ import {
   ArrowRight,
   Bank,
   Bell,
+  Buildings,
+  CaretDown,
   CaretLeft,
   CaretRight,
   CheckCircle,
@@ -257,6 +259,124 @@ function Field({ label, ...props }) {
       {label}
       <input {...props} />
     </label>
+  );
+}
+
+function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSelect, onCreate }) {
+  const root = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event) => {
+      if (!root.current?.contains(event.target)) onClose();
+    };
+    const closeWithEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", closeOutside);
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      document.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [open, onClose]);
+  return (
+    <div className="business-switcher" ref={root}>
+      <button
+        type="button"
+        className="business-trigger"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span>
+          <small>Negócio</small>
+          <b>{workspace?.name || "Selecionar"}</b>
+        </span>
+        <CaretDown className={open ? "open" : ""} />
+      </button>
+      {open && (
+        <div className="business-menu" role="listbox" aria-label="Seus negócios">
+          <header>
+            <span>SUAS OPERAÇÕES</span>
+            <small>{workspaces.length}</small>
+          </header>
+          <div className="business-options">
+            {workspaces.map((item) => (
+              <button
+                type="button"
+                className={item.id === workspace?.id ? "selected" : ""}
+                onClick={() => onSelect(item)}
+                role="option"
+                aria-selected={item.id === workspace?.id}
+                key={item.id}
+              >
+                <i>{item.name.slice(0, 1).toUpperCase()}</i>
+                <span>
+                  <b>{item.name}</b>
+                  <small>{item.id === workspace?.id ? "Operação atual" : "Abrir operação"}</small>
+                </span>
+                {item.id === workspace?.id && <CheckCircle />}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="business-create" onClick={onCreate}>
+            <Plus /> Novo negócio
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateBusinessModal({ onClose, onCreated }) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const { data, error: saveError } = await supabase.rpc(
+      "create_business_workspace",
+      { p_name: name.trim() },
+    );
+    if (saveError) {
+      setError(saveError.message);
+      setSaving(false);
+      return;
+    }
+    onCreated(Array.isArray(data) ? data[0] : data);
+  };
+  return (
+    <Modal title="Criar novo negócio" onClose={onClose}>
+      <div className="business-modal-intro">
+        <i><Buildings /></i>
+        <div>
+          <b>Uma operação totalmente nova</b>
+          <p>Produtos, gateways, chaves, checkout, clientes e rastreamento começarão vazios.</p>
+        </div>
+      </div>
+      <form className="data-form business-form" onSubmit={save}>
+        <Field
+          label="Nome do negócio"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Ex.: Operação Brasil"
+          minLength="2"
+          maxLength="60"
+          autoFocus
+          required
+        />
+        <small>Use um nome que ajude você a identificar esta operação.</small>
+        {error && <div className="form-error">{error}</div>}
+        <div className="modal-actions">
+          <Button secondary onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={saving || name.trim().length < 2}>
+            {saving ? "Criando..." : "Criar negócio"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -895,6 +1015,7 @@ function CreateModal({ type, workspace, products, onClose, onSaved }) {
 
 export function RealDashboard({ navigate }) {
   const [session, setSession] = useState(),
+    [workspaces, setWorkspaces] = useState([]),
     [workspace, setWorkspace] = useState(),
     [data, setData] = useState({
       products: [],
@@ -913,8 +1034,11 @@ export function RealDashboard({ navigate }) {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
-    [modal, setModal] = useState("");
-  const load = async (retried = false, silent = false) => {
+    [modal, setModal] = useState(""),
+    [businessMenu, setBusinessMenu] = useState(false),
+    [businessModal, setBusinessModal] = useState(false);
+  const workspaceIdRef = useRef(null);
+  const load = async (retried = false, silent = false, targetWorkspaceId = null) => {
     if (!silent) setLoading(true);
     setError("");
     const { data: sessionData } = await supabase.auth.getSession();
@@ -940,8 +1064,7 @@ export function RealDashboard({ navigate }) {
     const { data: spaces, error: spaceError } = await supabase
       .from("workspaces")
       .select("*")
-      .order("created_at")
-      .limit(1);
+      .order("created_at");
     if (spaceError || !spaces?.length) {
       if (!retried && /jwt|token|session/i.test(spaceError?.message || "")) {
         const { data: refreshed } = await supabase.auth.refreshSession();
@@ -954,8 +1077,16 @@ export function RealDashboard({ navigate }) {
       setLoading(false);
       return;
     }
-    const ws = spaces[0];
+    const preferredWorkspaceId =
+      targetWorkspaceId ||
+      workspaceIdRef.current ||
+      window.localStorage.getItem("maax_active_workspace");
+    const ws =
+      spaces.find((item) => item.id === preferredWorkspaceId) || spaces[0];
+    setWorkspaces(spaces);
     setWorkspace(ws);
+    workspaceIdRef.current = ws.id;
+    window.localStorage.setItem("maax_active_workspace", ws.id);
     const tables = [
       "products",
       "customers",
@@ -1024,34 +1155,45 @@ export function RealDashboard({ navigate }) {
           table: "checkout_event_counters",
         },
         ({ new: counter }) =>
-          setData((current) => ({
-            ...current,
-            checkout_event_counters: [
-              counter,
-              ...current.checkout_event_counters.filter(
-                (item) => item.event_type !== counter.event_type,
-              ),
-            ],
-          })),
+          setData((current) =>
+            counter.workspace_id !== workspaceIdRef.current
+              ? current
+              : {
+                  ...current,
+                  checkout_event_counters: [
+                    counter,
+                    ...current.checkout_event_counters.filter(
+                      (item) => item.event_type !== counter.event_type,
+                    ),
+                  ],
+                },
+          ),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "checkout_presence" },
         ({ eventType, new: presence, old }) =>
-          setData((current) => ({
-            ...current,
-            checkout_presence:
-              eventType === "DELETE"
-                ? current.checkout_presence.filter(
-                    (item) => item.session_id !== old.session_id,
-                  )
-                : [
-                    presence,
-                    ...current.checkout_presence.filter(
-                      (item) => item.session_id !== presence.session_id,
-                    ),
-                  ],
-          })),
+          setData((current) => {
+            if (
+              eventType !== "DELETE" &&
+              presence.workspace_id !== workspaceIdRef.current
+            )
+              return current;
+            return {
+              ...current,
+              checkout_presence:
+                eventType === "DELETE"
+                  ? current.checkout_presence.filter(
+                      (item) => item.session_id !== old.session_id,
+                    )
+                  : [
+                      presence,
+                      ...current.checkout_presence.filter(
+                        (item) => item.session_id !== presence.session_id,
+                      ),
+                    ],
+            };
+          }),
       )
       .subscribe();
     const refreshTimer = window.setInterval(() => load(false, true), 30000);
@@ -1104,6 +1246,22 @@ export function RealDashboard({ navigate }) {
     }
     if (["clientes", "links", "gateways"].includes(active)) setModal(active);
   };
+  const switchWorkspace = async (nextWorkspace) => {
+    if (nextWorkspace.id === workspace?.id) {
+      setBusinessMenu(false);
+      return;
+    }
+    setBusinessMenu(false);
+    setMenu(false);
+    setActive("home");
+    await load(false, false, nextWorkspace.id);
+  };
+  const businessCreated = async (newWorkspace) => {
+    setBusinessModal(false);
+    setBusinessMenu(false);
+    setActive("home");
+    await load(false, false, newWorkspace.id);
+  };
   if (loading)
     return (
       <div className="app-loading">
@@ -1125,6 +1283,18 @@ export function RealDashboard({ navigate }) {
       <aside className={menu ? "open" : ""}>
         <div className="side-head">
           <Mark />
+          <BusinessSwitcher
+            workspaces={workspaces}
+            workspace={workspace}
+            open={businessMenu}
+            onToggle={() => setBusinessMenu((current) => !current)}
+            onClose={() => setBusinessMenu(false)}
+            onSelect={switchWorkspace}
+            onCreate={() => {
+              setBusinessMenu(false);
+              setBusinessModal(true);
+            }}
+          />
           <button onClick={() => setMenu(false)}>
             <X />
           </button>
@@ -1222,6 +1392,12 @@ export function RealDashboard({ navigate }) {
           products={data.products}
           onClose={() => setModal("")}
           onSaved={load}
+        />
+      )}
+      {businessModal && (
+        <CreateBusinessModal
+          onClose={() => setBusinessModal(false)}
+          onCreated={businessCreated}
         />
       )}
     </div>
