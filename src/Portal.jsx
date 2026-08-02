@@ -453,6 +453,7 @@ function GatewayView({ workspace }) {
   const [keys, setKeys] = useState({ publicKey: "", secretKey: "" });
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [busy, setBusy] = useState("");
+  const [editingKeys, setEditingKeys] = useState(false);
 
   const request = async (options = {}) => {
     const { data } = await supabase.auth.getSession();
@@ -520,6 +521,7 @@ function GatewayView({ workspace }) {
           publicKey: result.publicKeyHint || keys.publicKey,
           secretKey: "",
         });
+        setEditingKeys(false);
       }
     } catch (error) {
       setFeedback({ type: "error", message: error.message });
@@ -590,6 +592,7 @@ function GatewayView({ workspace }) {
                 Public Key
                 <input
                   value={keys.publicKey}
+                  disabled={connection.configured && !editingKeys}
                   placeholder="pk_live_..."
                   autoComplete="off"
                   onChange={(event) =>
@@ -604,6 +607,7 @@ function GatewayView({ workspace }) {
                 Secret Key
                 <input
                   value={keys.secretKey}
+                  disabled={connection.configured && !editingKeys}
                   type="password"
                   placeholder={
                     connection.configured
@@ -626,10 +630,27 @@ function GatewayView({ workspace }) {
               </p>
             )}
             <div className="gateway-config-actions">
+              {connection.configured && !editingKeys && (
+                <button
+                  type="button"
+                  className="gateway-test"
+                  onClick={() => {
+                    setEditingKeys(true);
+                    setKeys({ publicKey: "", secretKey: "" });
+                    setFeedback({ type: "", message: "" });
+                  }}
+                >
+                  Trocar chaves
+                </button>
+              )}
               <button
                 type="button"
                 className="gateway-test"
-                disabled={Boolean(busy) || !keys.secretKey}
+                disabled={
+                  Boolean(busy) ||
+                  !keys.secretKey ||
+                  (connection.configured && !editingKeys)
+                }
                 onClick={() => credentialsAction("test")}
               >
                 {busy === "test" ? "Testando..." : "Testar conexão"}
