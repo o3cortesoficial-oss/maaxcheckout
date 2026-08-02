@@ -5,7 +5,6 @@ import {
   Bell,
   CaretLeft,
   CaretRight,
-  ChartLineUp,
   CheckCircle,
   Copy,
   CreditCard,
@@ -198,7 +197,6 @@ export function RealLogin({ navigate }) {
 
 const nav = [
   ["home", "Início", House],
-  ["vendas", "Vendas", ChartLineUp],
   ["produtos", "Produtos", Package],
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
