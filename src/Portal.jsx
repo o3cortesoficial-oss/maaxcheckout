@@ -942,6 +942,75 @@ const defaultModules = [
   { id: "summary", label: "Resumo do pedido", enabled: true },
   { id: "coupon", label: "Cupom de desconto", enabled: true },
 ];
+export function PublicCheckout({ slug }) {
+  const [state, setState] = useState({ loading: true, product: null, images: [], settings: defaultCheckout, modules: defaultModules, error: "" });
+  const [payment, setPayment] = useState("pix");
+  const [submitState, setSubmitState] = useState("");
+  useEffect(() => {
+    let active = true;
+    const loadCheckout = async () => {
+      const { data: product, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("slug", slug)
+        .eq("status", "active")
+        .maybeSingle();
+      if (!active) return;
+      if (error || !product) {
+        setState((current) => ({ ...current, loading: false, error: "Este checkout não está disponível." }));
+        return;
+      }
+      const [configResult, imageResult] = await Promise.all([
+        supabase.from("checkout_configs").select("settings,modules,status").eq("workspace_id", product.workspace_id).maybeSingle(),
+        supabase.from("product_images").select("*").eq("product_id", product.id).order("position"),
+      ]);
+      if (!active) return;
+      setState({
+        loading: false,
+        product,
+        images: imageResult.data || [],
+        settings: { ...defaultCheckout, ...(configResult.data?.settings || {}) },
+        modules: configResult.data?.modules?.length ? configResult.data.modules : defaultModules,
+        error: "",
+      });
+    };
+    loadCheckout();
+    return () => { active = false; };
+  }, [slug]);
+  if (state.loading) return <div className="public-checkout-loading"><div/><div/><div/></div>;
+  if (state.error) return <div className="public-checkout-error"><Mark/><h1>Checkout indisponível</h1><p>{state.error}</p></div>;
+  const { product, settings, modules, images } = state;
+  const enabled = (id) => modules.find((module) => module.id === id)?.enabled !== false;
+  const submit = (event) => {
+    event.preventDefault();
+    setSubmitState("Processando pagamento...");
+    setTimeout(() => setSubmitState("Conecte um gateway ativo para receber pagamentos neste checkout."), 700);
+  };
+  return (
+    <div className="public-checkout" style={{ "--checkout-accent": settings.accent, "--checkout-bg": settings.background, "--checkout-radius": `${settings.radius}px` }}>
+      {settings.banner_url && <div className="public-checkout-banner"><img src={settings.banner_url} alt="Banner da loja"/></div>}
+      <header>
+        {settings.logo_url ? <img src={settings.logo_url} alt={settings.brand_name}/> : <strong>{settings.brand_name}</strong>}
+        <span><Bank/> Ambiente seguro</span>
+      </header>
+      <main className={settings.layout === "compact" ? "compact" : ""}>
+        <form className="public-checkout-form" onSubmit={submit}>
+          <div className="public-product-mobile">
+            {images[0] ? <img src={images[0].url} alt={product.name}/> : <Package/>}
+            <span><b>{product.name}</b><small>{money(product.price_cents)}</small></span>
+          </div>
+          {enabled("contact") && <section><span>01</span><h2>Seus dados</h2><label>E-mail<input type="email" required placeholder="voce@email.com"/></label><div className="field-pair"><label>Nome<input required placeholder="Seu nome"/></label><label>CPF<input required inputMode="numeric" placeholder="000.000.000-00"/></label></div></section>}
+          {enabled("payment") && <section><span>02</span><h2>Pagamento</h2><div className="payment-choice"><button type="button" className={payment === "pix" ? "selected" : ""} onClick={() => setPayment("pix")}>Pix<em>Aprovação imediata</em></button><button type="button" className={payment === "card" ? "selected" : ""} onClick={() => setPayment("card")}>Cartão</button></div></section>}
+          {enabled("trust") && <div className="checkout-trust"><CheckCircle/> Seus dados estão protegidos e criptografados.</div>}
+          {submitState && <p className="public-submit-state" role="status">{submitState}</p>}
+          <button className="checkout-submit" type="submit">{settings.button_text}<ArrowRight/></button>
+        </form>
+        {enabled("summary") && <aside className="public-order-summary"><small>SEU PEDIDO</small><div className="public-product-image">{images[0] ? <img src={images[0].url} alt={product.name}/> : <Package/>}</div><h1>{product.name}</h1>{product.description && <p>{product.description}</p>}{product.compare_at_price_cents && <del>{money(product.compare_at_price_cents)}</del>}<strong>{money(product.price_cents)}</strong>{enabled("coupon") && <div className="coupon-preview"><input placeholder="Cupom de desconto"/><button type="button">Aplicar</button></div>}<div className="preview-total"><span>Total</span><strong>{money(product.price_cents)}</strong></div><p className="public-guarantee"><CheckCircle/> Compra protegida</p></aside>}
+      </main>
+      <footer>Pagamento processado com segurança por Maax</footer>
+    </div>
+  );
+}
 function CheckoutEditor({ workspace }) {
   const [settings, setSettings] = useState(defaultCheckout),
     [modules, setModules] = useState(defaultModules),
