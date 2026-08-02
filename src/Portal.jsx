@@ -973,7 +973,10 @@ export function RealDashboard({ navigate }) {
           .from(t)
           .select("*")
           .eq("workspace_id", ws.id)
-          .order("created_at", { ascending: false })
+          .order(
+            t === "checkout_event_counters" ? "updated_at" : "created_at",
+            { ascending: false },
+          )
           .limit(1000),
       ),
     );
