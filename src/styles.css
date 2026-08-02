@@ -8,6 +8,26 @@
   --lime: #cbff35;
   --muted: #777a72;
 }
+.shopper-checkout .public-submit-state {
+  grid-column: 1/-1 !important;
+  width: 100%;
+  margin: 0 !important;
+  padding: 11px 16px;
+  border-top: 1px solid #eadfc8;
+  border-bottom: 1px solid #eadfc8;
+  background: #fff8e8;
+  color: #725b2f;
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.shopper-checkout .public-submit-state:empty {
+  display: none;
+}
+.shopper-checkout .payment-result {
+  grid-column: 1/-1;
+  margin: 0 10px 10px;
+}
 * {
   box-sizing: border-box;
 }

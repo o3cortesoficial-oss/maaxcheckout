@@ -1472,6 +1472,7 @@ export function PublicCheckout({ slug }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          productId: product.id,
           slug,
           paymentMethod: selectedPayment,
           customer: {
@@ -2310,11 +2311,11 @@ function ShopperCheckout({
           <span>Total ({isPhysical ? "1 item" : "conteúdo digital"})</span>
           <strong>{money(totalCents)}</strong>
         </section>
-        {submitState && <p className="public-submit-state">{submitState}</p>}
-        <PaymentResult result={paymentResult} />
         <button className="shopper-submit" type="submit">
           {settings.button_text}
         </button>
+        {submitState && <p className="public-submit-state">{submitState}</p>}
+        <PaymentResult result={paymentResult} />
       </form>
     </div>
   );

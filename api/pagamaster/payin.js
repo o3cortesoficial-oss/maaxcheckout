@@ -30,20 +30,26 @@ export default async function handler(request, response) {
       { auth: { persistSession: false } },
     );
     const {
+      productId,
       slug,
       paymentMethod,
       customer = {},
       address = {},
       card,
     } = request.body || {};
-    const { data: product, error: productError } = await supabase
+    let productQuery = supabase
       .from("products")
       .select("*")
-      .eq("slug", slug)
-      .eq("status", "active")
-      .maybeSingle();
+      .eq("status", "active");
+    productQuery = productId
+      ? productQuery.eq("id", productId)
+      : productQuery.eq("slug", slug);
+    const { data: product, error: productError } =
+      await productQuery.maybeSingle();
     if (productError || !product)
-      return response.status(404).json({ error: "Produto indisponível." });
+      return response.status(404).json({
+        error: "Produto indisponível. Atualize o checkout e tente novamente.",
+      });
     const { data: gateway } = await supabase
       .from("payment_gateways")
       .select("*")
@@ -132,27 +138,21 @@ export default async function handler(request, response) {
     });
     const result = await pagamasterResponse.json().catch(() => ({}));
     if (!pagamasterResponse.ok)
-      return response
-        .status(pagamasterResponse.status)
-        .json({
-          error:
-            result.message ||
-            result.error ||
-            "A Pagamaster recusou a cobrança.",
-          code: result.code,
-        });
-    return response
-      .status(201)
-      .json({
-        id: result.id,
-        referenceId: result.referenceId,
-        status: result.status,
-        paymentMethod: result.paymentMethod,
-        pix: result.pix,
-        boleto: result.boleto,
-        threeDSecurePending: result.threeDSecurePending,
-        threeDSecureSdkUrl: result.threeDSecureSdkUrl,
+      return response.status(pagamasterResponse.status).json({
+        error:
+          result.message || result.error || "A Pagamaster recusou a cobrança.",
+        code: result.code,
       });
+    return response.status(201).json({
+      id: result.id,
+      referenceId: result.referenceId,
+      status: result.status,
+      paymentMethod: result.paymentMethod,
+      pix: result.pix,
+      boleto: result.boleto,
+      threeDSecurePending: result.threeDSecurePending,
+      threeDSecureSdkUrl: result.threeDSecureSdkUrl,
+    });
   } catch (error) {
     return response
       .status(500)
