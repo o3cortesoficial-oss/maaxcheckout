@@ -5652,6 +5652,22 @@ html {
   border-right-color: #2b2d28;
   color: #f5f6f2;
 }
+.dashboard > aside:before {
+  content: "";
+  position: absolute;
+  inset: -8% -105% 38% -48%;
+  background: repeating-radial-gradient(
+    ellipse at 14% 78%,
+    transparent 0 22px,
+    rgb(255 255 255 / 3.2%) 23px 24px
+  );
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+.dashboard > aside > * {
+  position: relative;
+  z-index: 1;
+}
 .dashboard > aside .side-head .logo {
   color: #f5f6f2;
 }
