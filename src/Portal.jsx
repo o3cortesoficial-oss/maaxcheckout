@@ -1491,12 +1491,17 @@ function ShopperCheckout({
   setCard,
   submit,
   submitState,
+  preview = false,
 }) {
   const enabled = (id) =>
     modules.find((module) => module.id === id)?.enabled !== false;
   return (
     <div
-      className="shopper-checkout"
+      className={
+        preview
+          ? "shopper-checkout shopper-checkout-preview"
+          : "shopper-checkout"
+      }
       style={{
         "--checkout-accent": settings.accent,
         "--checkout-text": settings.text_color,
@@ -2299,8 +2304,65 @@ function CheckoutPreview({ settings, modules }) {
 }
 function ShopperPreview({ settings, modules }) {
   const [device, setDevice] = useState("mobile");
+  const [payment, setPayment] = useState(
+    (settings.payment_methods || defaultCheckout.payment_methods)[0],
+  );
+  const [card, setCard] = useState({
+    number: "",
+    name: "",
+    expiry: "",
+    cvv: "",
+  });
   const enabled = (id) =>
     modules.find((module) => module.id === id)?.enabled !== false;
+  const demoProduct = {
+    name: "Produto da sua loja",
+    description: "Descrição curta do produto",
+    price_cents: 19700,
+  };
+  if (settings.template === "shopper")
+    return (
+      <div className={`preview-stage preview-${device}`}>
+        <div className="preview-toolbar">
+          <span>
+            <i /> Preview em tempo real
+          </span>
+          <div className="device-switch">
+            <button
+              className={device === "desktop" ? "active" : ""}
+              onClick={() => setDevice("desktop")}
+            >
+              Desktop
+            </button>
+            <button
+              className={device === "mobile" ? "active" : ""}
+              onClick={() => setDevice("mobile")}
+            >
+              Mobile
+            </button>
+          </div>
+        </div>
+        <div className="shopper-live-preview">
+          <ShopperCheckout
+            preview
+            product={demoProduct}
+            images={[]}
+            settings={settings}
+            modules={modules}
+            isPhysical
+            paymentMethods={
+              settings.payment_methods || defaultCheckout.payment_methods
+            }
+            payment={payment}
+            setPayment={setPayment}
+            card={card}
+            setCard={setCard}
+            submit={(event) => event.preventDefault()}
+            submitState=""
+          />
+        </div>
+      </div>
+    );
   return (
     <div
       className={`preview-stage preview-${device}`}
