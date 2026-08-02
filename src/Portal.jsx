@@ -943,6 +943,9 @@ const defaultCheckout = {
   logo_url: "",
   banner_url: "",
   payment_methods: ["pix", "card", "boleto"],
+  shopper_header_title: "Finalizar compra",
+  shopper_shipping_estimate: "Receba em até 6 dias úteis",
+  shopper_protection_price: "12,90",
 };
 const defaultModules = [
   { id: "secure_badge", label: "Selo Compra segura", enabled: true },
@@ -951,6 +954,22 @@ const defaultModules = [
   { id: "trust", label: "Compra segura", enabled: true },
   { id: "summary", label: "Resumo do pedido", enabled: true },
   { id: "coupon", label: "Cupom de desconto", enabled: true },
+  {
+    id: "shopper_protection",
+    label: "Shopper: Proteção da compra",
+    enabled: true,
+  },
+  {
+    id: "shopper_message",
+    label: "Shopper: Mensagem para loja",
+    enabled: true,
+  },
+  {
+    id: "shopper_invoice",
+    label: "Shopper: CPF na nota fiscal",
+    enabled: true,
+  },
+  { id: "shopper_shipping", label: "Shopper: Opção de entrega", enabled: true },
 ];
 const mergeCheckoutModules = (saved = []) => [
   ...saved,
@@ -1093,6 +1112,10 @@ export function PublicCheckout({ slug }) {
         "--checkout-input": settings.input_background,
         "--checkout-card": settings.card_color,
         "--checkout-card-text": settings.card_text_color,
+        "--shopper-bg": settings.background,
+        "--shopper-surface": settings.surface,
+        "--shopper-secondary": settings.secondary_surface,
+        "--shopper-input": settings.input_background,
         "--checkout-radius": `${settings.radius}px`,
       }}
     >
@@ -1452,13 +1475,17 @@ function ShopperCheckout({
         "--checkout-accent": settings.accent,
         "--checkout-text": settings.text_color,
         "--checkout-muted": settings.muted_color,
+        "--shopper-bg": settings.background,
+        "--shopper-surface": settings.surface,
+        "--shopper-secondary": settings.secondary_surface,
+        "--shopper-input": settings.input_background,
         "--checkout-card": settings.card_color,
         "--checkout-card-text": settings.card_text_color,
       }}
     >
       <header>
         <button type="button">←</button>
-        <b>Finalizar compra</b>
+        <b>{settings.shopper_header_title}</b>
         {enabled("secure_badge") ? <Bank /> : <i />}
       </header>
       <form onSubmit={submit}>
@@ -1491,7 +1518,7 @@ function ShopperCheckout({
             </div>
             <span>1 un.</span>
           </div>
-          {isPhysical && (
+          {isPhysical && enabled("shopper_protection") && (
             <label className="shopper-protection">
               <input type="checkbox" />
               <span>
@@ -1500,31 +1527,39 @@ function ShopperCheckout({
                   Proteja seu pedido contra danos ou extravio durante a entrega.
                 </small>
               </span>
-              <strong>R$ 12,90</strong>
+              <strong>R$ {settings.shopper_protection_price}</strong>
             </label>
           )}
         </section>
-        {enabled("coupon") && (
+        {(enabled("coupon") ||
+          enabled("shopper_message") ||
+          enabled("shopper_invoice")) && (
           <section className="shopper-options">
-            <label>
-              <span>Cupom de desconto</span>
-              <input placeholder="Digite o código" />
-            </label>
-            <label>
-              <span>Mensagem para a loja</span>
-              <input placeholder="Escreva uma observação" />
-            </label>
-            <label>
-              <span>CPF na nota fiscal</span>
-              <input
-                required
-                inputMode="numeric"
-                placeholder="000.000.000-00"
-              />
-            </label>
+            {enabled("coupon") && (
+              <label>
+                <span>Cupom de desconto</span>
+                <input placeholder="Digite o código" />
+              </label>
+            )}
+            {enabled("shopper_message") && (
+              <label>
+                <span>Mensagem para a loja</span>
+                <input placeholder="Escreva uma observação" />
+              </label>
+            )}
+            {enabled("shopper_invoice") && (
+              <label>
+                <span>CPF na nota fiscal</span>
+                <input
+                  required
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                />
+              </label>
+            )}
           </section>
         )}
-        {isPhysical && (
+        {isPhysical && enabled("shopper_shipping") && (
           <section className="shopper-shipping">
             <div>
               <b>Entrega</b>
@@ -1534,7 +1569,7 @@ function ShopperCheckout({
               <input type="radio" defaultChecked name="shipping" />
               <span>
                 <b>Entrega padrão</b>
-                <small>Receba em até 6 dias úteis</small>
+                <small>{settings.shopper_shipping_estimate}</small>
               </span>
               <strong>Grátis</strong>
             </label>
@@ -1845,6 +1880,45 @@ function CheckoutEditor({ workspace }) {
                 </button>
               ))}
             </div>
+            {settings.template === "shopper" && (
+              <div className="shopper-template-settings">
+                <label>
+                  Título do cabeçalho
+                  <input
+                    value={settings.shopper_header_title}
+                    onChange={(e) =>
+                      change("shopper_header_title", e.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  Prazo de entrega
+                  <input
+                    value={settings.shopper_shipping_estimate}
+                    onChange={(e) =>
+                      change("shopper_shipping_estimate", e.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  Valor da proteção
+                  <input
+                    value={settings.shopper_protection_price}
+                    inputMode="decimal"
+                    onChange={(e) =>
+                      change(
+                        "shopper_protection_price",
+                        e.target.value.replace(/[^0-9,]/g, ""),
+                      )
+                    }
+                  />
+                </label>
+                <small>
+                  A visibilidade das seções Shopper fica em “Blocos do
+                  checkout”.
+                </small>
+              </div>
+            )}
           </section>
           <section>
             <b>Marca e aparência</b>
@@ -2199,6 +2273,8 @@ function CheckoutPreview({ settings, modules }) {
 }
 function ShopperPreview({ settings, modules }) {
   const [device, setDevice] = useState("mobile");
+  const enabled = (id) =>
+    modules.find((module) => module.id === id)?.enabled !== false;
   return (
     <div
       className={`preview-stage preview-${device}`}
@@ -2206,6 +2282,9 @@ function ShopperPreview({ settings, modules }) {
         "--checkout-accent": settings.accent,
         "--checkout-text": settings.text_color,
         "--checkout-muted": settings.muted_color,
+        "--shopper-bg": settings.background,
+        "--shopper-surface": settings.surface,
+        "--shopper-secondary": settings.secondary_surface,
       }}
     >
       <div className="preview-toolbar">
@@ -2231,8 +2310,8 @@ function ShopperPreview({ settings, modules }) {
         <div className="shopper-preview">
           <header>
             <span>←</span>
-            <b>Finalizar compra</b>
-            <Bank />
+            <b>{settings.shopper_header_title}</b>
+            {enabled("secure_badge") ? <Bank /> : <i />}
           </header>
           <section>
             <div className="shopper-store-name">
@@ -2252,33 +2331,41 @@ function ShopperPreview({ settings, modules }) {
             </div>
           </section>
           <section className="shopper-options">
-            <label>
-              <span>Cupom de desconto</span>
-              <small>Inserir código ›</small>
-            </label>
-            <label>
-              <span>Mensagem para a loja</span>
-              <small>Adicionar mensagem ›</small>
-            </label>
-            <label>
-              <span>CPF na nota fiscal</span>
-              <small>Informar CPF ›</small>
-            </label>
+            {enabled("coupon") && (
+              <label>
+                <span>Cupom de desconto</span>
+                <small>Inserir código ›</small>
+              </label>
+            )}
+            {enabled("shopper_message") && (
+              <label>
+                <span>Mensagem para a loja</span>
+                <small>Adicionar mensagem ›</small>
+              </label>
+            )}
+            {enabled("shopper_invoice") && (
+              <label>
+                <span>CPF na nota fiscal</span>
+                <small>Informar CPF ›</small>
+              </label>
+            )}
           </section>
-          <section className="shopper-shipping">
-            <div>
-              <b>Entrega</b>
-              <small>Alterar ›</small>
-            </div>
-            <div className="shopper-shipping-card">
-              <i />
-              <span>
-                <b>Entrega padrão</b>
-                <small>Receba em até 6 dias úteis</small>
-              </span>
-              <strong>Grátis</strong>
-            </div>
-          </section>
+          {enabled("shopper_shipping") && (
+            <section className="shopper-shipping">
+              <div>
+                <b>Entrega</b>
+                <small>Alterar ›</small>
+              </div>
+              <div className="shopper-shipping-card">
+                <i />
+                <span>
+                  <b>Entrega padrão</b>
+                  <small>{settings.shopper_shipping_estimate}</small>
+                </span>
+                <strong>Grátis</strong>
+              </div>
+            </section>
+          )}
           <section className="shopper-total">
             <span>Total (1 item)</span>
             <strong>R$ 197,00</strong>
