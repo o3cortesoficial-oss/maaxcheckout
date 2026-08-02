@@ -1,90 +1,1492 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight, Bank, Bell, ChartLineUp, CheckCircle, CreditCard, CurrencyDollar,
-  House, Link as LinkIcon, List, MagnifyingGlass, Package, Plus, Receipt,
-  SignOut, Sparkle, TrendUp, Users, Wallet, X
-} from '@phosphor-icons/react';
-import { supabase, supabaseConfigured } from './supabase';
+  ArrowRight,
+  Bank,
+  Bell,
+  ChartLineUp,
+  CheckCircle,
+  CreditCard,
+  CurrencyDollar,
+  House,
+  Link as LinkIcon,
+  List,
+  MagnifyingGlass,
+  Package,
+  Plus,
+  Receipt,
+  SignOut,
+  Sparkle,
+  TrendUp,
+  Users,
+  Wallet,
+  X,
+} from "@phosphor-icons/react";
+import { supabase, supabaseConfigured } from "./supabase";
 
-const money=(cents=0)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(cents)/100);
-const date=v=>v?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
-const labels={pending:'Pendente',processing:'Processando',approved:'Aprovado',refused:'Recusado',refunded:'Reembolsado',cancelled:'Cancelado',active:'Ativo',draft:'Rascunho',archived:'Arquivado',completed:'Concluído',failed:'Falhou',requested:'Solicitado',past_due:'Em atraso',paused:'Pausado',trialing:'Teste'};
+const money = (cents = 0) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    Number(cents) / 100,
+  );
+const date = (v) =>
+  v
+    ? new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(v))
+    : "—";
+const labels = {
+  pending: "Pendente",
+  processing: "Processando",
+  approved: "Aprovado",
+  refused: "Recusado",
+  refunded: "Reembolsado",
+  cancelled: "Cancelado",
+  active: "Ativo",
+  draft: "Rascunho",
+  archived: "Arquivado",
+  completed: "Concluído",
+  failed: "Falhou",
+  requested: "Solicitado",
+  past_due: "Em atraso",
+  paused: "Pausado",
+  trialing: "Teste",
+};
 
-function Mark(){return <button className="logo">maa<span>x</span><i/></button>}
-function Button({children,onClick,type='button',secondary=false,disabled=false}){return <button type={type} disabled={disabled} onClick={onClick} className={`btn ${secondary?'outline':''}`}>{children}</button>}
-
-export function RealLogin({navigate}){
- const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[loading,setLoading]=useState(false),[error,setError]=useState('');
- useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data})=>{if(data.session)navigate('/dashboard')})},[]);
- const submit=async e=>{e.preventDefault();setError('');if(!supabaseConfigured){setError('As variáveis do Supabase não estão configuradas.');return}setLoading(true);const {error}=await supabase.auth.signInWithPassword({email,password});setLoading(false);if(error){setError('E-mail ou senha inválidos.');return}navigate('/dashboard')};
- return <div className="login-page"><div className="login-brand"><div className="logo logo-light">maa<span>x</span><i/></div><div className="login-message"><span className="eyebrow dark">Ambiente seguro</span><h1>Seu negócio<br/>em movimento.</h1><p>Dados reais, protegidos e disponíveis para você tomar decisões todos os dias.</p></div><div className="login-quote"><CheckCircle size={28}/><span>Autenticação e dados protegidos<br/>pela infraestrutura Supabase.</span></div></div><div className="login-form-wrap"><button className="close-login" onClick={()=>navigate('/')}><X/></button><form onSubmit={submit}><span className="form-kicker">ACESSO ADMINISTRATIVO</span><h2>Acesse sua conta</h2><p>Use as credenciais cadastradas para continuar.</p><label>E-mail<input value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@empresa.com" type="email" required autoComplete="email"/></label><label>Senha<input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Sua senha" type="password" required autoComplete="current-password"/></label>{error&&<div className="form-error">{error}</div>}<Button type="submit" disabled={loading}>{loading?'Autenticando...':<>Entrar na plataforma <ArrowRight/></>}</Button></form></div></div>
+function Mark() {
+  return (
+    <button className="logo">
+      maa<span>x</span>
+      <i />
+    </button>
+  );
+}
+function Button({
+  children,
+  onClick,
+  type = "button",
+  secondary = false,
+  disabled = false,
+}) {
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className={`btn ${secondary ? "outline" : ""}`}
+    >
+      {children}
+    </button>
+  );
 }
 
-const nav=[['home','Início',House],['vendas','Vendas',ChartLineUp],['produtos','Produtos',Package],['links','Links de pagamento',LinkIcon],['gateways','Gateways',Bank],['checkout','Checkout',CreditCard],['extrato','Extrato',Receipt],['clientes','Clientes',Users],['assinaturas','Assinaturas',CreditCard]];
-const emptyCopy={vendas:['Nenhuma venda registrada','As vendas aparecerão aqui quando seus clientes concluírem o checkout.'],produtos:['Nenhum produto cadastrado','Crie seu primeiro produto para começar a vender.'],links:['Nenhum link criado','Crie um link e compartilhe sua oferta com seus clientes.'],gateways:['Nenhum gateway cadastrado','Conecte um provedor de pagamentos para processar seus checkouts.'],extrato:['Extrato vazio','Suas movimentações financeiras aparecerão aqui.'],clientes:['Nenhum cliente ainda','Clientes são cadastrados a partir das vendas ou manualmente.'],assinaturas:['Nenhuma assinatura','Planos recorrentes ativos aparecerão aqui.']};
-
-function Modal({title,children,onClose}){return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="data-modal"><div className="modal-head"><h2>{title}</h2><button onClick={onClose}><X/></button></div>{children}</div></div>}
-function Field({label,...props}){return <label className="data-field">{label}<input {...props}/></label>}
-
-function GatewayModal({workspace,onClose,onSaved}){
- const [form,setForm]=useState({environment:'production'}),[saving,setSaving]=useState(false),[error,setError]=useState('');
- const save=async e=>{e.preventDefault();setSaving(true);setError('');const {error}=await supabase.from('payment_gateways').insert({workspace_id:workspace.id,display_name:form.display_name,provider:form.provider,environment:form.environment,status:'inactive',credentials_configured:false,public_identifier_hint:form.public_identifier_hint||null});setSaving(false);if(error){setError(error.message);return}onSaved();onClose()};
- return <Modal title="Cadastrar gateway" onClose={onClose}><form className="data-form" onSubmit={save}><Field label="Nome da integração" placeholder="Gateway principal" required onChange={e=>setForm(v=>({...v,display_name:e.target.value}))}/><label className="data-field">Provedor<select required onChange={e=>setForm(v=>({...v,provider:e.target.value}))}><option value="">Selecione</option><option value="stripe">Stripe</option><option value="mercadopago">Mercado Pago</option><option value="pagarme">Pagar.me</option><option value="asaas">Asaas</option><option value="primecash">PrimeCash</option><option value="custom">Outro</option></select></label><label className="data-field">Ambiente<select value={form.environment} onChange={e=>setForm(v=>({...v,environment:e.target.value}))}><option value="production">Produção</option><option value="sandbox">Sandbox</option></select></label><Field label="Identificador público (opcional)" placeholder="•••• 2808" onChange={e=>setForm(v=>({...v,public_identifier_hint:e.target.value}))}/><div className="gateway-security-note"><Bank/> Credenciais secretas nunca são exibidas ou armazenadas no navegador.</div>{error&&<div className="form-error">{error}</div>}<div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando...':'Cadastrar'}</Button></div></form></Modal>
+export function RealLogin({ navigate }) {
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [loading, setLoading] = useState(false),
+    [error, setError] = useState("");
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate("/dashboard");
+    });
+  }, []);
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!supabaseConfigured) {
+      setError("As variáveis do Supabase não estão configuradas.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setLoading(false);
+    if (error) {
+      setError("E-mail ou senha inválidos.");
+      return;
+    }
+    navigate("/dashboard");
+  };
+  return (
+    <div className="login-page">
+      <div className="login-brand">
+        <div className="logo logo-light">
+          maa<span>x</span>
+          <i />
+        </div>
+        <div className="login-message">
+          <span className="eyebrow dark">Ambiente seguro</span>
+          <h1>
+            Seu negócio
+            <br />
+            em movimento.
+          </h1>
+          <p>
+            Dados reais, protegidos e disponíveis para você tomar decisões todos
+            os dias.
+          </p>
+        </div>
+        <div className="login-quote">
+          <CheckCircle size={28} />
+          <span>
+            Autenticação e dados protegidos
+            <br />
+            pela infraestrutura Supabase.
+          </span>
+        </div>
+      </div>
+      <div className="login-form-wrap">
+        <button className="close-login" onClick={() => navigate("/")}>
+          <X />
+        </button>
+        <form onSubmit={submit}>
+          <span className="form-kicker">ACESSO ADMINISTRATIVO</span>
+          <h2>Acesse sua conta</h2>
+          <p>Use as credenciais cadastradas para continuar.</p>
+          <label>
+            E-mail
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@empresa.com"
+              type="email"
+              required
+              autoComplete="email"
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Sua senha"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+          </label>
+          {error && <div className="form-error">{error}</div>}
+          <Button type="submit" disabled={loading}>
+            {loading ? (
+              "Autenticando..."
+            ) : (
+              <>
+                Entrar na plataforma <ArrowRight />
+              </>
+            )}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
-function CreateModal({type,workspace,products,onClose,onSaved}){
- const [form,setForm]=useState({}),[saving,setSaving]=useState(false),[error,setError]=useState('');
- const set=(key,value)=>setForm(v=>({...v,[key]:value}));
- if(type==='gateways')return <GatewayModal workspace={workspace} onClose={onClose} onSaved={onSaved}/>;
- const save=async e=>{e.preventDefault();setSaving(true);setError('');let table,payload;
-  if(type==='produtos'){table='products';payload={workspace_id:workspace.id,name:form.name,slug:(form.slug||form.name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),description:form.description||null,price_cents:Math.round(Number(form.price)*100),billing_type:form.billing_type||'one_time',status:'active'}}
-  if(type==='clientes'){table='customers';payload={workspace_id:workspace.id,name:form.name,email:form.email,phone:form.phone||null}}
-  if(type==='links'){table='payment_links';const product=products.find(p=>p.id===form.product_id);payload={workspace_id:workspace.id,product_id:form.product_id||null,title:form.title||product?.name,slug:(form.slug||form.title||product?.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),amount_cents:product?.price_cents||Math.round(Number(form.price)*100),active:true}}
-  if(type==='saldo'){table='payouts';payload={workspace_id:workspace.id,amount_cents:Math.round(Number(form.amount)*100),bank_name:form.bank_name,bank_account_last4:form.last4,status:'requested'}}
-  const {error}=await supabase.from(table).insert(payload);setSaving(false);if(error){setError(error.message);return}onSaved();onClose()};
- const title={produtos:'Novo produto',clientes:'Adicionar cliente',links:'Criar link de pagamento',saldo:'Solicitar saque'}[type];
- return <Modal title={title} onClose={onClose}><form className="data-form" onSubmit={save}>{type==='produtos'&&<><Field label="Nome" required onChange={e=>set('name',e.target.value)}/><Field label="Descrição" onChange={e=>set('description',e.target.value)}/><Field label="Preço em reais" type="number" step="0.01" min="0" required onChange={e=>set('price',e.target.value)}/><label className="data-field">Cobrança<select onChange={e=>set('billing_type',e.target.value)}><option value="one_time">Pagamento único</option><option value="subscription">Assinatura</option></select></label></>}{type==='clientes'&&<><Field label="Nome" required onChange={e=>set('name',e.target.value)}/><Field label="E-mail" type="email" required onChange={e=>set('email',e.target.value)}/><Field label="Telefone" onChange={e=>set('phone',e.target.value)}/></>}{type==='links'&&<><Field label="Título" required onChange={e=>set('title',e.target.value)}/><label className="data-field">Produto<select required onChange={e=>set('product_id',e.target.value)}><option value="">Selecione</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} — {money(p.price_cents)}</option>)}</select></label><Field label="Endereço do link" placeholder="minha-oferta" onChange={e=>set('slug',e.target.value)}/></>}{type==='saldo'&&<><Field label="Valor do saque" type="number" step="0.01" min="1" required onChange={e=>set('amount',e.target.value)}/><Field label="Banco" required onChange={e=>set('bank_name',e.target.value)}/><Field label="Últimos 4 dígitos da conta" maxLength="4" required onChange={e=>set('last4',e.target.value)}/></>}{error&&<div className="form-error">{error}</div>}<div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{saving?'Salvando...':'Salvar'}</Button></div></form></Modal>
+const nav = [
+  ["home", "Início", House],
+  ["vendas", "Vendas", ChartLineUp],
+  ["produtos", "Produtos", Package],
+  ["links", "Links de pagamento", LinkIcon],
+  ["gateways", "Gateways", Bank],
+  ["checkout", "Checkout", CreditCard],
+  ["extrato", "Extrato", Receipt],
+  ["clientes", "Clientes", Users],
+  ["assinaturas", "Assinaturas", CreditCard],
+];
+const emptyCopy = {
+  vendas: [
+    "Nenhuma venda registrada",
+    "As vendas aparecerão aqui quando seus clientes concluírem o checkout.",
+  ],
+  produtos: [
+    "Nenhum produto cadastrado",
+    "Crie seu primeiro produto para começar a vender.",
+  ],
+  links: [
+    "Nenhum link criado",
+    "Crie um link e compartilhe sua oferta com seus clientes.",
+  ],
+  gateways: [
+    "Nenhum gateway cadastrado",
+    "Conecte um provedor de pagamentos para processar seus checkouts.",
+  ],
+  extrato: ["Extrato vazio", "Suas movimentações financeiras aparecerão aqui."],
+  clientes: [
+    "Nenhum cliente ainda",
+    "Clientes são cadastrados a partir das vendas ou manualmente.",
+  ],
+  assinaturas: [
+    "Nenhuma assinatura",
+    "Planos recorrentes ativos aparecerão aqui.",
+  ],
+};
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="data-modal">
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+function Field({ label, ...props }) {
+  return (
+    <label className="data-field">
+      {label}
+      <input {...props} />
+    </label>
+  );
 }
 
-export function RealDashboard({navigate}){
- const [session,setSession]=useState(),[workspace,setWorkspace]=useState(),[data,setData]=useState({products:[],customers:[],payment_links:[],orders:[],subscriptions:[],transactions:[],payment_gateways:[]}),[active,setActive]=useState('home'),[loading,setLoading]=useState(true),[error,setError]=useState(''),[menu,setMenu]=useState(false),[modal,setModal]=useState('');
- const load=async()=>{setLoading(true);setError('');const {data:{session}}=await supabase.auth.getSession();if(!session){navigate('/login');return}setSession(session);const {data:spaces,error:spaceError}=await supabase.from('workspaces').select('*').order('created_at').limit(1);if(spaceError||!spaces?.length){setError(spaceError?.message||'Nenhum workspace foi encontrado.');setLoading(false);return}const ws=spaces[0];setWorkspace(ws);const tables=['products','customers','payment_links','orders','subscriptions','transactions','payment_gateways'];const results=await Promise.all(tables.map(t=>supabase.from(t).select('*').eq('workspace_id',ws.id).order('created_at',{ascending:false})));const next={};tables.forEach((t,i)=>next[t]=results[i].data||[]);const failed=results.find(r=>r.error);if(failed)setError(failed.error.message);setData(next);setLoading(false)};
- useEffect(()=>{if(!supabaseConfigured){setError('Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');setLoading(false);return}load();const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>{if(!s)navigate('/login')});return()=>subscription.unsubscribe()},[]);
- const metrics=useMemo(()=>{const approved=data.orders.filter(o=>o.status==='approved');const revenue=approved.reduce((n,o)=>n+Number(o.total_cents),0);const charges=data.transactions.filter(t=>t.type==='charge'&&t.status==='completed').reduce((n,t)=>n+Number(t.amount_cents),0);const debits=data.transactions.filter(t=>['fee','refund','payout'].includes(t.type)&&t.status==='completed').reduce((n,t)=>n+Math.abs(Number(t.amount_cents)),0);return{revenue,approved:approved.length,customers:data.customers.length,balance:charges-debits}},[data]);
- const logout=async()=>{await supabase.auth.signOut();navigate('/login')};
- const actionFor=()=>{if(['produtos','clientes','links','gateways'].includes(active))setModal(active)};
- if(loading)return <div className="app-loading"><div className="skeleton-logo"/><div className="skeleton-line"/><div className="skeleton-grid"><i/><i/><i/></div></div>;
- const userName=session?.user?.user_metadata?.full_name||session?.user?.email?.split('@')[0]||'Administrador';
- return <div className="dashboard"><aside className={menu?'open':''}><div className="side-head"><Mark/><button onClick={()=>setMenu(false)}><X/></button></div><nav className="side-nav"><span>PLATAFORMA</span>{nav.map(([id,label,Icon])=><a key={id} className={active===id?'active':''} onClick={()=>{setActive(id);setMenu(false)}}><Icon/>{label}{id==='vendas'&&data.orders.length>0?<b>{data.orders.length}</b>:null}</a>)}</nav><div className="side-help"><Sparkle/><b>Dados em produção</b><small>Conectado ao workspace {workspace?.name}.</small><button onClick={load}>Atualizar dados</button></div><button className="logout" onClick={logout}><SignOut/> Sair da conta</button></aside><div className="dash-main"><header><button className="mobile-menu" onClick={()=>setMenu(true)}><List/></button><div className="search"><MagnifyingGlass/><input placeholder="Buscar na plataforma..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className="notify"><Bell/></button><div className="user"><span>{userName.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase()}</span><div><b>{userName}</b><small>Administrador</small></div></div></div></header><main className="dash-content">{error&&<div className="data-error">{error}<button onClick={load}>Tentar novamente</button></div>}{active==='home'?<HomeView metrics={metrics} data={data} workspace={workspace} onNavigate={setActive}/>:<DataView type={active} data={data} metrics={metrics} workspace={workspace} onAction={actionFor}/>}</main></div>{modal&&<CreateModal type={modal} workspace={workspace} products={data.products} onClose={()=>setModal('')} onSaved={load}/>}</div>
+function GatewayModal({ workspace, onClose, onSaved }) {
+  const [form, setForm] = useState({ environment: "production" }),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState("");
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const { error } = await supabase
+      .from("payment_gateways")
+      .insert({
+        workspace_id: workspace.id,
+        display_name: form.display_name,
+        provider: form.provider,
+        environment: form.environment,
+        status: "inactive",
+        credentials_configured: false,
+        public_identifier_hint: form.public_identifier_hint || null,
+      });
+    setSaving(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    onSaved();
+    onClose();
+  };
+  return (
+    <Modal title="Cadastrar gateway" onClose={onClose}>
+      <form className="data-form" onSubmit={save}>
+        <Field
+          label="Nome da integração"
+          placeholder="Gateway principal"
+          required
+          onChange={(e) =>
+            setForm((v) => ({ ...v, display_name: e.target.value }))
+          }
+        />
+        <label className="data-field">
+          Provedor
+          <select
+            required
+            onChange={(e) =>
+              setForm((v) => ({ ...v, provider: e.target.value }))
+            }
+          >
+            <option value="">Selecione</option>
+            <option value="stripe">Stripe</option>
+            <option value="mercadopago">Mercado Pago</option>
+            <option value="pagarme">Pagar.me</option>
+            <option value="asaas">Asaas</option>
+            <option value="primecash">PrimeCash</option>
+            <option value="custom">Outro</option>
+          </select>
+        </label>
+        <label className="data-field">
+          Ambiente
+          <select
+            value={form.environment}
+            onChange={(e) =>
+              setForm((v) => ({ ...v, environment: e.target.value }))
+            }
+          >
+            <option value="production">Produção</option>
+            <option value="sandbox">Sandbox</option>
+          </select>
+        </label>
+        <Field
+          label="Identificador público (opcional)"
+          placeholder="•••• 2808"
+          onChange={(e) =>
+            setForm((v) => ({ ...v, public_identifier_hint: e.target.value }))
+          }
+        />
+        <div className="gateway-security-note">
+          <Bank /> Credenciais secretas nunca são exibidas ou armazenadas no
+          navegador.
+        </div>
+        {error && <div className="form-error">{error}</div>}
+        <div className="modal-actions">
+          <Button secondary onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Cadastrar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
 
-function PageTitle({kicker,title,description,action,onAction}){return <div className="dash-title"><div><span>{kicker}</span><h1>{title}<i/></h1><p>{description}</p></div>{action&&<div><Button onClick={onAction}><Plus/>{action}</Button></div>}</div>}
-function Stat({label,value,icon:Icon=TrendUp}){return <article><span>{label}<Icon/></span><b>{value}</b></article>}
-function Empty({type}){const copy=emptyCopy[type]||['Nenhum registro','Os dados aparecerão aqui quando estiverem disponíveis.'];return <div className="real-empty"><div><Sparkle/></div><h3>{copy[0]}</h3><p>{copy[1]}</p></div>}
-
-function HomeView({metrics,data,workspace,onNavigate}){return <div className="page-enter"><PageTitle kicker="VISÃO GERAL" title={`Olá, ${workspace?.name}.`} description="Resumo atualizado do seu checkout."/><section className="balance"><div className="balance-copy"><span>Volume processado</span><strong>{money(metrics.revenue)}</strong><p><CheckCircle/> Total de pagamentos aprovados</p></div><div className="balance-actions"><Button onClick={()=>onNavigate('gateways')}>Ver gateways <ArrowRight/></Button></div></section><div className="metrics"><Stat label="Faturamento aprovado" value={money(metrics.revenue)} icon={CurrencyDollar}/><Stat label="Pedidos aprovados" value={metrics.approved} icon={CheckCircle}/><Stat label="Produtos ativos" value={data.products.filter(p=>p.status==='active').length} icon={Package}/><Stat label="Gateways ativos" value={data.payment_gateways.filter(g=>g.status==='active').length} icon={Bank}/></div><section className="resource-table"><div className="resource-head"><div><span>ATIVIDADE REAL</span><h2>Últimas vendas</h2></div></div>{data.orders.length?<OrderRows rows={data.orders.slice(0,6)}/>:<Empty type="vendas"/>}</section></div>}
-
-function OrderRows({rows}){return <div className="generic-table"><div className="generic-row generic-th"><span>Pedido</span><span>Pagamento</span><span>Valor</span><span>Status</span><span>Data</span></div>{rows.map(o=><div className="generic-row" key={o.id}><span><b>{o.code}</b></span><span>{o.payment_method||'—'}</span><span><b>{money(o.total_cents)}</b></span><span><em className={['approved','completed','active'].includes(o.status)?'':'pending'}>{labels[o.status]||o.status}</em></span><span>{date(o.created_at)}</span></div>)}</div>}
-
-const defaultCheckout={brand_name:'Minha loja',accent:'#cbff35',background:'#f5f5f2',radius:12,layout:'split',button_text:'Finalizar pagamento'};
-const defaultModules=[{id:'contact',label:'Dados de contato',enabled:true},{id:'payment',label:'Pagamento',enabled:true},{id:'trust',label:'Compra segura',enabled:true},{id:'summary',label:'Resumo do pedido',enabled:true},{id:'coupon',label:'Cupom de desconto',enabled:true}];
-function CheckoutEditor({workspace}){
- const [settings,setSettings]=useState(defaultCheckout),[modules,setModules]=useState(defaultModules),[configId,setConfigId]=useState(),[status,setStatus]=useState('draft'),[saveState,setSaveState]=useState('Carregando...');const ready=useRef(false);
- useEffect(()=>{supabase.from('checkout_configs').select('*').eq('workspace_id',workspace.id).maybeSingle().then(({data})=>{if(data){setConfigId(data.id);setSettings({...defaultCheckout,...data.settings});setModules(data.modules?.length?data.modules:defaultModules);setStatus(data.status)}ready.current=true;setSaveState('Alterações salvas')})},[workspace.id]);
- useEffect(()=>{if(!ready.current)return;setSaveState('Salvando...');const timer=setTimeout(async()=>{const payload={workspace_id:workspace.id,name:'Checkout principal',settings,modules,updated_at:new Date().toISOString()};const result=configId?await supabase.from('checkout_configs').update(payload).eq('id',configId).select().single():await supabase.from('checkout_configs').insert(payload).select().single();if(result.data&&!configId)setConfigId(result.data.id);setSaveState(result.error?'Erro ao salvar':'Alterações salvas')},450);return()=>clearTimeout(timer)},[settings,modules]);
- const change=(key,value)=>setSettings(s=>({...s,[key]:value}));const toggle=id=>setModules(ms=>ms.map(m=>m.id===id?{...m,enabled:!m.enabled}:m));const move=(index,dir)=>setModules(ms=>{const next=[...ms],to=index+dir;if(to<0||to>=next.length)return ms;[next[index],next[to]]=[next[to],next[index]];return next});
- const publish=async()=>{setSaveState('Publicando...');const payload={workspace_id:workspace.id,name:'Checkout principal',settings,modules,status:'published',published_at:new Date().toISOString(),updated_at:new Date().toISOString()};const {data,error}=configId?await supabase.from('checkout_configs').update(payload).eq('id',configId).select().single():await supabase.from('checkout_configs').insert(payload).select().single();if(data){setConfigId(data.id);setStatus('published')}setSaveState(error?'Erro ao publicar':'Publicado')};
- return <div className="checkout-editor page-enter"><div className="editor-top"><div><span>EXPERIÊNCIA DE COMPRA</span><h1>Editor de Checkout<i/></h1><p>Monte uma experiência clara, rápida e focada em conversão.</p></div><div className="editor-status"><small>{saveState}</small><em className={status}>{status==='published'?'Publicado':'Rascunho'}</em><Button onClick={publish}>Publicar</Button></div></div><div className="editor-workspace"><aside className="editor-controls"><section><b>Marca e aparência</b><label>Nome da marca<input value={settings.brand_name} onChange={e=>change('brand_name',e.target.value)}/></label><div className="editor-colors"><label>Cor principal<input type="color" value={settings.accent} onChange={e=>change('accent',e.target.value)}/></label><label>Fundo<input type="color" value={settings.background} onChange={e=>change('background',e.target.value)}/></label></div><label>Raio dos elementos <span>{settings.radius}px</span><input type="range" min="0" max="24" value={settings.radius} onChange={e=>change('radius',Number(e.target.value))}/></label><label>Texto do botão<input value={settings.button_text} onChange={e=>change('button_text',e.target.value)}/></label><label>Layout<select value={settings.layout} onChange={e=>change('layout',e.target.value)}><option value="split">Resumo lateral</option><option value="compact">Coluna única</option></select></label></section><section><b>Blocos do checkout</b><small>Ative e organize os módulos.</small><div className="module-list">{modules.map((m,i)=><div className="module-item" key={m.id}><span><button onClick={()=>move(i,-1)}>↑</button><button onClick={()=>move(i,1)}>↓</button></span><b>{m.label}</b><button className={m.enabled?'toggle on':'toggle'} onClick={()=>toggle(m.id)}><i/></button></div>)}</div></section></aside><CheckoutPreview settings={settings} modules={modules}/></div></div>
+function CreateModal({ type, workspace, products, onClose, onSaved }) {
+  const [form, setForm] = useState({}),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState("");
+  const set = (key, value) => setForm((v) => ({ ...v, [key]: value }));
+  if (type === "gateways")
+    return (
+      <GatewayModal workspace={workspace} onClose={onClose} onSaved={onSaved} />
+    );
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    let table, payload;
+    if (type === "produtos") {
+      table = "products";
+      payload = {
+        workspace_id: workspace.id,
+        name: form.name,
+        slug: (form.slug || form.name || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+        description: form.description || null,
+        price_cents: Math.round(Number(form.price) * 100),
+        billing_type: form.billing_type || "one_time",
+        status: "active",
+      };
+    }
+    if (type === "clientes") {
+      table = "customers";
+      payload = {
+        workspace_id: workspace.id,
+        name: form.name,
+        email: form.email,
+        phone: form.phone || null,
+      };
+    }
+    if (type === "links") {
+      table = "payment_links";
+      const product = products.find((p) => p.id === form.product_id);
+      payload = {
+        workspace_id: workspace.id,
+        product_id: form.product_id || null,
+        title: form.title || product?.name,
+        slug: (form.slug || form.title || product?.name || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+        amount_cents:
+          product?.price_cents || Math.round(Number(form.price) * 100),
+        active: true,
+      };
+    }
+    if (type === "saldo") {
+      table = "payouts";
+      payload = {
+        workspace_id: workspace.id,
+        amount_cents: Math.round(Number(form.amount) * 100),
+        bank_name: form.bank_name,
+        bank_account_last4: form.last4,
+        status: "requested",
+      };
+    }
+    const { error } = await supabase.from(table).insert(payload);
+    setSaving(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    onSaved();
+    onClose();
+  };
+  const title = {
+    produtos: "Novo produto",
+    clientes: "Adicionar cliente",
+    links: "Criar link de pagamento",
+    saldo: "Solicitar saque",
+  }[type];
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form className="data-form" onSubmit={save}>
+        {type === "produtos" && (
+          <>
+            <Field
+              label="Nome"
+              required
+              onChange={(e) => set("name", e.target.value)}
+            />
+            <Field
+              label="Descrição"
+              onChange={(e) => set("description", e.target.value)}
+            />
+            <Field
+              label="Preço em reais"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              onChange={(e) => set("price", e.target.value)}
+            />
+            <label className="data-field">
+              Cobrança
+              <select onChange={(e) => set("billing_type", e.target.value)}>
+                <option value="one_time">Pagamento único</option>
+                <option value="subscription">Assinatura</option>
+              </select>
+            </label>
+          </>
+        )}
+        {type === "clientes" && (
+          <>
+            <Field
+              label="Nome"
+              required
+              onChange={(e) => set("name", e.target.value)}
+            />
+            <Field
+              label="E-mail"
+              type="email"
+              required
+              onChange={(e) => set("email", e.target.value)}
+            />
+            <Field
+              label="Telefone"
+              onChange={(e) => set("phone", e.target.value)}
+            />
+          </>
+        )}
+        {type === "links" && (
+          <>
+            <Field
+              label="Título"
+              required
+              onChange={(e) => set("title", e.target.value)}
+            />
+            <label className="data-field">
+              Produto
+              <select
+                required
+                onChange={(e) => set("product_id", e.target.value)}
+              >
+                <option value="">Selecione</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {money(p.price_cents)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Field
+              label="Endereço do link"
+              placeholder="minha-oferta"
+              onChange={(e) => set("slug", e.target.value)}
+            />
+          </>
+        )}
+        {type === "saldo" && (
+          <>
+            <Field
+              label="Valor do saque"
+              type="number"
+              step="0.01"
+              min="1"
+              required
+              onChange={(e) => set("amount", e.target.value)}
+            />
+            <Field
+              label="Banco"
+              required
+              onChange={(e) => set("bank_name", e.target.value)}
+            />
+            <Field
+              label="Últimos 4 dígitos da conta"
+              maxLength="4"
+              required
+              onChange={(e) => set("last4", e.target.value)}
+            />
+          </>
+        )}
+        {error && <div className="form-error">{error}</div>}
+        <div className="modal-actions">
+          <Button secondary onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
-function CheckoutPreview({settings,modules}){const [device,setDevice]=useState('desktop');const enabled=id=>modules.find(m=>m.id===id)?.enabled;return <div className={`preview-stage preview-${device}`} style={{'--checkout-accent':settings.accent,'--checkout-bg':settings.background,'--checkout-radius':`${settings.radius}px`}}><div className="preview-toolbar"><span><i/> Preview em tempo real</span><div className="device-switch"><button className={device==='desktop'?'active':''} onClick={()=>setDevice('desktop')}>Desktop</button><button className={device==='mobile'?'active':''} onClick={()=>setDevice('mobile')}>Mobile</button></div></div><div className="preview-viewport"><div className={`checkout-canvas ${settings.layout}`}><header><strong>{settings.brand_name}</strong><span><Bank/> Compra segura</span></header><main><div className="checkout-form">{enabled('contact')&&<section><small>01</small><h3>Seus dados</h3><label>E-mail<input placeholder="voce@email.com"/></label><div className="field-pair"><label>Nome<input placeholder="Seu nome"/></label><label>CPF<input placeholder="000.000.000-00"/></label></div></section>}{enabled('payment')&&<section><small>02</small><h3>Pagamento</h3><div className="payment-choice"><button className="selected">Pix <em>Aprovação imediata</em></button><button>Cartão</button></div></section>}{enabled('trust')&&<div className="checkout-trust"><CheckCircle/> Seus dados estão protegidos e criptografados.</div>}<button className="checkout-submit">{settings.button_text}<ArrowRight/></button></div>{enabled('summary')&&<aside className="order-preview"><small>SEU PEDIDO</small><div className="preview-product"><i><Package/></i><span><b>Produto digital</b><small>Acesso imediato</small></span><strong>R$ 197,00</strong></div>{enabled('coupon')&&<div className="coupon-preview"><input placeholder="Cupom de desconto"/><button>Aplicar</button></div>}<div className="preview-total"><span>Total</span><strong>R$ 197,00</strong></div><p><CheckCircle/> Garantia de 7 dias</p></aside>}</main><footer>Pagamento processado com segurança por Maax</footer></div></div></div>}
 
-function DataView({type,data,metrics,workspace,onAction}){if(type==='checkout')return <CheckoutEditor workspace={workspace}/>;const config={vendas:['OPERAÇÃO','Vendas','Pagamentos e pedidos registrados no checkout',null],produtos:['CATÁLOGO','Produtos','Ofertas disponíveis para seus clientes','Novo produto'],links:['CONVERSÃO','Links de pagamento','Links ativos para compartilhar e receber','Criar link'],gateways:['PAGAMENTOS','Gateways','Provedores conectados para processar seus checkouts','Cadastrar gateway'],extrato:['FINANCEIRO','Extrato','Movimentações financeiras do workspace',null],clientes:['RELACIONAMENTO','Clientes','Pessoas que compram de você','Adicionar cliente'],assinaturas:['RECORRÊNCIA','Assinaturas','Planos e cobranças recorrentes',null]}[type];let rows=[];
- if(type==='vendas')return <div className="page-enter"><PageTitle kicker={config[0]} title={config[1]} description={config[2]}/><div className="sub-metrics"><Stat label="Faturamento" value={money(metrics.revenue)}/><Stat label="Aprovadas" value={metrics.approved}/><Stat label="Total de pedidos" value={data.orders.length}/></div><section className="resource-table">{data.orders.length?<OrderRows rows={data.orders}/>:<Empty type={type}/>}</section></div>;
- if(type==='produtos')rows=data.products.map(x=>[x.name,x.billing_type==='subscription'?'Assinatura':'Pagamento único',money(x.price_cents),labels[x.status]||x.status,date(x.created_at)]);
- if(type==='links')rows=data.payment_links.map(x=>[x.title,`/${x.slug}`,money(x.amount_cents),String(x.visits||0),x.active?'Ativo':'Pausado']);
- if(type==='clientes')rows=data.customers.map(x=>[x.name,x.email,x.phone||'—',date(x.created_at),'Ativo']);
- if(type==='assinaturas')rows=data.subscriptions.map(x=>[data.customers.find(c=>c.id===x.customer_id)?.name||'Cliente',data.products.find(p=>p.id===x.product_id)?.name||'Produto',money(x.amount_cents),date(x.current_period_end),labels[x.status]||x.status]);
- if(type==='extrato')rows=data.transactions.map(x=>[x.description||labels[x.type]||x.type,labels[x.type]||x.type,money(x.amount_cents),labels[x.status]||x.status,date(x.created_at)]);
- if(type==='gateways')rows=data.payment_gateways.map(x=>[x.display_name,x.provider,x.environment==='production'?'Produção':'Sandbox',x.credentials_configured?'Configurado':'Configuração pendente',labels[x.status]||x.status]);
- return <div className="page-enter"><PageTitle kicker={config[0]} title={config[1]} description={config[2]} action={config[3]} onAction={onAction}/><section className="resource-table"><div className="resource-head"><div><span>REGISTROS</span><h2>{config[1]}</h2></div><button className="filter-search" onClick={()=>location.reload()}><MagnifyingGlass/> Atualizar</button></div>{rows.length?<SimpleRows rows={rows}/>:<Empty type={type}/>}</section></div>}
-function SimpleRows({rows}){return <div className="generic-table"><div className="generic-row generic-th"><span>Nome</span><span>Detalhe</span><span>Valor / Contato</span><span>Status / Data</span><span>Situação</span></div>{rows.map((row,i)=><div className="generic-row" key={i}>{row.map((v,j)=><span key={j}>{j===0?<b>{v}</b>:v}</span>)}</div>)}</div>}
+export function RealDashboard({ navigate }) {
+  const [session, setSession] = useState(),
+    [workspace, setWorkspace] = useState(),
+    [data, setData] = useState({
+      products: [],
+      customers: [],
+      payment_links: [],
+      orders: [],
+      subscriptions: [],
+      transactions: [],
+      payment_gateways: [],
+    }),
+    [active, setActive] = useState("home"),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [menu, setMenu] = useState(false),
+    [modal, setModal] = useState("");
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      navigate("/login");
+      return;
+    }
+    setSession(session);
+    const { data: spaces, error: spaceError } = await supabase
+      .from("workspaces")
+      .select("*")
+      .order("created_at")
+      .limit(1);
+    if (spaceError || !spaces?.length) {
+      setError(spaceError?.message || "Nenhum workspace foi encontrado.");
+      setLoading(false);
+      return;
+    }
+    const ws = spaces[0];
+    setWorkspace(ws);
+    const tables = [
+      "products",
+      "customers",
+      "payment_links",
+      "orders",
+      "subscriptions",
+      "transactions",
+      "payment_gateways",
+    ];
+    const results = await Promise.all(
+      tables.map((t) =>
+        supabase
+          .from(t)
+          .select("*")
+          .eq("workspace_id", ws.id)
+          .order("created_at", { ascending: false }),
+      ),
+    );
+    const next = {};
+    tables.forEach((t, i) => (next[t] = results[i].data || []));
+    const failed = results.find((r) => r.error);
+    if (failed) setError(failed.error.message);
+    setData(next);
+    setLoading(false);
+  };
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      setError(
+        "Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.",
+      );
+      setLoading(false);
+      return;
+    }
+    load();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (!s) navigate("/login");
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+  const metrics = useMemo(() => {
+    const approved = data.orders.filter((o) => o.status === "approved");
+    const revenue = approved.reduce((n, o) => n + Number(o.total_cents), 0);
+    const charges = data.transactions
+      .filter((t) => t.type === "charge" && t.status === "completed")
+      .reduce((n, t) => n + Number(t.amount_cents), 0);
+    const debits = data.transactions
+      .filter(
+        (t) =>
+          ["fee", "refund", "payout"].includes(t.type) &&
+          t.status === "completed",
+      )
+      .reduce((n, t) => n + Math.abs(Number(t.amount_cents)), 0);
+    return {
+      revenue,
+      approved: approved.length,
+      customers: data.customers.length,
+      balance: charges - debits,
+    };
+  }, [data]);
+  const logout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
+  const actionFor = () => {
+    if (["produtos", "clientes", "links", "gateways"].includes(active))
+      setModal(active);
+  };
+  if (loading)
+    return (
+      <div className="app-loading">
+        <div className="skeleton-logo" />
+        <div className="skeleton-line" />
+        <div className="skeleton-grid">
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
+    );
+  const userName =
+    session?.user?.user_metadata?.full_name ||
+    session?.user?.email?.split("@")[0] ||
+    "Administrador";
+  return (
+    <div className="dashboard">
+      <aside className={menu ? "open" : ""}>
+        <div className="side-head">
+          <Mark />
+          <button onClick={() => setMenu(false)}>
+            <X />
+          </button>
+        </div>
+        <nav className="side-nav">
+          <span>PLATAFORMA</span>
+          {nav.map(([id, label, Icon]) => (
+            <a
+              key={id}
+              className={active === id ? "active" : ""}
+              onClick={() => {
+                setActive(id);
+                setMenu(false);
+              }}
+            >
+              <Icon />
+              {label}
+              {id === "vendas" && data.orders.length > 0 ? (
+                <b>{data.orders.length}</b>
+              ) : null}
+            </a>
+          ))}
+        </nav>
+        <div className="side-help">
+          <Sparkle />
+          <b>Dados em produção</b>
+          <small>Conectado ao workspace {workspace?.name}.</small>
+          <button onClick={load}>Atualizar dados</button>
+        </div>
+        <button className="logout" onClick={logout}>
+          <SignOut /> Sair da conta
+        </button>
+      </aside>
+      <div className="dash-main">
+        <header>
+          <button className="mobile-menu" onClick={() => setMenu(true)}>
+            <List />
+          </button>
+          <div className="search">
+            <MagnifyingGlass />
+            <input placeholder="Buscar na plataforma..." />
+            <kbd>⌘ K</kbd>
+          </div>
+          <div className="header-actions">
+            <button className="notify">
+              <Bell />
+            </button>
+            <div className="user">
+              <span>
+                {userName
+                  .split(" ")
+                  .map((x) => x[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </span>
+              <div>
+                <b>{userName}</b>
+                <small>Administrador</small>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="dash-content">
+          {error && (
+            <div className="data-error">
+              {error}
+              <button onClick={load}>Tentar novamente</button>
+            </div>
+          )}
+          {active === "home" ? (
+            <HomeView
+              metrics={metrics}
+              data={data}
+              workspace={workspace}
+              onNavigate={setActive}
+            />
+          ) : (
+            <DataView
+              type={active}
+              data={data}
+              metrics={metrics}
+              workspace={workspace}
+              onAction={actionFor}
+            />
+          )}
+        </main>
+      </div>
+      {modal && (
+        <CreateModal
+          type={modal}
+          workspace={workspace}
+          products={data.products}
+          onClose={() => setModal("")}
+          onSaved={load}
+        />
+      )}
+    </div>
+  );
+}
+
+function PageTitle({ kicker, title, description, action, onAction }) {
+  return (
+    <div className="dash-title">
+      <div>
+        <span>{kicker}</span>
+        <h1>
+          {title}
+          <i />
+        </h1>
+        <p>{description}</p>
+      </div>
+      {action && (
+        <div>
+          <Button onClick={onAction}>
+            <Plus />
+            {action}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+function Stat({ label, value, icon: Icon = TrendUp }) {
+  return (
+    <article>
+      <span>
+        {label}
+        <Icon />
+      </span>
+      <b>{value}</b>
+    </article>
+  );
+}
+function Empty({ type }) {
+  const copy = emptyCopy[type] || [
+    "Nenhum registro",
+    "Os dados aparecerão aqui quando estiverem disponíveis.",
+  ];
+  return (
+    <div className="real-empty">
+      <div>
+        <Sparkle />
+      </div>
+      <h3>{copy[0]}</h3>
+      <p>{copy[1]}</p>
+    </div>
+  );
+}
+
+function HomeView({ metrics, data, workspace, onNavigate }) {
+  return (
+    <div className="page-enter">
+      <PageTitle
+        kicker="VISÃO GERAL"
+        title={`Olá, ${workspace?.name}.`}
+        description="Resumo atualizado do seu checkout."
+      />
+      <section className="balance">
+        <div className="balance-copy">
+          <span>Volume processado</span>
+          <strong>{money(metrics.revenue)}</strong>
+          <p>
+            <CheckCircle /> Total de pagamentos aprovados
+          </p>
+        </div>
+        <div className="balance-actions">
+          <Button onClick={() => onNavigate("gateways")}>
+            Ver gateways <ArrowRight />
+          </Button>
+        </div>
+      </section>
+      <div className="metrics">
+        <Stat
+          label="Faturamento aprovado"
+          value={money(metrics.revenue)}
+          icon={CurrencyDollar}
+        />
+        <Stat
+          label="Pedidos aprovados"
+          value={metrics.approved}
+          icon={CheckCircle}
+        />
+        <Stat
+          label="Produtos ativos"
+          value={data.products.filter((p) => p.status === "active").length}
+          icon={Package}
+        />
+        <Stat
+          label="Gateways ativos"
+          value={
+            data.payment_gateways.filter((g) => g.status === "active").length
+          }
+          icon={Bank}
+        />
+      </div>
+      <section className="resource-table">
+        <div className="resource-head">
+          <div>
+            <span>ATIVIDADE REAL</span>
+            <h2>Últimas vendas</h2>
+          </div>
+        </div>
+        {data.orders.length ? (
+          <OrderRows rows={data.orders.slice(0, 6)} />
+        ) : (
+          <Empty type="vendas" />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function OrderRows({ rows }) {
+  return (
+    <div className="generic-table">
+      <div className="generic-row generic-th">
+        <span>Pedido</span>
+        <span>Pagamento</span>
+        <span>Valor</span>
+        <span>Status</span>
+        <span>Data</span>
+      </div>
+      {rows.map((o) => (
+        <div className="generic-row" key={o.id}>
+          <span>
+            <b>{o.code}</b>
+          </span>
+          <span>{o.payment_method || "—"}</span>
+          <span>
+            <b>{money(o.total_cents)}</b>
+          </span>
+          <span>
+            <em
+              className={
+                ["approved", "completed", "active"].includes(o.status)
+                  ? ""
+                  : "pending"
+              }
+            >
+              {labels[o.status] || o.status}
+            </em>
+          </span>
+          <span>{date(o.created_at)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const defaultCheckout = {
+  brand_name: "Minha loja",
+  accent: "#cbff35",
+  background: "#f5f5f2",
+  radius: 12,
+  layout: "split",
+  button_text: "Finalizar pagamento",
+  logo_url: "",
+  banner_url: "",
+};
+const defaultModules = [
+  { id: "contact", label: "Dados de contato", enabled: true },
+  { id: "payment", label: "Pagamento", enabled: true },
+  { id: "trust", label: "Compra segura", enabled: true },
+  { id: "summary", label: "Resumo do pedido", enabled: true },
+  { id: "coupon", label: "Cupom de desconto", enabled: true },
+];
+function CheckoutEditor({ workspace }) {
+  const [settings, setSettings] = useState(defaultCheckout),
+    [modules, setModules] = useState(defaultModules),
+    [configId, setConfigId] = useState(),
+    [status, setStatus] = useState("draft"),
+    [saveState, setSaveState] = useState("Carregando..."),
+    [uploading, setUploading] = useState("");
+  const ready = useRef(false);
+  useEffect(() => {
+    supabase
+      .from("checkout_configs")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setConfigId(data.id);
+          setSettings({ ...defaultCheckout, ...data.settings });
+          setModules(data.modules?.length ? data.modules : defaultModules);
+          setStatus(data.status);
+        }
+        ready.current = true;
+        setSaveState("Alterações salvas");
+      });
+  }, [workspace.id]);
+  useEffect(() => {
+    if (!ready.current) return;
+    setSaveState("Salvando...");
+    const timer = setTimeout(async () => {
+      const payload = {
+        workspace_id: workspace.id,
+        name: "Checkout principal",
+        settings,
+        modules,
+        updated_at: new Date().toISOString(),
+      };
+      const result = configId
+        ? await supabase
+            .from("checkout_configs")
+            .update(payload)
+            .eq("id", configId)
+            .select()
+            .single()
+        : await supabase
+            .from("checkout_configs")
+            .insert(payload)
+            .select()
+            .single();
+      if (result.data && !configId) setConfigId(result.data.id);
+      setSaveState(result.error ? "Erro ao salvar" : "Alterações salvas");
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [settings, modules]);
+  const change = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const uploadAsset = async (kind, file) => {
+    if (!file) return;
+    const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
+    const maxSize = kind === "logo" ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (!allowed.includes(file.type)) {
+      setSaveState("Use PNG, JPEG ou SVG");
+      return;
+    }
+    if (file.size > maxSize) {
+      setSaveState(kind === "logo" ? "Logo deve ter até 2 MB" : "Banner deve ter até 5 MB");
+      return;
+    }
+    setUploading(kind);
+    const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+    const path = `${workspace.id}/${kind}-${Date.now()}.${extension}`;
+    const { error } = await supabase.storage
+      .from("checkout-assets")
+      .upload(path, file, { cacheControl: "3600", upsert: true });
+    if (error) {
+      setSaveState(`Erro no upload: ${error.message}`);
+      setUploading("");
+      return;
+    }
+    const { data } = supabase.storage.from("checkout-assets").getPublicUrl(path);
+    change(`${kind}_url`, data.publicUrl);
+    setUploading("");
+  };
+  const toggle = (id) =>
+    setModules((ms) =>
+      ms.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)),
+    );
+  const move = (index, dir) =>
+    setModules((ms) => {
+      const next = [...ms],
+        to = index + dir;
+      if (to < 0 || to >= next.length) return ms;
+      [next[index], next[to]] = [next[to], next[index]];
+      return next;
+    });
+  const publish = async () => {
+    setSaveState("Publicando...");
+    const payload = {
+      workspace_id: workspace.id,
+      name: "Checkout principal",
+      settings,
+      modules,
+      status: "published",
+      published_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = configId
+      ? await supabase
+          .from("checkout_configs")
+          .update(payload)
+          .eq("id", configId)
+          .select()
+          .single()
+      : await supabase
+          .from("checkout_configs")
+          .insert(payload)
+          .select()
+          .single();
+    if (data) {
+      setConfigId(data.id);
+      setStatus("published");
+    }
+    setSaveState(error ? "Erro ao publicar" : "Publicado");
+  };
+  return (
+    <div className="checkout-editor page-enter">
+      <div className="editor-top">
+        <div>
+          <span>EXPERIÊNCIA DE COMPRA</span>
+          <h1>
+            Editor de Checkout
+            <i />
+          </h1>
+          <p>Monte uma experiência clara, rápida e focada em conversão.</p>
+        </div>
+        <div className="editor-status">
+          <small>{saveState}</small>
+          <em className={status}>
+            {status === "published" ? "Publicado" : "Rascunho"}
+          </em>
+          <Button onClick={publish}>Publicar</Button>
+        </div>
+      </div>
+      <div className="editor-workspace">
+        <aside className="editor-controls">
+          <section>
+            <b>Marca e aparência</b>
+            <label>
+              Nome da marca
+              <input
+                value={settings.brand_name}
+                onChange={(e) => change("brand_name", e.target.value)}
+              />
+            </label>
+            <div className="asset-upload">
+              <div className="asset-upload-head">
+                <b>Logo do checkout</b>
+                {settings.logo_url && (
+                  <button onClick={() => change("logo_url", "")}>Remover</button>
+                )}
+              </div>
+              <label className="upload-drop">
+                <Package />
+                <span>{uploading === "logo" ? "Enviando..." : "Enviar logo"}</span>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
+                  onChange={(e) => uploadAsset("logo", e.target.files?.[0])}
+                />
+              </label>
+              <small>
+                Recomendado: <b>600 × 200 px</b> (proporção 3:1), PNG ou SVG com
+                fundo transparente. Máximo de 2 MB.
+              </small>
+            </div>
+            <div className="asset-upload">
+              <div className="asset-upload-head">
+                <b>Banner do checkout</b>
+                {settings.banner_url && (
+                  <button onClick={() => change("banner_url", "")}>Remover</button>
+                )}
+              </div>
+              <label className="upload-drop">
+                <Package />
+                <span>{uploading === "banner" ? "Enviando..." : "Enviar banner"}</span>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
+                  onChange={(e) => uploadAsset("banner", e.target.files?.[0])}
+                />
+              </label>
+              <small>
+                Recomendado: <b>1600 × 500 px</b>. Mantenha textos e elementos
+                importantes nos 70% centrais. Máximo de 5 MB.
+              </small>
+            </div>
+            <div className="editor-colors">
+              <label>
+                Cor principal
+                <input
+                  type="color"
+                  value={settings.accent}
+                  onChange={(e) => change("accent", e.target.value)}
+                />
+              </label>
+              <label>
+                Fundo
+                <input
+                  type="color"
+                  value={settings.background}
+                  onChange={(e) => change("background", e.target.value)}
+                />
+              </label>
+            </div>
+            <label>
+              Raio dos elementos <span>{settings.radius}px</span>
+              <input
+                type="range"
+                min="0"
+                max="24"
+                value={settings.radius}
+                onChange={(e) => change("radius", Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Texto do botão
+              <input
+                value={settings.button_text}
+                onChange={(e) => change("button_text", e.target.value)}
+              />
+            </label>
+            <label>
+              Layout
+              <select
+                value={settings.layout}
+                onChange={(e) => change("layout", e.target.value)}
+              >
+                <option value="split">Resumo lateral</option>
+                <option value="compact">Coluna única</option>
+              </select>
+            </label>
+          </section>
+          <section>
+            <b>Blocos do checkout</b>
+            <small>Ative e organize os módulos.</small>
+            <div className="module-list">
+              {modules.map((m, i) => (
+                <div className="module-item" key={m.id}>
+                  <span>
+                    <button onClick={() => move(i, -1)}>↑</button>
+                    <button onClick={() => move(i, 1)}>↓</button>
+                  </span>
+                  <b>{m.label}</b>
+                  <button
+                    className={m.enabled ? "toggle on" : "toggle"}
+                    onClick={() => toggle(m.id)}
+                  >
+                    <i />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+        <CheckoutPreview settings={settings} modules={modules} />
+      </div>
+    </div>
+  );
+}
+function CheckoutPreview({ settings, modules }) {
+  const [device, setDevice] = useState("desktop");
+  const enabled = (id) => modules.find((m) => m.id === id)?.enabled;
+  return (
+    <div
+      className={`preview-stage preview-${device}`}
+      style={{
+        "--checkout-accent": settings.accent,
+        "--checkout-bg": settings.background,
+        "--checkout-radius": `${settings.radius}px`,
+      }}
+    >
+      <div className="preview-toolbar">
+        <span>
+          <i /> Preview em tempo real
+        </span>
+        <div className="device-switch">
+          <button
+            className={device === "desktop" ? "active" : ""}
+            onClick={() => setDevice("desktop")}
+          >
+            Desktop
+          </button>
+          <button
+            className={device === "mobile" ? "active" : ""}
+            onClick={() => setDevice("mobile")}
+          >
+            Mobile
+          </button>
+        </div>
+      </div>
+      <div className="preview-viewport">
+        <div className={`checkout-canvas ${settings.layout}`}>
+          {settings.banner_url && (
+            <div className="checkout-banner">
+              <img src={settings.banner_url} alt="Banner do checkout" />
+            </div>
+          )}
+          <header>
+            {settings.logo_url ? (
+              <img className="checkout-logo" src={settings.logo_url} alt={settings.brand_name} />
+            ) : (
+              <strong>{settings.brand_name}</strong>
+            )}
+            <span>
+              <Bank /> Compra segura
+            </span>
+          </header>
+          <main>
+            <div className="checkout-form">
+              {enabled("contact") && (
+                <section>
+                  <small>01</small>
+                  <h3>Seus dados</h3>
+                  <label>
+                    E-mail
+                    <input placeholder="voce@email.com" />
+                  </label>
+                  <div className="field-pair">
+                    <label>
+                      Nome
+                      <input placeholder="Seu nome" />
+                    </label>
+                    <label>
+                      CPF
+                      <input placeholder="000.000.000-00" />
+                    </label>
+                  </div>
+                </section>
+              )}
+              {enabled("payment") && (
+                <section>
+                  <small>02</small>
+                  <h3>Pagamento</h3>
+                  <div className="payment-choice">
+                    <button className="selected">
+                      Pix <em>Aprovação imediata</em>
+                    </button>
+                    <button>Cartão</button>
+                  </div>
+                </section>
+              )}
+              {enabled("trust") && (
+                <div className="checkout-trust">
+                  <CheckCircle /> Seus dados estão protegidos e criptografados.
+                </div>
+              )}
+              <button className="checkout-submit">
+                {settings.button_text}
+                <ArrowRight />
+              </button>
+            </div>
+            {enabled("summary") && (
+              <aside className="order-preview">
+                <small>SEU PEDIDO</small>
+                <div className="preview-product">
+                  <i>
+                    <Package />
+                  </i>
+                  <span>
+                    <b>Produto digital</b>
+                    <small>Acesso imediato</small>
+                  </span>
+                  <strong>R$ 197,00</strong>
+                </div>
+                {enabled("coupon") && (
+                  <div className="coupon-preview">
+                    <input placeholder="Cupom de desconto" />
+                    <button>Aplicar</button>
+                  </div>
+                )}
+                <div className="preview-total">
+                  <span>Total</span>
+                  <strong>R$ 197,00</strong>
+                </div>
+                <p>
+                  <CheckCircle /> Garantia de 7 dias
+                </p>
+              </aside>
+            )}
+          </main>
+          <footer>Pagamento processado com segurança por Maax</footer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DataView({ type, data, metrics, workspace, onAction }) {
+  if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
+  const config = {
+    vendas: [
+      "OPERAÇÃO",
+      "Vendas",
+      "Pagamentos e pedidos registrados no checkout",
+      null,
+    ],
+    produtos: [
+      "CATÁLOGO",
+      "Produtos",
+      "Ofertas disponíveis para seus clientes",
+      "Novo produto",
+    ],
+    links: [
+      "CONVERSÃO",
+      "Links de pagamento",
+      "Links ativos para compartilhar e receber",
+      "Criar link",
+    ],
+    gateways: [
+      "PAGAMENTOS",
+      "Gateways",
+      "Provedores conectados para processar seus checkouts",
+      "Cadastrar gateway",
+    ],
+    extrato: [
+      "FINANCEIRO",
+      "Extrato",
+      "Movimentações financeiras do workspace",
+      null,
+    ],
+    clientes: [
+      "RELACIONAMENTO",
+      "Clientes",
+      "Pessoas que compram de você",
+      "Adicionar cliente",
+    ],
+    assinaturas: [
+      "RECORRÊNCIA",
+      "Assinaturas",
+      "Planos e cobranças recorrentes",
+      null,
+    ],
+  }[type];
+  let rows = [];
+  if (type === "vendas")
+    return (
+      <div className="page-enter">
+        <PageTitle
+          kicker={config[0]}
+          title={config[1]}
+          description={config[2]}
+        />
+        <div className="sub-metrics">
+          <Stat label="Faturamento" value={money(metrics.revenue)} />
+          <Stat label="Aprovadas" value={metrics.approved} />
+          <Stat label="Total de pedidos" value={data.orders.length} />
+        </div>
+        <section className="resource-table">
+          {data.orders.length ? (
+            <OrderRows rows={data.orders} />
+          ) : (
+            <Empty type={type} />
+          )}
+        </section>
+      </div>
+    );
+  if (type === "produtos")
+    rows = data.products.map((x) => [
+      x.name,
+      x.billing_type === "subscription" ? "Assinatura" : "Pagamento único",
+      money(x.price_cents),
+      labels[x.status] || x.status,
+      date(x.created_at),
+    ]);
+  if (type === "links")
+    rows = data.payment_links.map((x) => [
+      x.title,
+      `/${x.slug}`,
+      money(x.amount_cents),
+      String(x.visits || 0),
+      x.active ? "Ativo" : "Pausado",
+    ]);
+  if (type === "clientes")
+    rows = data.customers.map((x) => [
+      x.name,
+      x.email,
+      x.phone || "—",
+      date(x.created_at),
+      "Ativo",
+    ]);
+  if (type === "assinaturas")
+    rows = data.subscriptions.map((x) => [
+      data.customers.find((c) => c.id === x.customer_id)?.name || "Cliente",
+      data.products.find((p) => p.id === x.product_id)?.name || "Produto",
+      money(x.amount_cents),
+      date(x.current_period_end),
+      labels[x.status] || x.status,
+    ]);
+  if (type === "extrato")
+    rows = data.transactions.map((x) => [
+      x.description || labels[x.type] || x.type,
+      labels[x.type] || x.type,
+      money(x.amount_cents),
+      labels[x.status] || x.status,
+      date(x.created_at),
+    ]);
+  if (type === "gateways")
+    rows = data.payment_gateways.map((x) => [
+      x.display_name,
+      x.provider,
+      x.environment === "production" ? "Produção" : "Sandbox",
+      x.credentials_configured ? "Configurado" : "Configuração pendente",
+      labels[x.status] || x.status,
+    ]);
+  return (
+    <div className="page-enter">
+      <PageTitle
+        kicker={config[0]}
+        title={config[1]}
+        description={config[2]}
+        action={config[3]}
+        onAction={onAction}
+      />
+      <section className="resource-table">
+        <div className="resource-head">
+          <div>
+            <span>REGISTROS</span>
+            <h2>{config[1]}</h2>
+          </div>
+          <button className="filter-search" onClick={() => location.reload()}>
+            <MagnifyingGlass /> Atualizar
+          </button>
+        </div>
+        {rows.length ? <SimpleRows rows={rows} /> : <Empty type={type} />}
+      </section>
+    </div>
+  );
+}
+function SimpleRows({ rows }) {
+  return (
+    <div className="generic-table">
+      <div className="generic-row generic-th">
+        <span>Nome</span>
+        <span>Detalhe</span>
+        <span>Valor / Contato</span>
+        <span>Status / Data</span>
+        <span>Situação</span>
+      </div>
+      {rows.map((row, i) => (
+        <div className="generic-row" key={i}>
+          {row.map((v, j) => (
+            <span key={j}>{j === 0 ? <b>{v}</b> : v}</span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
