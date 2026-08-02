@@ -1036,8 +1036,12 @@ export function RealDashboard({ navigate }) {
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState(""),
     [businessMenu, setBusinessMenu] = useState(false),
-    [businessModal, setBusinessModal] = useState(false);
+    [businessModal, setBusinessModal] = useState(false),
+    [searchQuery, setSearchQuery] = useState(""),
+    [searchOpen, setSearchOpen] = useState(false);
   const workspaceIdRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const searchRootRef = useRef(null);
   const load = async (retried = false, silent = false, targetWorkspaceId = null) => {
     if (!silent) setLoading(true);
     setError("");
@@ -1203,6 +1207,28 @@ export function RealDashboard({ navigate }) {
       subscription.unsubscribe();
     };
   }, []);
+  useEffect(() => {
+    const shortcut = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    const closeOutside = (event) => {
+      if (!searchRootRef.current?.contains(event.target)) setSearchOpen(false);
+    };
+    window.addEventListener("keydown", shortcut);
+    document.addEventListener("mousedown", closeOutside);
+    return () => {
+      window.removeEventListener("keydown", shortcut);
+      document.removeEventListener("mousedown", closeOutside);
+    };
+  }, []);
   const metrics = useMemo(() => {
     const approved = data.orders.filter((o) => o.status === "approved");
     const revenue = approved.reduce((n, o) => n + Number(o.total_cents), 0);
@@ -1235,6 +1261,63 @@ export function RealDashboard({ navigate }) {
       suspiciousApproved: suspiciousApproved.length,
     };
   }, [data]);
+  const searchResults = useMemo(() => {
+    const normalize = (value) =>
+      String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+    const term = normalize(searchQuery.trim());
+    if (!term) return [];
+    const matches = (value) => normalize(value).includes(term);
+    return [
+      ...data.products
+        .filter((item) => matches(item.name) || matches(item.slug))
+        .map((item) => ({
+          id: `product-${item.id}`,
+          label: item.name,
+          detail: `${money(item.price_cents)} · ${labels[item.status] || item.status}`,
+          type: "Produto",
+          route: `product_edit:${item.id}`,
+          Icon: Package,
+        })),
+      ...data.customers
+        .filter((item) => matches(item.name) || matches(item.email) || matches(item.phone))
+        .map((item) => ({
+          id: `customer-${item.id}`,
+          label: item.name,
+          detail: item.email,
+          type: "Cliente",
+          route: "clientes",
+          Icon: Users,
+        })),
+      ...data.payment_links
+        .filter((item) => matches(item.title) || matches(item.slug))
+        .map((item) => ({
+          id: `link-${item.id}`,
+          label: item.title,
+          detail: `/${item.slug}`,
+          type: "Link",
+          route: "links",
+          Icon: LinkIcon,
+        })),
+      ...data.payment_gateways
+        .filter((item) => matches(item.display_name) || matches(item.provider))
+        .map((item) => ({
+          id: `gateway-${item.id}`,
+          label: item.display_name,
+          detail: labels[item.status] || item.status,
+          type: "Gateway",
+          route: "gateways",
+          Icon: Bank,
+        })),
+    ].slice(0, 8);
+  }, [data, searchQuery]);
+  const openSearchResult = (result) => {
+    setActive(result.route);
+    setSearchQuery("");
+    setSearchOpen(false);
+  };
   const logout = async () => {
     await supabase.auth.signOut();
     navigate("/login");
@@ -1333,10 +1416,64 @@ export function RealDashboard({ navigate }) {
           <button className="mobile-menu" onClick={() => setMenu(true)}>
             <List />
           </button>
-          <div className="search">
+          <div className="search" ref={searchRootRef}>
             <MagnifyingGlass />
-            <input placeholder="Buscar na plataforma..." />
-            <kbd>⌘ K</kbd>
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Buscar na plataforma..."
+              aria-label="Buscar na plataforma"
+              aria-expanded={searchOpen && Boolean(searchQuery.trim())}
+            />
+            <button
+              type="button"
+              className="search-shortcut"
+              onClick={() => searchInputRef.current?.focus()}
+              aria-label="Ativar busca"
+            >
+              Ctrl K
+            </button>
+            {searchOpen && searchQuery.trim() && (
+              <div className="search-results" role="listbox">
+                <header>
+                  <span>RESULTADOS NESTE NEGÓCIO</span>
+                  <small>{searchResults.length}</small>
+                </header>
+                {searchResults.length ? (
+                  searchResults.map((result) => {
+                    const ResultIcon = result.Icon;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => openSearchResult(result)}
+                        role="option"
+                        key={result.id}
+                      >
+                        <i><ResultIcon /></i>
+                        <span>
+                          <b>{result.label}</b>
+                          <small>{result.detail}</small>
+                        </span>
+                        <em>{result.type}</em>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="search-empty">
+                    <MagnifyingGlass />
+                    <span>
+                      <b>Nenhum resultado</b>
+                      <small>Tente buscar por outro nome ou contato.</small>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="header-actions">
             <button className="notify">
