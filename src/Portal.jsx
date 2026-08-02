@@ -926,6 +926,7 @@ function OrderRows({ rows }) {
 }
 
 const defaultCheckout = {
+  template: "maax",
   brand_name: "Minha loja",
   accent: "#cbff35",
   background: "#f5f5f2",
@@ -1061,6 +1062,24 @@ export function PublicCheckout({ slug }) {
       700,
     );
   };
+  if (settings.template === "shopper") {
+    return (
+      <ShopperCheckout
+        product={product}
+        images={images}
+        settings={settings}
+        modules={modules}
+        isPhysical={isPhysical}
+        paymentMethods={paymentMethods}
+        payment={selectedPayment}
+        setPayment={setPayment}
+        card={card}
+        setCard={setCard}
+        submit={submit}
+        submitState={submitState}
+      />
+    );
+  }
   return (
     <div
       className="public-checkout"
@@ -1410,6 +1429,229 @@ export function PublicCheckout({ slug }) {
     </div>
   );
 }
+function ShopperCheckout({
+  product,
+  images,
+  settings,
+  modules,
+  isPhysical,
+  paymentMethods,
+  payment,
+  setPayment,
+  card,
+  setCard,
+  submit,
+  submitState,
+}) {
+  const enabled = (id) =>
+    modules.find((module) => module.id === id)?.enabled !== false;
+  return (
+    <div
+      className="shopper-checkout"
+      style={{
+        "--checkout-accent": settings.accent,
+        "--checkout-text": settings.text_color,
+        "--checkout-muted": settings.muted_color,
+        "--checkout-card": settings.card_color,
+        "--checkout-card-text": settings.card_text_color,
+      }}
+    >
+      <header>
+        <button type="button">←</button>
+        <b>Finalizar compra</b>
+        {enabled("secure_badge") ? <Bank /> : <i />}
+      </header>
+      <form onSubmit={submit}>
+        <section className="shopper-store">
+          <div className="shopper-store-name">
+            <span>
+              {settings.logo_url ? (
+                <img src={settings.logo_url} alt={settings.brand_name} />
+              ) : (
+                <b>M</b>
+              )}
+            </span>
+            <strong>{settings.brand_name}</strong>
+          </div>
+          <div className="shopper-product">
+            {images[0] ? (
+              <img src={images[0].url} alt={product.name} />
+            ) : (
+              <Package />
+            )}
+            <div>
+              <b>{product.name}</b>
+              <small>
+                {product.description ||
+                  (isPhysical
+                    ? "Produto com entrega para todo o Brasil"
+                    : "Acesso digital liberado após a confirmação")}
+              </small>
+              <strong>{money(product.price_cents)}</strong>
+            </div>
+            <span>1 un.</span>
+          </div>
+          {isPhysical && (
+            <label className="shopper-protection">
+              <input type="checkbox" />
+              <span>
+                <b>Proteção da compra</b>
+                <small>
+                  Proteja seu pedido contra danos ou extravio durante a entrega.
+                </small>
+              </span>
+              <strong>R$ 12,90</strong>
+            </label>
+          )}
+        </section>
+        {enabled("coupon") && (
+          <section className="shopper-options">
+            <label>
+              <span>Cupom de desconto</span>
+              <input placeholder="Digite o código" />
+            </label>
+            <label>
+              <span>Mensagem para a loja</span>
+              <input placeholder="Escreva uma observação" />
+            </label>
+            <label>
+              <span>CPF na nota fiscal</span>
+              <input
+                required
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+              />
+            </label>
+          </section>
+        )}
+        {isPhysical && (
+          <section className="shopper-shipping">
+            <div>
+              <b>Entrega</b>
+              <small>Alterar</small>
+            </div>
+            <label className="shopper-shipping-card">
+              <input type="radio" defaultChecked name="shipping" />
+              <span>
+                <b>Entrega padrão</b>
+                <small>Receba em até 6 dias úteis</small>
+              </span>
+              <strong>Grátis</strong>
+            </label>
+            <div className="shopper-address">
+              <input required placeholder="CEP" inputMode="numeric" />
+              <input required placeholder="Endereço e número" />
+              <input required placeholder="Cidade / Estado" />
+            </div>
+          </section>
+        )}
+        {enabled("payment") && (
+          <section className="shopper-payment">
+            <b>Forma de pagamento</b>
+            <div className="payment-choice">
+              {paymentMethods.map((method) => (
+                <button
+                  type="button"
+                  key={method}
+                  className={payment === method ? "selected" : ""}
+                  onClick={() => setPayment(method)}
+                >
+                  {method === "pix"
+                    ? "Pix"
+                    : method === "card"
+                      ? "Cartão"
+                      : "Boleto"}
+                </button>
+              ))}
+            </div>
+            {payment === "card" && (
+              <div className="shopper-card-area">
+                <div className="virtual-card">
+                  <div className="virtual-card-top">
+                    <span className="virtual-chip" />
+                    <b>maax</b>
+                  </div>
+                  <strong>{card.number || "0000 0000 0000 0000"}</strong>
+                  <div>
+                    <span>
+                      <small>NOME</small>
+                      {card.name || "SEU NOME"}
+                    </span>
+                    <span>
+                      <small>VALIDADE</small>
+                      {card.expiry || "MM/AA"}
+                    </span>
+                  </div>
+                </div>
+                <div className="card-fields">
+                  <input
+                    required
+                    value={card.number}
+                    inputMode="numeric"
+                    placeholder="Número do cartão"
+                    onChange={(e) =>
+                      setCard((c) => ({
+                        ...c,
+                        number: e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 16)
+                          .replace(/(.{4})/g, "$1 ")
+                          .trim(),
+                      }))
+                    }
+                  />
+                  <input
+                    required
+                    value={card.name}
+                    placeholder="Nome impresso"
+                    onChange={(e) =>
+                      setCard((c) => ({
+                        ...c,
+                        name: e.target.value.toUpperCase(),
+                      }))
+                    }
+                  />
+                  <div>
+                    <input
+                      required
+                      value={card.expiry}
+                      placeholder="MM/AA"
+                      onChange={(e) =>
+                        setCard((c) => ({
+                          ...c,
+                          expiry: e.target.value.slice(0, 5),
+                        }))
+                      }
+                    />
+                    <input
+                      required
+                      value={card.cvv}
+                      placeholder="CVV"
+                      onChange={(e) =>
+                        setCard((c) => ({
+                          ...c,
+                          cvv: e.target.value.replace(/\D/g, "").slice(0, 4),
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+        <section className="shopper-total">
+          <span>Total ({isPhysical ? "1 item" : "conteúdo digital"})</span>
+          <strong>{money(product.price_cents)}</strong>
+        </section>
+        {submitState && <p className="public-submit-state">{submitState}</p>}
+        <button className="shopper-submit" type="submit">
+          {settings.button_text}
+        </button>
+      </form>
+    </div>
+  );
+}
 function CheckoutEditor({ workspace }) {
   const [settings, setSettings] = useState(defaultCheckout),
     [modules, setModules] = useState(defaultModules),
@@ -1572,6 +1814,38 @@ function CheckoutEditor({ workspace }) {
       </div>
       <div className="editor-workspace">
         <aside className="editor-controls">
+          <section>
+            <b>Templates</b>
+            <small>Escolha a estrutura principal do checkout.</small>
+            <div className="template-picker">
+              {[
+                ["maax", "Maax", "Checkout em etapas com resumo lateral"],
+                [
+                  "shopper",
+                  "Shopper",
+                  "Compra compacta inspirada em marketplaces",
+                ],
+              ].map(([id, name, description]) => (
+                <button
+                  type="button"
+                  key={id}
+                  className={settings.template === id ? "active" : ""}
+                  onClick={() => change("template", id)}
+                >
+                  <span className={`template-thumb ${id}`}>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span>
+                    <b>{name}</b>
+                    <small>{description}</small>
+                  </span>
+                  <CheckCircle />
+                </button>
+              ))}
+            </div>
+          </section>
           <section>
             <b>Marca e aparência</b>
             <label>
@@ -1762,6 +2036,8 @@ function CheckoutPreview({ settings, modules }) {
   const activePreviewPayment = previewMethods.includes(previewPayment)
     ? previewPayment
     : previewMethods[0];
+  if (settings.template === "shopper")
+    return <ShopperPreview settings={settings} modules={modules} />;
   return (
     <div
       className={`preview-stage preview-${device}`}
@@ -1916,6 +2192,98 @@ function CheckoutPreview({ settings, modules }) {
             )}
           </main>
           <footer>Pagamento processado com segurança por Maax</footer>
+        </div>
+      </div>
+    </div>
+  );
+}
+function ShopperPreview({ settings, modules }) {
+  const [device, setDevice] = useState("mobile");
+  return (
+    <div
+      className={`preview-stage preview-${device}`}
+      style={{
+        "--checkout-accent": settings.accent,
+        "--checkout-text": settings.text_color,
+        "--checkout-muted": settings.muted_color,
+      }}
+    >
+      <div className="preview-toolbar">
+        <span>
+          <i /> Preview em tempo real
+        </span>
+        <div className="device-switch">
+          <button
+            className={device === "desktop" ? "active" : ""}
+            onClick={() => setDevice("desktop")}
+          >
+            Desktop
+          </button>
+          <button
+            className={device === "mobile" ? "active" : ""}
+            onClick={() => setDevice("mobile")}
+          >
+            Mobile
+          </button>
+        </div>
+      </div>
+      <div className="shopper-preview-wrap">
+        <div className="shopper-preview">
+          <header>
+            <span>←</span>
+            <b>Finalizar compra</b>
+            <Bank />
+          </header>
+          <section>
+            <div className="shopper-store-name">
+              <span>
+                <b>M</b>
+              </span>
+              <strong>{settings.brand_name}</strong>
+            </div>
+            <div className="shopper-product">
+              <Package />
+              <div>
+                <b>Produto da sua loja</b>
+                <small>Descrição curta do produto</small>
+                <strong>R$ 197,00</strong>
+              </div>
+              <span>1 un.</span>
+            </div>
+          </section>
+          <section className="shopper-options">
+            <label>
+              <span>Cupom de desconto</span>
+              <small>Inserir código ›</small>
+            </label>
+            <label>
+              <span>Mensagem para a loja</span>
+              <small>Adicionar mensagem ›</small>
+            </label>
+            <label>
+              <span>CPF na nota fiscal</span>
+              <small>Informar CPF ›</small>
+            </label>
+          </section>
+          <section className="shopper-shipping">
+            <div>
+              <b>Entrega</b>
+              <small>Alterar ›</small>
+            </div>
+            <div className="shopper-shipping-card">
+              <i />
+              <span>
+                <b>Entrega padrão</b>
+                <small>Receba em até 6 dias úteis</small>
+              </span>
+              <strong>Grátis</strong>
+            </div>
+          </section>
+          <section className="shopper-total">
+            <span>Total (1 item)</span>
+            <strong>R$ 197,00</strong>
+          </section>
+          <button className="shopper-submit">{settings.button_text}</button>
         </div>
       </div>
     </div>
