@@ -23,6 +23,7 @@ import {
   Trash,
   Users,
   Wallet,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { supabase, supabaseConfigured } from "./supabase";
@@ -905,14 +906,15 @@ export function RealDashboard({ navigate }) {
       transactions: [],
       payment_gateways: [],
       product_images: [],
+      payment_attempts: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState("");
-  const load = async (retried = false) => {
-    setLoading(true);
+  const load = async (retried = false, silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     const { data: sessionData } = await supabase.auth.getSession();
     let currentSession = sessionData.session;
@@ -942,7 +944,7 @@ export function RealDashboard({ navigate }) {
     if (spaceError || !spaces?.length) {
       if (!retried && /jwt|token|session/i.test(spaceError?.message || "")) {
         const { data: refreshed } = await supabase.auth.refreshSession();
-        if (refreshed.session) return load(true);
+        if (refreshed.session) return load(true, silent);
         await supabase.auth.signOut({ scope: "local" });
         navigate("/login");
         return;
@@ -962,6 +964,7 @@ export function RealDashboard({ navigate }) {
       "transactions",
       "payment_gateways",
       "product_images",
+      "payment_attempts",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -977,7 +980,7 @@ export function RealDashboard({ navigate }) {
     const failed = results.find((r) => r.error);
     if (!retried && /jwt|token|session/i.test(failed?.error?.message || "")) {
       const { data: refreshed } = await supabase.auth.refreshSession();
-      if (refreshed.session) return load(true);
+      if (refreshed.session) return load(true, silent);
       await supabase.auth.signOut({ scope: "local" });
       navigate("/login");
       return;
@@ -1000,7 +1003,11 @@ export function RealDashboard({ navigate }) {
     } = supabase.auth.onAuthStateChange((_e, s) => {
       if (!s) navigate("/login");
     });
-    return () => subscription.unsubscribe();
+    const refreshTimer = window.setInterval(() => load(false, true), 30000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      subscription.unsubscribe();
+    };
   }, []);
   const metrics = useMemo(() => {
     const approved = data.orders.filter((o) => o.status === "approved");
@@ -1015,11 +1022,23 @@ export function RealDashboard({ navigate }) {
           t.status === "completed",
       )
       .reduce((n, t) => n + Math.abs(Number(t.amount_cents)), 0);
+    const generatedAttempts = data.payment_attempts.filter(
+      (attempt) => !["creating", "create_failed"].includes(attempt.status),
+    );
+    const paidAttempts = generatedAttempts.filter(
+      (attempt) => attempt.status === "APPROVED",
+    );
+    const suspiciousApproved = paidAttempts.filter(
+      (attempt) => attempt.risk_status === "suspected",
+    );
     return {
       revenue,
       approved: approved.length,
       customers: data.customers.length,
       balance: charges - debits,
+      generated: data.orders.length,
+      paid: approved.length,
+      suspiciousApproved: suspiciousApproved.length,
     };
   }, [data]);
   const logout = async () => {
@@ -1179,9 +1198,9 @@ function PageTitle({ kicker, title, description, action, onAction }) {
     </div>
   );
 }
-function Stat({ label, value, icon: Icon = TrendUp }) {
+function Stat({ label, value, icon: Icon = TrendUp, tone = "default" }) {
   return (
-    <article>
+    <article className={tone === "danger" ? "metric-danger" : ""}>
       <span>
         {label}
         <Icon />
@@ -1230,14 +1249,14 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
       </section>
       <div className="metrics">
         <Stat
-          label="Faturamento aprovado"
-          value={money(metrics.revenue)}
-          icon={CurrencyDollar}
+          label="Pedidos pagos"
+          value={metrics.paid}
+          icon={CheckCircle}
         />
         <Stat
-          label="Pedidos aprovados"
-          value={metrics.approved}
-          icon={CheckCircle}
+          label="Pedidos gerados"
+          value={metrics.generated}
+          icon={Receipt}
         />
         <Stat
           label="Produtos ativos"
@@ -1245,11 +1264,10 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
           icon={Package}
         />
         <Stat
-          label="Gateways ativos"
-          value={
-            data.payment_gateways.filter((g) => g.status === "active").length
-          }
-          icon={Bank}
+          label="Vendas com divergência"
+          value={metrics.suspiciousApproved}
+          icon={WarningCircle}
+          tone="danger"
         />
       </div>
       <section className="resource-table">

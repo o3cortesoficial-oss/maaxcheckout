@@ -85,7 +85,6 @@ export default async function handler(request, response) {
     const payload = {
       paymentMethod: apiMethod,
       amount: Number(product.price_cents),
-      referenceId: crypto.randomUUID(),
       webhookUrl: `${request.headers["x-forwarded-proto"] || "https"}://${request.headers.host}/api/pagamaster/webhook`,
       isPhysicalProduct: ["physical", "fisico", "físico"].includes(
         String(product.product_type || "").toLowerCase(),
@@ -137,6 +136,24 @@ export default async function handler(request, response) {
     const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString(
       "base64",
     );
+    const referenceId = crypto.randomUUID();
+    const expectedAmount = Number(product.price_cents);
+    const { data: attempt, error: attemptError } = await supabase
+      .from("payment_attempts")
+      .insert({
+        workspace_id: product.workspace_id,
+        product_id: product.id,
+        gateway_id: gateway.id,
+        reference_id: referenceId,
+        payment_method: apiMethod,
+        expected_amount_cents: expectedAmount,
+        status: "creating",
+      })
+      .select("id")
+      .single();
+    if (attemptError)
+      throw new Error("Não foi possível iniciar a auditoria da cobrança.");
+    payload.referenceId = referenceId;
     const pagamasterResponse = await fetch("https://api.pagamaster.com/payin", {
       method: "POST",
       headers: {
@@ -146,12 +163,71 @@ export default async function handler(request, response) {
       body: JSON.stringify(payload),
     });
     const result = await pagamasterResponse.json().catch(() => ({}));
-    if (!pagamasterResponse.ok)
+    if (!pagamasterResponse.ok) {
+      await supabase
+        .from("payment_attempts")
+        .update({
+          status: "create_failed",
+          gateway_snapshot: {
+            code: result.code || null,
+            message: result.message || result.error || null,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", attempt.id);
       return response.status(pagamasterResponse.status).json({
         error:
           result.message || result.error || "A Pagamaster recusou a cobrança.",
         code: result.code,
       });
+    }
+    const riskReasons = [];
+    if (result.referenceId && result.referenceId !== referenceId)
+      riskReasons.push("reference_mismatch");
+    if (result.amount != null && Number(result.amount) !== expectedAmount)
+      riskReasons.push("amount_mismatch");
+    const normalizedStatus = String(result.status || "PENDING").toUpperCase();
+    const { data: order } = await supabase
+      .from("orders")
+      .insert({
+        workspace_id: product.workspace_id,
+        status: normalizedStatus === "APPROVED" ? "approved" : "pending",
+        payment_method: apiMethod.toLowerCase(),
+        subtotal_cents: expectedAmount,
+        total_cents: expectedAmount,
+        paid_at:
+          normalizedStatus === "APPROVED" ? new Date().toISOString() : null,
+        metadata: {
+          product_id: product.id,
+          gateway: "pagamaster",
+          gateway_transaction_id: result.id,
+          reference_id: referenceId,
+        },
+      })
+      .select("id")
+      .single();
+    await supabase
+      .from("payment_attempts")
+      .update({
+        order_id: order?.id || null,
+        gateway_transaction_id: result.id,
+        gateway_amount_cents:
+          result.amount == null ? expectedAmount : Number(result.amount),
+        status: normalizedStatus,
+        risk_status: riskReasons.length ? "suspected" : "clear",
+        risk_reasons: riskReasons,
+        gateway_snapshot: {
+          id: result.id,
+          referenceId: result.referenceId || referenceId,
+          status: normalizedStatus,
+          amount: result.amount == null ? expectedAmount : Number(result.amount),
+          paymentMethod: result.paymentMethod || apiMethod,
+        },
+        approved_at:
+          normalizedStatus === "APPROVED" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attempt.id);
     return response.status(201).json({
       id: result.id,
       referenceId: result.referenceId,
