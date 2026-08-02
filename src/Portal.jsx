@@ -26,6 +26,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { supabase, supabaseConfigured } from "./supabase";
+import QRCode from "qrcode";
 
 const money = (cents = 0) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -1968,20 +1969,46 @@ export function PublicCheckout({ slug }) {
   );
 }
 function PaymentResult({ result }) {
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const pixCode = result?.pix?.qrcode || "";
+  useEffect(() => {
+    let active = true;
+    if (!pixCode) {
+      setQrCodeUrl("");
+      return undefined;
+    }
+    QRCode.toDataURL(pixCode, {
+      width: 260,
+      margin: 2,
+      errorCorrectionLevel: "M",
+    })
+      .then((url) => active && setQrCodeUrl(url))
+      .catch(() => active && setQrCodeUrl(""));
+    return () => {
+      active = false;
+    };
+  }, [pixCode]);
   if (!result) return null;
-  const pixCode = result.pix?.qrcode;
   return (
     <div className="payment-result" role="status">
       {pixCode && (
         <>
           <b>Pix gerado</b>
           <p>Copie o código abaixo e pague no aplicativo do seu banco.</p>
+          {qrCodeUrl && (
+            <img className="pix-qr-code" src={qrCodeUrl} alt="QR Code Pix" />
+          )}
           <textarea readOnly value={pixCode} />
           <button
             type="button"
-            onClick={() => navigator.clipboard.writeText(pixCode)}
+            onClick={async () => {
+              await navigator.clipboard.writeText(pixCode);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1800);
+            }}
           >
-            <Copy /> Copiar código Pix
+            <Copy /> {copied ? "Código copiado" : "Copiar código Pix"}
           </button>
         </>
       )}

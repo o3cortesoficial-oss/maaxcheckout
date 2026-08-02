@@ -3844,6 +3844,16 @@ a {
   font-size: 25px;
   color: #438557;
 }
+.payment-result .pix-qr-code {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+  object-fit: contain;
+  justify-self: center;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
 .public-order-summary {
   background: #f4f5f1;
   padding: 42px;
