@@ -5,6 +5,7 @@ import {
   Bell,
   ChartLineUp,
   CheckCircle,
+  Copy,
   CreditCard,
   CurrencyDollar,
   House,
@@ -12,11 +13,13 @@ import {
   List,
   MagnifyingGlass,
   Package,
+  PencilSimple,
   Plus,
   Receipt,
   SignOut,
   Sparkle,
   TrendUp,
+  Trash,
   Users,
   Wallet,
   X,
@@ -257,17 +260,15 @@ function GatewayModal({ workspace, onClose, onSaved }) {
     e.preventDefault();
     setSaving(true);
     setError("");
-    const { error } = await supabase
-      .from("payment_gateways")
-      .insert({
-        workspace_id: workspace.id,
-        display_name: form.display_name,
-        provider: form.provider,
-        environment: form.environment,
-        status: "inactive",
-        credentials_configured: false,
-        public_identifier_hint: form.public_identifier_hint || null,
-      });
+    const { error } = await supabase.from("payment_gateways").insert({
+      workspace_id: workspace.id,
+      display_name: form.display_name,
+      provider: form.provider,
+      environment: form.environment,
+      status: "inactive",
+      credentials_configured: false,
+      public_identifier_hint: form.public_identifier_hint || null,
+    });
     setSaving(false);
     if (error) {
       setError(error.message);
@@ -548,6 +549,7 @@ export function RealDashboard({ navigate }) {
       subscriptions: [],
       transactions: [],
       payment_gateways: [],
+      product_images: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -585,6 +587,7 @@ export function RealDashboard({ navigate }) {
       "subscriptions",
       "transactions",
       "payment_gateways",
+      "product_images",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -647,8 +650,7 @@ export function RealDashboard({ navigate }) {
       setActive("product_new");
       return;
     }
-    if (["clientes", "links", "gateways"].includes(active))
-      setModal(active);
+    if (["clientes", "links", "gateways"].includes(active)) setModal(active);
   };
   if (loading)
     return (
@@ -1003,7 +1005,9 @@ function CheckoutEditor({ workspace }) {
       return;
     }
     if (file.size > maxSize) {
-      setSaveState(kind === "logo" ? "Logo deve ter até 2 MB" : "Banner deve ter até 5 MB");
+      setSaveState(
+        kind === "logo" ? "Logo deve ter até 2 MB" : "Banner deve ter até 5 MB",
+      );
       return;
     }
     setUploading(kind);
@@ -1017,7 +1021,9 @@ function CheckoutEditor({ workspace }) {
       setUploading("");
       return;
     }
-    const { data } = supabase.storage.from("checkout-assets").getPublicUrl(path);
+    const { data } = supabase.storage
+      .from("checkout-assets")
+      .getPublicUrl(path);
     change(`${kind}_url`, data.publicUrl);
     setUploading("");
   };
@@ -1096,12 +1102,16 @@ function CheckoutEditor({ workspace }) {
               <div className="asset-upload-head">
                 <b>Logo do checkout</b>
                 {settings.logo_url && (
-                  <button onClick={() => change("logo_url", "")}>Remover</button>
+                  <button onClick={() => change("logo_url", "")}>
+                    Remover
+                  </button>
                 )}
               </div>
               <label className="upload-drop">
                 <Package />
-                <span>{uploading === "logo" ? "Enviando..." : "Enviar logo"}</span>
+                <span>
+                  {uploading === "logo" ? "Enviando..." : "Enviar logo"}
+                </span>
                 <input
                   type="file"
                   accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
@@ -1117,12 +1127,16 @@ function CheckoutEditor({ workspace }) {
               <div className="asset-upload-head">
                 <b>Banner do checkout</b>
                 {settings.banner_url && (
-                  <button onClick={() => change("banner_url", "")}>Remover</button>
+                  <button onClick={() => change("banner_url", "")}>
+                    Remover
+                  </button>
                 )}
               </div>
               <label className="upload-drop">
                 <Package />
-                <span>{uploading === "banner" ? "Enviando..." : "Enviar banner"}</span>
+                <span>
+                  {uploading === "banner" ? "Enviando..." : "Enviar banner"}
+                </span>
                 <input
                   type="file"
                   accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
@@ -1247,7 +1261,11 @@ function CheckoutPreview({ settings, modules }) {
           )}
           <header>
             {settings.logo_url ? (
-              <img className="checkout-logo" src={settings.logo_url} alt={settings.brand_name} />
+              <img
+                className="checkout-logo"
+                src={settings.logo_url}
+                alt={settings.brand_name}
+              />
             ) : (
               <strong>{settings.brand_name}</strong>
             )}
@@ -1335,54 +1353,413 @@ function CheckoutPreview({ settings, modules }) {
   );
 }
 
-function ProductEditor({ workspace, onBack, onSaved }) {
-  const [form, setForm] = useState({ status: "active", billing_type: "one_time", track_inventory: false });
+function ProductEditor({
+  workspace,
+  product,
+  productImages = [],
+  onBack,
+  onSaved,
+}) {
+  const [form, setForm] = useState(
+    product
+      ? {
+          ...product,
+          price: Number(product.price_cents || 0) / 100,
+          compare_at_price:
+            product.compare_at_price_cents == null
+              ? ""
+              : Number(product.compare_at_price_cents) / 100,
+          cost:
+            product.cost_cents == null ? "" : Number(product.cost_cents) / 100,
+          tags: Array.isArray(product.tags) ? product.tags.join(", ") : "",
+        }
+      : { status: "active", billing_type: "one_time", track_inventory: false },
+  );
   const [images, setImages] = useState([]);
+  const [savedImages, setSavedImages] = useState(productImages);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const previews = useMemo(() => images.map((file) => ({ file, url: URL.createObjectURL(file) })), [images]);
-  useEffect(() => () => previews.forEach((item) => URL.revokeObjectURL(item.url)), [previews]);
-  const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const previews = useMemo(
+    () => images.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [images],
+  );
+  useEffect(
+    () => () => previews.forEach((item) => URL.revokeObjectURL(item.url)),
+    [previews],
+  );
+  const set = (key, value) =>
+    setForm((current) => ({ ...current, [key]: value }));
   const addImages = (files) => {
-    const incoming = Array.from(files || []).filter((file) => ["image/png", "image/jpeg", "image/webp"].includes(file.type) && file.size <= 5 * 1024 * 1024);
-    setImages((current) => [...current, ...incoming].slice(0, 10));
+    const incoming = Array.from(files || []).filter(
+      (file) =>
+        ["image/png", "image/jpeg", "image/webp"].includes(file.type) &&
+        file.size <= 5 * 1024 * 1024,
+    );
+    setImages((current) =>
+      [...current, ...incoming].slice(0, Math.max(0, 10 - savedImages.length)),
+    );
   };
   const save = async (event) => {
     event.preventDefault();
     setError("");
     const price = Math.round(Number(form.price || 0) * 100);
-    const compareAt = form.compare_at_price ? Math.round(Number(form.compare_at_price) * 100) : null;
-    if (!form.name?.trim() || price < 0) return setError("Informe o título e um preço válido.");
-    if (compareAt && compareAt <= price) return setError("O preço comparativo deve ser maior que o preço atual.");
+    const compareAt = form.compare_at_price
+      ? Math.round(Number(form.compare_at_price) * 100)
+      : null;
+    if (!form.name?.trim() || price < 0)
+      return setError("Informe o título e um preço válido.");
+    if (compareAt && compareAt <= price)
+      return setError("O preço comparativo deve ser maior que o preço atual.");
     setSaving(true);
-    const slug = (form.slug || form.name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const { data: product, error: productError } = await supabase.from("products").insert({
-      workspace_id: workspace.id, name: form.name.trim(), slug, description: form.description || null,
-      price_cents: price, compare_at_price_cents: compareAt, cost_cents: form.cost ? Math.round(Number(form.cost) * 100) : null,
-      billing_type: form.billing_type, sku: form.sku || null, barcode: form.barcode || null,
-      track_inventory: form.track_inventory, inventory_quantity: form.track_inventory ? Number(form.inventory_quantity || 0) : 0,
-      product_type: form.product_type || null, tags: form.tags ? form.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
-      seo_title: form.seo_title || null, seo_description: form.seo_description || null, status: form.status,
-    }).select().single();
-    if (productError) { setSaving(false); setError(productError.message); return; }
+    const slug = (form.slug || form.name)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const payload = {
+      workspace_id: workspace.id,
+      name: form.name.trim(),
+      slug,
+      description: form.description || null,
+      price_cents: price,
+      compare_at_price_cents: compareAt,
+      cost_cents: form.cost ? Math.round(Number(form.cost) * 100) : null,
+      billing_type: form.billing_type,
+      sku: form.sku || null,
+      barcode: form.barcode || null,
+      track_inventory: form.track_inventory,
+      inventory_quantity: form.track_inventory
+        ? Number(form.inventory_quantity || 0)
+        : 0,
+      product_type: form.product_type || null,
+      tags: form.tags
+        ? form.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        : [],
+      seo_title: form.seo_title || null,
+      seo_description: form.seo_description || null,
+      status: form.status,
+    };
+    const request = product
+      ? supabase.from("products").update(payload).eq("id", product.id)
+      : supabase.from("products").insert(payload);
+    const { data: savedProduct, error: productError } = await request
+      .select()
+      .single();
+    if (productError) {
+      setSaving(false);
+      setError(productError.message);
+      return;
+    }
     const uploaded = [];
     for (let index = 0; index < images.length; index += 1) {
       const file = images[index];
       const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${workspace.id}/${product.id}/${index}-${Date.now()}.${extension}`;
-      const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file, { cacheControl: "3600" });
+      const path = `${workspace.id}/${savedProduct.id}/${savedImages.length + index}-${Date.now()}.${extension}`;
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { cacheControl: "3600" });
       if (uploadError) continue;
-      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-      uploaded.push({ workspace_id: workspace.id, product_id: product.id, url: data.publicUrl, alt_text: form.name, position: index });
+      const { data } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(path);
+      uploaded.push({
+        workspace_id: workspace.id,
+        product_id: savedProduct.id,
+        url: data.publicUrl,
+        alt_text: form.name,
+        position: savedImages.length + index,
+      });
     }
     if (uploaded.length) await supabase.from("product_images").insert(uploaded);
-    setSaving(false); await onSaved(); onBack();
+    setSaving(false);
+    await onSaved();
+    onBack();
   };
-  return <form className="product-editor page-enter" onSubmit={save}><div className="product-editor-top"><div><button type="button" onClick={onBack}>← Produtos</button><h1>Adicionar produto<i/></h1></div><div><Button secondary onClick={onBack}>Descartar</Button><Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar produto"}</Button></div></div><div className="product-editor-grid"><div className="product-main-column"><section className="product-panel"><Field label="Título" value={form.name || ""} onChange={(e) => set("name", e.target.value)} required/><label className="data-field">Descrição<textarea rows="7" value={form.description || ""} onChange={(e) => set("description", e.target.value)} placeholder="Descreva os benefícios, conteúdo e condições do produto"/></label></section><section className="product-panel"><div className="product-section-title"><b>Mídia</b><span>{images.length}/10 imagens</span></div><label className="product-media-drop"><Package/><b>Adicionar imagens</b><small>PNG, JPEG ou WebP • até 5 MB por arquivo</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={(e) => addImages(e.target.files)}/></label>{previews.length>0&&<div className="product-gallery">{previews.map((item,index)=><div key={item.url} className={index===0?"featured":""}><img src={item.url} alt="Prévia do produto"/><button type="button" onClick={()=>setImages((current)=>current.filter((_,i)=>i!==index))}><X/></button>{index===0&&<span>Principal</span>}</div>)}</div>}<p className="product-media-help">Recomendado: imagens quadradas de <b>1200 × 1200 px</b>. A primeira imagem será a principal no checkout. Máximo de 10 imagens.</p></section><section className="product-panel"><b>Preços</b><div className="product-field-grid"><Field label="Preço" type="number" step="0.01" min="0" required placeholder="0,00" onChange={(e)=>set("price",e.target.value)}/><Field label="Preço comparativo" type="number" step="0.01" min="0" placeholder="0,00" onChange={(e)=>set("compare_at_price",e.target.value)}/><Field label="Custo por item" type="number" step="0.01" min="0" placeholder="0,00" onChange={(e)=>set("cost",e.target.value)}/><label className="data-field">Tipo de cobrança<select value={form.billing_type} onChange={(e)=>set("billing_type",e.target.value)}><option value="one_time">Pagamento único</option><option value="subscription">Assinatura</option></select></label></div><p className="panel-help">O preço comparativo aparece riscado no checkout e deve ser maior que o preço atual.</p></section><section className="product-panel"><b>Estoque e identificação</b><div className="product-field-grid"><Field label="SKU" value={form.sku || ""} onChange={(e)=>set("sku",e.target.value)}/><Field label="Código de barras" value={form.barcode || ""} onChange={(e)=>set("barcode",e.target.value)}/></div><label className="product-check"><input type="checkbox" checked={form.track_inventory} onChange={(e)=>set("track_inventory",e.target.checked)}/>Controlar quantidade disponível</label>{form.track_inventory&&<Field label="Quantidade" type="number" min="0" value={form.inventory_quantity || 0} onChange={(e)=>set("inventory_quantity",e.target.value)}/>}</section><section className="product-panel"><b>Listagem nos buscadores</b><Field label="Título da página" maxLength="70" value={form.seo_title || ""} onChange={(e)=>set("seo_title",e.target.value)}/><label className="data-field">Descrição para SEO<textarea rows="3" maxLength="320" value={form.seo_description || ""} onChange={(e)=>set("seo_description",e.target.value)}/></label></section></div><aside className="product-side-column"><section className="product-panel"><label className="data-field">Status<select value={form.status} onChange={(e)=>set("status",e.target.value)}><option value="active">Ativo</option><option value="draft">Rascunho</option></select></label></section><section className="product-panel"><b>Organização</b><Field label="Tipo de produto" value={form.product_type || ""} onChange={(e)=>set("product_type",e.target.value)}/><Field label="Tags" placeholder="curso, oferta, digital" value={form.tags || ""} onChange={(e)=>set("tags",e.target.value)}/></section><section className="product-panel"><b>Link do produto</b><Field label="URL amigável" placeholder="meu-produto" value={form.slug || ""} onChange={(e)=>set("slug",e.target.value)}/><p className="panel-help">Se ficar vazio, criaremos automaticamente a partir do título.</p></section></aside></div>{error&&<div className="product-error">{error}</div>}</form>
+  return (
+    <form className="product-editor page-enter" onSubmit={save}>
+      <div className="product-editor-top">
+        <div>
+          <button type="button" onClick={onBack}>
+            ← Produtos
+          </button>
+          <h1>
+            {product ? "Editar produto" : "Adicionar produto"}
+            <i />
+          </h1>
+        </div>
+        <div>
+          <Button secondary onClick={onBack}>
+            Descartar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Salvar produto"}
+          </Button>
+        </div>
+      </div>
+      <div className="product-editor-grid">
+        <div className="product-main-column">
+          <section className="product-panel">
+            <Field
+              label="Título"
+              value={form.name || ""}
+              onChange={(e) => set("name", e.target.value)}
+              required
+            />
+            <label className="data-field">
+              Descrição
+              <textarea
+                rows="7"
+                value={form.description || ""}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="Descreva os benefícios, conteúdo e condições do produto"
+              />
+            </label>
+          </section>
+          <section className="product-panel">
+            <div className="product-section-title">
+              <b>Mídia</b>
+              <span>{savedImages.length + images.length}/10 imagens</span>
+            </div>
+            <label className="product-media-drop">
+              <Package />
+              <b>Adicionar imagens</b>
+              <small>PNG, JPEG ou WebP • até 5 MB por arquivo</small>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                onChange={(e) => addImages(e.target.files)}
+              />
+            </label>
+            {(savedImages.length > 0 || previews.length > 0) && (
+              <div className="product-gallery">
+                {savedImages.map((item, index) => (
+                  <div key={item.id} className={index === 0 ? "featured" : ""}>
+                    <img src={item.url} alt={item.alt_text || form.name} />
+                    <button
+                      type="button"
+                      aria-label="Remover imagem"
+                      onClick={async () => {
+                        const { error: imageError } = await supabase
+                          .from("product_images")
+                          .delete()
+                          .eq("id", item.id);
+                        if (imageError) return setError(imageError.message);
+                        setSavedImages((current) =>
+                          current.filter((image) => image.id !== item.id),
+                        );
+                      }}
+                    >
+                      <X />
+                    </button>
+                    {index === 0 && <span>Principal</span>}
+                  </div>
+                ))}
+                {previews.map((item, index) => (
+                  <div key={item.url} className={!savedImages.length && index === 0 ? "featured" : ""}>
+                    <img src={item.url} alt="Prévia do produto" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImages((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
+                      }
+                    >
+                      <X />
+                    </button>
+                    {!savedImages.length && index === 0 && <span>Principal</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="product-media-help">
+              Recomendado: imagens quadradas de <b>1200 × 1200 px</b>. A
+              primeira imagem será a principal no checkout. Máximo de 10
+              imagens.
+            </p>
+          </section>
+          <section className="product-panel">
+            <b>Preços</b>
+            <div className="product-field-grid">
+              <Field
+                label="Preço"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                placeholder="0,00"
+                value={form.price ?? ""}
+                onChange={(e) => set("price", e.target.value)}
+              />
+              <Field
+                label="Preço comparativo"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0,00"
+                value={form.compare_at_price ?? ""}
+                onChange={(e) => set("compare_at_price", e.target.value)}
+              />
+              <Field
+                label="Custo por item"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0,00"
+                value={form.cost ?? ""}
+                onChange={(e) => set("cost", e.target.value)}
+              />
+              <label className="data-field">
+                Tipo de cobrança
+                <select
+                  value={form.billing_type}
+                  onChange={(e) => set("billing_type", e.target.value)}
+                >
+                  <option value="one_time">Pagamento único</option>
+                  <option value="subscription">Assinatura</option>
+                </select>
+              </label>
+            </div>
+            <p className="panel-help">
+              O preço comparativo aparece riscado no checkout e deve ser maior
+              que o preço atual.
+            </p>
+          </section>
+          <section className="product-panel">
+            <b>Estoque e identificação</b>
+            <div className="product-field-grid">
+              <Field
+                label="SKU"
+                value={form.sku || ""}
+                onChange={(e) => set("sku", e.target.value)}
+              />
+              <Field
+                label="Código de barras"
+                value={form.barcode || ""}
+                onChange={(e) => set("barcode", e.target.value)}
+              />
+            </div>
+            <label className="product-check">
+              <input
+                type="checkbox"
+                checked={form.track_inventory}
+                onChange={(e) => set("track_inventory", e.target.checked)}
+              />
+              Controlar quantidade disponível
+            </label>
+            {form.track_inventory && (
+              <Field
+                label="Quantidade"
+                type="number"
+                min="0"
+                value={form.inventory_quantity || 0}
+                onChange={(e) => set("inventory_quantity", e.target.value)}
+              />
+            )}
+          </section>
+          <section className="product-panel">
+            <b>Listagem nos buscadores</b>
+            <Field
+              label="Título da página"
+              maxLength="70"
+              value={form.seo_title || ""}
+              onChange={(e) => set("seo_title", e.target.value)}
+            />
+            <label className="data-field">
+              Descrição para SEO
+              <textarea
+                rows="3"
+                maxLength="320"
+                value={form.seo_description || ""}
+                onChange={(e) => set("seo_description", e.target.value)}
+              />
+            </label>
+          </section>
+        </div>
+        <aside className="product-side-column">
+          <section className="product-panel">
+            <label className="data-field">
+              Status
+              <select
+                value={form.status}
+                onChange={(e) => set("status", e.target.value)}
+              >
+                <option value="active">Ativo</option>
+                <option value="draft">Rascunho</option>
+              </select>
+            </label>
+          </section>
+          <section className="product-panel">
+            <b>Organização</b>
+            <Field
+              label="Tipo de produto"
+              value={form.product_type || ""}
+              onChange={(e) => set("product_type", e.target.value)}
+            />
+            <Field
+              label="Tags"
+              placeholder="curso, oferta, digital"
+              value={form.tags || ""}
+              onChange={(e) => set("tags", e.target.value)}
+            />
+          </section>
+          <section className="product-panel">
+            <b>Link do produto</b>
+            <Field
+              label="URL amigável"
+              placeholder="meu-produto"
+              value={form.slug || ""}
+              onChange={(e) => set("slug", e.target.value)}
+            />
+            <p className="panel-help">
+              Se ficar vazio, criaremos automaticamente a partir do título.
+            </p>
+          </section>
+        </aside>
+      </div>
+      {error && <div className="product-error">{error}</div>}
+    </form>
+  );
 }
 
-function DataView({ type, data, metrics, workspace, onAction, onNavigate, onReload }) {
-  if (type === "product_new") return <ProductEditor workspace={workspace} onBack={() => onNavigate("produtos")} onSaved={onReload}/>;
+function DataView({
+  type,
+  data,
+  metrics,
+  workspace,
+  onAction,
+  onNavigate,
+  onReload,
+}) {
+  if (type === "product_new")
+    return (
+      <ProductEditor
+        workspace={workspace}
+        onBack={() => onNavigate("produtos")}
+        onSaved={onReload}
+      />
+    );
+  if (type.startsWith("product_edit:")) {
+    const productId = type.split(":")[1];
+    const product = data.products.find((item) => item.id === productId);
+    if (!product) return <Empty type="produtos" />;
+    return (
+      <ProductEditor
+        workspace={workspace}
+        product={product}
+        productImages={data.product_images.filter(
+          (image) => image.product_id === product.id,
+        )}
+        onBack={() => onNavigate("produtos")}
+        onSaved={onReload}
+      />
+    );
+  }
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
   const config = {
     vendas: [
@@ -1518,8 +1895,60 @@ function DataView({ type, data, metrics, workspace, onAction, onNavigate, onRelo
             <MagnifyingGlass /> Atualizar
           </button>
         </div>
-        {rows.length ? <SimpleRows rows={rows} /> : <Empty type={type} />}
+        {type === "produtos" && data.products.length ? (
+          <ProductRows
+            products={data.products}
+            onEdit={(product) => onNavigate(`product_edit:${product.id}`)}
+            onReload={onReload}
+          />
+        ) : rows.length ? (
+          <SimpleRows rows={rows} />
+        ) : (
+          <Empty type={type} />
+        )}
       </section>
+    </div>
+  );
+}
+function ProductRows({ products, onEdit, onReload }) {
+  const [feedback, setFeedback] = useState("");
+  const copyLink = async (product) => {
+    const url = `${location.origin}/checkout/${product.slug}`;
+    await navigator.clipboard.writeText(url);
+    setFeedback(`Link de ${product.name} copiado.`);
+    setTimeout(() => setFeedback(""), 2500);
+  };
+  const remove = async (product) => {
+    if (!confirm(`Excluir o produto “${product.name}”? Esta ação não pode ser desfeita.`)) return;
+    const { error: imageError } = await supabase
+      .from("product_images")
+      .delete()
+      .eq("product_id", product.id);
+    if (imageError) return setFeedback(imageError.message);
+    const { error } = await supabase.from("products").delete().eq("id", product.id);
+    if (error) return setFeedback(error.message);
+    await onReload();
+    setFeedback("Produto excluído.");
+  };
+  return (
+    <div className="generic-table product-table">
+      <div className="generic-row generic-th">
+        <span>Produto</span><span>Tipo</span><span>Preço</span><span>Status</span><span>Ações</span>
+      </div>
+      {products.map((product) => (
+        <div className="generic-row" key={product.id}>
+          <span><b>{product.name}</b><small>/{product.slug}</small></span>
+          <span>{product.billing_type === "subscription" ? "Assinatura" : "Pagamento único"}</span>
+          <span>{money(product.price_cents)}</span>
+          <span>{labels[product.status] || product.status}</span>
+          <span className="product-actions">
+            <button type="button" onClick={() => copyLink(product)} aria-label={`Copiar link de ${product.name}`} title="Copiar link"><Copy /></button>
+            <button type="button" onClick={() => onEdit(product)} aria-label={`Editar ${product.name}`} title="Editar"><PencilSimple /></button>
+            <button type="button" className="danger" onClick={() => remove(product)} aria-label={`Excluir ${product.name}`} title="Excluir"><Trash /></button>
+          </span>
+        </div>
+      ))}
+      {feedback && <div className="table-feedback" role="status">{feedback}</div>}
     </div>
   );
 }
