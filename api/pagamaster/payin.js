@@ -17,6 +17,10 @@ function decrypt(value) {
 }
 
 const digits = (value) => String(value || "").replace(/\D/g, "");
+const brlToCents = (value = 0) => {
+  const amount = Number(String(value).trim().replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
+};
 
 export default async function handler(request, response) {
   if (request.method !== "POST")
@@ -36,6 +40,8 @@ export default async function handler(request, response) {
       customer = {},
       address = {},
       card,
+      protectionSelected = false,
+      orderBumpProductIds = [],
     } = request.body || {};
     let productQuery = supabase
       .from("products")
@@ -82,13 +88,83 @@ export default async function handler(request, response) {
       return response
         .status(400)
         .json({ error: "Forma de pagamento inválida." });
+    const { data: checkoutConfig } = await supabase
+      .from("checkout_configs")
+      .select("settings,modules")
+      .eq("workspace_id", product.workspace_id)
+      .maybeSingle();
+    const checkoutSettings = checkoutConfig?.settings || {};
+    const configuredBumpIds = checkoutSettings.order_bump_enabled
+      ? (checkoutSettings.order_bump_product_ids || []).filter(
+          (id) => id !== product.id,
+        )
+      : [];
+    const requestedBumpIds = [
+      ...new Set(
+        (Array.isArray(orderBumpProductIds) ? orderBumpProductIds : []).filter(
+          (id) => configuredBumpIds.includes(id),
+        ),
+      ),
+    ];
+    let bumpProducts = [];
+    if (requestedBumpIds.length) {
+      const { data } = await supabase
+        .from("products")
+        .select("id,name,description,price_cents")
+        .eq("workspace_id", product.workspace_id)
+        .eq("status", "active")
+        .in("id", requestedBumpIds);
+      bumpProducts = data || [];
+    }
+    const isPhysical = ["physical", "fisico", "físico"].includes(
+      String(product.product_type || "").toLowerCase(),
+    );
+    const protectionModule = (checkoutConfig?.modules || []).find(
+      (module) => module.id === "shopper_protection",
+    );
+    const protectionCents =
+      protectionSelected &&
+      isPhysical &&
+      checkoutSettings.template === "shopper" &&
+      protectionModule?.enabled !== false
+        ? brlToCents(checkoutSettings.shopper_protection_price)
+        : 0;
+    const expectedAmount =
+      Number(product.price_cents) +
+      protectionCents +
+      bumpProducts.reduce(
+        (total, bump) => total + Number(bump.price_cents || 0),
+        0,
+      );
+    const paymentItems = [
+      {
+        title: product.name,
+        description: product.description || undefined,
+        quantity: 1,
+        unitPrice: Number(product.price_cents),
+      },
+      ...bumpProducts.map((bump) => ({
+        title: bump.name,
+        description: bump.description || "Order bump",
+        quantity: 1,
+        unitPrice: Number(bump.price_cents),
+      })),
+      ...(protectionCents
+        ? [
+            {
+              title: "Proteção da compra",
+              description: "Proteção adicional selecionada pelo cliente",
+              quantity: 1,
+              unitPrice: protectionCents,
+            },
+          ]
+        : []),
+    ];
     const payload = {
       paymentMethod: apiMethod,
-      amount: Number(product.price_cents),
+      amount: expectedAmount,
       webhookUrl: `${request.headers["x-forwarded-proto"] || "https"}://${request.headers.host}/api/pagamaster/webhook`,
-      isPhysicalProduct: ["physical", "fisico", "físico"].includes(
-        String(product.product_type || "").toLowerCase(),
-      ),
+      isPhysicalProduct: isPhysical,
       payerIp: String(
         request.headers["x-forwarded-for"] ||
           request.socket?.remoteAddress ||
@@ -113,14 +189,7 @@ export default async function handler(request, response) {
           neighborhood: String(address.neighborhood || "").trim(),
         },
       },
-      items: [
-        {
-          title: product.name,
-          description: product.description || undefined,
-          quantity: 1,
-          unitPrice: Number(product.price_cents),
-        },
-      ],
+      items: paymentItems,
     };
     if (apiMethod === "CREDIT_CARD") {
       const [month, shortYear] = String(card?.expiry || "").split("/");
@@ -137,7 +206,6 @@ export default async function handler(request, response) {
       "base64",
     );
     const referenceId = crypto.randomUUID();
-    const expectedAmount = Number(product.price_cents);
     const { data: attempt, error: attemptError } = await supabase
       .from("payment_attempts")
       .insert({
@@ -246,6 +314,9 @@ export default async function handler(request, response) {
           normalizedStatus === "APPROVED" ? new Date().toISOString() : null,
         metadata: {
           product_id: product.id,
+          order_bump_product_ids: bumpProducts.map((bump) => bump.id),
+          protection_selected: protectionCents > 0,
+          protection_cents: protectionCents,
           gateway: "pagamaster",
           gateway_transaction_id: result.id,
           reference_id: referenceId,

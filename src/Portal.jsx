@@ -1753,6 +1753,10 @@ const defaultCheckout = {
   shopper_header_title: "Finalizar compra",
   shopper_shipping_estimate: "Receba em até 6 dias úteis",
   shopper_protection_price: "12,90",
+  order_bump_enabled: false,
+  order_bump_title: "Aproveite esta oferta",
+  order_bump_description: "Adicione ao seu pedido com apenas um clique.",
+  order_bump_product_ids: [],
 };
 const defaultModules = [
   { id: "secure_badge", label: "Selo Compra segura", enabled: true },
@@ -1791,6 +1795,7 @@ export function PublicCheckout({ slug }) {
     loading: true,
     product: null,
     images: [],
+    orderBumps: [],
     settings: defaultCheckout,
     modules: defaultModules,
     error: "",
@@ -1805,6 +1810,7 @@ export function PublicCheckout({ slug }) {
   const [submitState, setSubmitState] = useState("");
   const [paymentResult, setPaymentResult] = useState(null);
   const [protectionSelected, setProtectionSelected] = useState(false);
+  const [selectedBumpIds, setSelectedBumpIds] = useState([]);
   const trackCheckoutEvent = (eventType, paymentMethod, productId) => {
     const targetProductId = productId || state.product?.id;
     if (!targetProductId) return;
@@ -1851,14 +1857,51 @@ export function PublicCheckout({ slug }) {
           .order("position"),
       ]);
       if (!active) return;
+      const checkoutSettings = {
+        ...defaultCheckout,
+        ...(configResult.data?.settings || {}),
+      };
+      const configuredBumpIds = checkoutSettings.order_bump_enabled
+        ? (checkoutSettings.order_bump_product_ids || []).filter(
+            (id) => id !== product.id,
+          )
+        : [];
+      let orderBumps = [];
+      if (configuredBumpIds.length) {
+        const [bumpResult, bumpImagesResult] = await Promise.all([
+          supabase
+            .from("products")
+            .select("id,name,description,price_cents,product_type")
+            .eq("workspace_id", product.workspace_id)
+            .eq("status", "active")
+            .in("id", configuredBumpIds),
+          supabase
+            .from("product_images")
+            .select("product_id,url,position")
+            .eq("workspace_id", product.workspace_id)
+            .in("product_id", configuredBumpIds)
+            .order("position"),
+        ]);
+        orderBumps = (bumpResult.data || [])
+          .sort(
+            (a, b) =>
+              configuredBumpIds.indexOf(a.id) - configuredBumpIds.indexOf(b.id),
+          )
+          .map((bump) => ({
+            ...bump,
+            image_url: (bumpImagesResult.data || []).find(
+              (image) => image.product_id === bump.id,
+            )?.url,
+          }));
+      }
+      if (!active) return;
+      setSelectedBumpIds([]);
       setState({
         loading: false,
         product,
         images: imageResult.data || [],
-        settings: {
-          ...defaultCheckout,
-          ...(configResult.data?.settings || {}),
-        },
+        orderBumps,
+        settings: checkoutSettings,
         modules: mergeCheckoutModules(configResult.data?.modules || []),
         error: "",
       });
@@ -1924,7 +1967,7 @@ export function PublicCheckout({ slug }) {
         <p>{state.error}</p>
       </div>
     );
-  const { product, settings, modules, images } = state;
+  const { product, settings, modules, images, orderBumps } = state;
   const paymentMethods = settings.payment_methods?.length
     ? settings.payment_methods
     : ["pix"];
@@ -1961,7 +2004,16 @@ export function PublicCheckout({ slug }) {
     : 0;
   const totalCents =
     Number(product.price_cents || 0) +
-    (protectionSelected ? protectionCents : 0);
+    (protectionSelected ? protectionCents : 0) +
+    orderBumps
+      .filter((bump) => selectedBumpIds.includes(bump.id))
+      .reduce((total, bump) => total + Number(bump.price_cents || 0), 0);
+  const toggleOrderBump = (productId) =>
+    setSelectedBumpIds((current) =>
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
   const submit = async (event) => {
     event.preventDefault();
     trackCheckoutEvent("payment_submitted", selectedPayment);
@@ -1992,6 +2044,8 @@ export function PublicCheckout({ slug }) {
             complement: values.address_complement,
           },
           card,
+          protectionSelected,
+          orderBumpProductIds: selectedBumpIds,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -2030,6 +2084,9 @@ export function PublicCheckout({ slug }) {
         protectionSelected={protectionSelected}
         setProtectionSelected={setProtectionSelected}
         protectionCents={protectionCents}
+        orderBumps={orderBumps}
+        selectedBumpIds={selectedBumpIds}
+        onToggleOrderBump={toggleOrderBump}
         totalCents={totalCents}
         paymentResult={paymentResult}
         onFormFocus={trackFormProgress}
@@ -2288,6 +2345,12 @@ export function PublicCheckout({ slug }) {
               </label>
             </section>
           )}
+          <OrderBumpBlock
+            bumps={orderBumps}
+            selectedIds={selectedBumpIds}
+            onToggle={toggleOrderBump}
+            settings={settings}
+          />
           {enabled("payment") && (
             <section>
               <span>{isPhysical ? "03" : "02"}</span>
@@ -2552,6 +2615,45 @@ function PaymentResult({ result }) {
   );
 }
 
+function OrderBumpBlock({ bumps = [], selectedIds = [], onToggle, settings }) {
+  if (!bumps.length) return null;
+  return (
+    <section className="checkout-order-bumps">
+      <div className="order-bump-heading">
+        <span>OFERTA ESPECIAL</span>
+        <b>{settings.order_bump_title}</b>
+        <small>{settings.order_bump_description}</small>
+      </div>
+      <div className="order-bump-list">
+        {bumps.map((bump) => {
+          const selected = selectedIds.includes(bump.id);
+          return (
+            <label className={selected ? "selected" : ""} key={bump.id}>
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => onToggle?.(bump.id)}
+              />
+              <i>
+                {bump.image_url ? (
+                  <img src={bump.image_url} alt="" loading="lazy" />
+                ) : (
+                  <Package />
+                )}
+              </i>
+              <span>
+                <b>{bump.name}</b>
+                <small>{bump.description || "Adicionar ao meu pedido"}</small>
+              </span>
+              <strong>+ {money(bump.price_cents)}</strong>
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ShopperCheckout({
   product,
   images,
@@ -2568,6 +2670,9 @@ function ShopperCheckout({
   protectionSelected,
   setProtectionSelected,
   protectionCents,
+  orderBumps,
+  selectedBumpIds,
+  onToggleOrderBump,
   totalCents,
   paymentResult,
   onFormFocus,
@@ -2761,6 +2866,12 @@ function ShopperCheckout({
             </div>
           </section>
         )}
+        <OrderBumpBlock
+          bumps={orderBumps}
+          selectedIds={selectedBumpIds}
+          onToggle={onToggleOrderBump}
+          settings={settings}
+        />
         {enabled("payment") && (
           <section className="shopper-payment">
             <b>Forma de pagamento</b>
@@ -2857,7 +2968,9 @@ function ShopperCheckout({
           </section>
         )}
         <section className="shopper-total">
-          <span>Total ({isPhysical ? "1 item" : "conteúdo digital"})</span>
+          <span>
+            Total ({1 + selectedBumpIds.length} {1 + selectedBumpIds.length === 1 ? "item" : "itens"})
+          </span>
           <strong>{money(totalCents)}</strong>
         </section>
         <button className="shopper-submit" type="submit">
@@ -2869,7 +2982,7 @@ function ShopperCheckout({
     </div>
   );
 }
-function CheckoutEditor({ workspace }) {
+function CheckoutEditor({ workspace, products = [], productImages = [] }) {
   const [settings, setSettings] = useState(defaultCheckout),
     [modules, setModules] = useState(defaultModules),
     [configId, setConfigId] = useState(),
@@ -2923,6 +3036,20 @@ function CheckoutEditor({ workspace }) {
     return () => clearTimeout(timer);
   }, [settings, modules]);
   const change = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const selectedOrderBumpIds = settings.order_bump_product_ids || [];
+  const activeOrderBumpProducts = products.filter(
+    (product) => product.status === "active",
+  );
+  const toggleOrderBumpProduct = (productId) => {
+    const selected = selectedOrderBumpIds.includes(productId);
+    if (!selected && selectedOrderBumpIds.length >= 3) return;
+    change(
+      "order_bump_product_ids",
+      selected
+        ? selectedOrderBumpIds.filter((id) => id !== productId)
+        : [...selectedOrderBumpIds, productId],
+    );
+  };
   const togglePaymentMethod = (method) => {
     const current = settings.payment_methods?.length
       ? settings.payment_methods
@@ -3227,6 +3354,83 @@ function CheckoutEditor({ workspace }) {
               </select>
             </label>
           </section>
+          <section className="order-bump-editor">
+            <div className="order-bump-editor-head">
+              <span>
+                <b>Order bumps</b>
+                <small>Ofertas opcionais exibidas antes do pagamento.</small>
+              </span>
+              <button
+                type="button"
+                className={settings.order_bump_enabled ? "toggle on" : "toggle"}
+                onClick={() => change("order_bump_enabled", !settings.order_bump_enabled)}
+                aria-label="Ativar order bumps"
+              >
+                <i />
+              </button>
+            </div>
+            {settings.order_bump_enabled && (
+              <div className="order-bump-editor-body">
+                <label>
+                  Título da oferta
+                  <input
+                    value={settings.order_bump_title}
+                    maxLength="60"
+                    onChange={(event) => change("order_bump_title", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Texto de apoio
+                  <input
+                    value={settings.order_bump_description}
+                    maxLength="100"
+                    onChange={(event) =>
+                      change("order_bump_description", event.target.value)
+                    }
+                  />
+                </label>
+                <div className="order-bump-product-picker">
+                  <div>
+                    <b>Selecionar produtos</b>
+                    <small>{selectedOrderBumpIds.length}/3 selecionados</small>
+                  </div>
+                  {activeOrderBumpProducts.length ? (
+                    activeOrderBumpProducts.map((product) => {
+                      const selected = selectedOrderBumpIds.includes(product.id);
+                      const cover = productImages
+                        .filter((image) => image.product_id === product.id)
+                        .sort(
+                          (a, b) => Number(a.position || 0) - Number(b.position || 0),
+                        )[0];
+                      return (
+                        <button
+                          type="button"
+                          className={selected ? "selected" : ""}
+                          onClick={() => toggleOrderBumpProduct(product.id)}
+                          disabled={!selected && selectedOrderBumpIds.length >= 3}
+                          key={product.id}
+                        >
+                          <i>
+                            {cover ? <img src={cover.url} alt="" /> : <Package />}
+                          </i>
+                          <span>
+                            <b>{product.name}</b>
+                            <small>{money(product.price_cents)}</small>
+                          </span>
+                          <CheckCircle />
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p>Cadastre e ative produtos para usá-los como order bump.</p>
+                  )}
+                </div>
+                <small className="order-bump-help">
+                  Recomendação: use até 3 ofertas complementares para preservar a conversão.
+                </small>
+              </div>
+            )}
+          </section>
           <section>
             <b>Formas de pagamento</b>
             <small>Escolha uma ou combine diferentes opções.</small>
@@ -3278,22 +3482,58 @@ function CheckoutEditor({ workspace }) {
             </div>
           </section>
         </aside>
-        <CheckoutPreview settings={settings} modules={modules} />
+        <CheckoutPreview
+          settings={settings}
+          modules={modules}
+          products={products}
+          productImages={productImages}
+        />
       </div>
     </div>
   );
 }
-function CheckoutPreview({ settings, modules }) {
+function CheckoutPreview({ settings, modules, products, productImages }) {
   const [device, setDevice] = useState("desktop");
   const [previewPayment, setPreviewPayment] = useState("pix");
+  const [selectedPreviewBumpIds, setSelectedPreviewBumpIds] = useState([]);
   const enabled = (id) => modules.find((m) => m.id === id)?.enabled;
   const previewMethods =
     settings.payment_methods || defaultCheckout.payment_methods;
   const activePreviewPayment = previewMethods.includes(previewPayment)
     ? previewPayment
     : previewMethods[0];
+  const previewBumps = settings.order_bump_enabled
+    ? products
+        .filter((product) =>
+          (settings.order_bump_product_ids || []).includes(product.id),
+        )
+        .map((product) => ({
+          ...product,
+          image_url: productImages
+            .filter((image) => image.product_id === product.id)
+            .sort(
+              (a, b) => Number(a.position || 0) - Number(b.position || 0),
+            )[0]?.url,
+        }))
+    : [];
+  const togglePreviewBump = (productId) =>
+    setSelectedPreviewBumpIds((current) =>
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
+  const previewBumpTotal = previewBumps
+    .filter((bump) => selectedPreviewBumpIds.includes(bump.id))
+    .reduce((total, bump) => total + Number(bump.price_cents || 0), 0);
   if (settings.template === "shopper")
-    return <ShopperPreview settings={settings} modules={modules} />;
+    return (
+      <ShopperPreview
+        settings={settings}
+        modules={modules}
+        products={products}
+        productImages={productImages}
+      />
+    );
   return (
     <div
       className={`preview-stage preview-${device}`}
@@ -3374,6 +3614,12 @@ function CheckoutPreview({ settings, modules }) {
                   </div>
                 </section>
               )}
+              <OrderBumpBlock
+                bumps={previewBumps}
+                selectedIds={selectedPreviewBumpIds}
+                onToggle={togglePreviewBump}
+                settings={settings}
+              />
               {enabled("payment") && (
                 <section>
                   <small>02</small>
@@ -3439,7 +3685,7 @@ function CheckoutPreview({ settings, modules }) {
                 )}
                 <div className="preview-total">
                   <span>Total</span>
-                  <strong>R$ 197,00</strong>
+                  <strong>{money(19700 + previewBumpTotal)}</strong>
                 </div>
                 <p>
                   <CheckCircle /> Garantia de 7 dias
@@ -3453,9 +3699,10 @@ function CheckoutPreview({ settings, modules }) {
     </div>
   );
 }
-function ShopperPreview({ settings, modules }) {
+function ShopperPreview({ settings, modules, products = [], productImages = [] }) {
   const [device, setDevice] = useState("mobile");
   const [protectionSelected, setProtectionSelected] = useState(false);
+  const [selectedBumpIds, setSelectedBumpIds] = useState([]);
   const [payment, setPayment] = useState(
     (settings.payment_methods || defaultCheckout.payment_methods)[0],
   );
@@ -3473,6 +3720,29 @@ function ShopperPreview({ settings, modules }) {
     price_cents: 19700,
   };
   const protectionCents = brlToCents(settings.shopper_protection_price);
+  const orderBumps = settings.order_bump_enabled
+    ? products
+        .filter((product) =>
+          (settings.order_bump_product_ids || []).includes(product.id),
+        )
+        .map((product) => ({
+          ...product,
+          image_url: productImages
+            .filter((image) => image.product_id === product.id)
+            .sort(
+              (a, b) => Number(a.position || 0) - Number(b.position || 0),
+            )[0]?.url,
+        }))
+    : [];
+  const toggleBump = (productId) =>
+    setSelectedBumpIds((current) =>
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
+  const bumpTotal = orderBumps
+    .filter((bump) => selectedBumpIds.includes(bump.id))
+    .reduce((total, bump) => total + Number(bump.price_cents || 0), 0);
   if (settings.template === "shopper")
     return (
       <div className={`preview-stage preview-${device}`}>
@@ -3515,9 +3785,13 @@ function ShopperPreview({ settings, modules }) {
             protectionSelected={protectionSelected}
             setProtectionSelected={setProtectionSelected}
             protectionCents={protectionCents}
+            orderBumps={orderBumps}
+            selectedBumpIds={selectedBumpIds}
+            onToggleOrderBump={toggleBump}
             totalCents={
               demoProduct.price_cents +
-              (protectionSelected ? protectionCents : 0)
+              (protectionSelected ? protectionCents : 0) +
+              bumpTotal
             }
           />
         </div>
@@ -4485,7 +4759,14 @@ function DataView({
       />
     );
   }
-  if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
+  if (type === "checkout")
+    return (
+      <CheckoutEditor
+        workspace={workspace}
+        products={data.products}
+        productImages={data.product_images}
+      />
+    );
   if (type === "tracking") return <TrackingPage workspace={workspace} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
   if (type === "clientes")
