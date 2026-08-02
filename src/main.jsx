@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import 'iconsax';
 import {
   ArrowRight, ArrowUpRight, Bank, Bell, ChartLineUp, Check, CheckCircle,
   Clock, Copy, CreditCard, CurrencyDollar, Eye, EyeSlash, House, Link as LinkIcon,

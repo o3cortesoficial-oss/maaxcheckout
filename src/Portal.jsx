@@ -2951,18 +2951,21 @@ const trackingPlatforms = [
   {
     id: "meta",
     name: "Meta",
+    icon: "facebook",
     description: "Facebook e Instagram Ads",
     placeholder: "Ex.: 123456789012345",
   },
   {
     id: "google",
     name: "Google",
+    icon: "google",
     description: "Google Ads e Google Analytics",
     placeholder: "Ex.: G-XXXXXXXXXX ou AW-XXXXXXXXX",
   },
   {
     id: "tiktok",
     name: "TikTok",
+    icon: "music",
     description: "TikTok Ads Manager",
     placeholder: "Ex.: CXXXXXXXXXXXXXXX",
   },
@@ -3082,7 +3085,14 @@ function TrackingPage({ workspace }) {
           >
             <header>
               <div className="tracking-brand">
-                <span>{platform.name.slice(0, 1)}</span>
+                <span>
+                  <iconsax-icon
+                    name={platform.icon}
+                    type="bold"
+                    size="22"
+                    color="currentColor"
+                  />
+                </span>
                 <div>
                   <b>{platform.name}</b>
                   <small>{platform.description}</small>
