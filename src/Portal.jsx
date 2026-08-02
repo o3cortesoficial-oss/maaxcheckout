@@ -356,7 +356,7 @@ function GatewayModal({ workspace, onClose, onSaved }) {
   );
 }
 
-function GatewayView({ gateways, onAction }) {
+function LegacyGatewayView({ gateways, onAction }) {
   const [connection, setConnection] = useState({
     loading: true,
     configured: false,
@@ -437,6 +437,237 @@ function GatewayView({ gateways, onAction }) {
             {!registered && (
               <Button onClick={onAction}>Cadastrar Pagamaster</Button>
             )}
+          </footer>
+        </article>
+      </section>
+    </div>
+  );
+}
+
+function GatewayView({ workspace }) {
+  const [connection, setConnection] = useState({
+    loading: true,
+    configured: false,
+    active: false,
+  });
+  const [keys, setKeys] = useState({ publicKey: "", secretKey: "" });
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [busy, setBusy] = useState("");
+
+  const request = async (options = {}) => {
+    const { data } = await supabase.auth.getSession();
+    const response = await fetch(
+      `/api/pagamaster/config${options.method ? "" : `?workspaceId=${workspace.id}`}`,
+      {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session?.access_token}`,
+          ...options.headers,
+        },
+      },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(result.error || "Não foi possível concluir a operação.");
+    return result;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    request()
+      .then((result) => {
+        if (!mounted) return;
+        setConnection({
+          loading: false,
+          configured: Boolean(result.configured),
+          active: Boolean(result.active),
+        });
+        if (result.publicKeyHint)
+          setKeys((current) => ({
+            ...current,
+            publicKey: result.publicKeyHint,
+          }));
+      })
+      .catch(
+        () =>
+          mounted &&
+          setConnection({ loading: false, configured: false, active: false }),
+      );
+    return () => {
+      mounted = false;
+    };
+  }, [workspace.id]);
+
+  const credentialsAction = async (action) => {
+    setBusy(action);
+    setFeedback({ type: "", message: "" });
+    try {
+      const result = await request({
+        method: "POST",
+        body: JSON.stringify({ workspaceId: workspace.id, action, ...keys }),
+      });
+      setFeedback({
+        type: "success",
+        message:
+          action === "test"
+            ? "Conexão realizada com sucesso."
+            : "Chaves testadas e salvas com segurança.",
+      });
+      if (action === "save") {
+        setConnection((current) => ({ ...current, configured: true }));
+        setKeys({
+          publicKey: result.publicKeyHint || keys.publicKey,
+          secretKey: "",
+        });
+      }
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const toggleGateway = async () => {
+    const active = !connection.active;
+    setBusy("toggle");
+    setFeedback({ type: "", message: "" });
+    try {
+      await request({
+        method: "POST",
+        body: JSON.stringify({
+          workspaceId: workspace.id,
+          action: "toggle",
+          active,
+        }),
+      });
+      setConnection((current) => ({ ...current, active }));
+      setFeedback({
+        type: "success",
+        message: active
+          ? "Pagamaster ativada nos checkouts."
+          : "Pagamaster desativada.",
+      });
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <div className="page-enter gateway-page">
+      <PageTitle
+        kicker="PAGAMENTOS"
+        title="Gateways"
+        description="Configure e controle os provedores que processam seus checkouts"
+      />
+      <section className="gateway-catalog" aria-label="Gateways disponíveis">
+        <article className="gateway-provider-card">
+          <header>
+            <img src="/pagamaster-logo.png" alt="Pagamaster" />
+            <div>
+              <strong>Pagamaster</strong>
+              <span>Pix, boleto e cartão de crédito</span>
+            </div>
+            <em className={connection.active ? "connected" : "pending"}>
+              {connection.loading
+                ? "Verificando"
+                : connection.active
+                  ? "Ativo"
+                  : connection.configured
+                    ? "Inativo"
+                    : "Aguardando credenciais"}
+            </em>
+          </header>
+          <div className="gateway-provider-body gateway-credentials">
+            <p>
+              Informe as chaves de produção disponíveis em Integrações no painel
+              Pagamaster.
+            </p>
+            <div className="gateway-key-grid">
+              <label>
+                Public Key
+                <input
+                  value={keys.publicKey}
+                  placeholder="pk_live_..."
+                  autoComplete="off"
+                  onChange={(event) =>
+                    setKeys((current) => ({
+                      ...current,
+                      publicKey: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Secret Key
+                <input
+                  value={keys.secretKey}
+                  type="password"
+                  placeholder={
+                    connection.configured
+                      ? "Chave salva e protegida"
+                      : "sk_live_..."
+                  }
+                  autoComplete="new-password"
+                  onChange={(event) =>
+                    setKeys((current) => ({
+                      ...current,
+                      secretKey: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            {feedback.message && (
+              <p className={`gateway-feedback ${feedback.type}`} role="status">
+                {feedback.message}
+              </p>
+            )}
+            <div className="gateway-config-actions">
+              <button
+                type="button"
+                className="gateway-test"
+                disabled={Boolean(busy) || !keys.secretKey}
+                onClick={() => credentialsAction("test")}
+              >
+                {busy === "test" ? "Testando..." : "Testar conexão"}
+              </button>
+              <Button
+                disabled={Boolean(busy) || !keys.secretKey}
+                onClick={() => credentialsAction("save")}
+              >
+                {busy === "save"
+                  ? "Salvando..."
+                  : connection.configured
+                    ? "Atualizar chaves"
+                    : "Salvar chaves"}
+              </Button>
+            </div>
+          </div>
+          <footer>
+            <a
+              href="https://developers.pagamaster.com/docs/getting-started"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ver documentação <ArrowRight />
+            </a>
+            <label
+              className={`gateway-toggle ${connection.active ? "active" : ""}`}
+            >
+              <span>
+                {connection.active ? "Gateway ativo" : "Gateway inativo"}
+              </span>
+              <input
+                type="checkbox"
+                checked={connection.active}
+                disabled={Boolean(busy) || !connection.configured}
+                onChange={toggleGateway}
+              />
+              <i />
+            </label>
           </footer>
         </article>
       </section>
@@ -3279,8 +3510,7 @@ function DataView({
   }
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
   if (type === "tracking") return <TrackingPage workspace={workspace} />;
-  if (type === "gateways")
-    return <GatewayView gateways={data.payment_gateways} onAction={onAction} />;
+  if (type === "gateways") return <GatewayView workspace={workspace} />;
   const config = {
     vendas: [
       "OPERAÇÃO",
