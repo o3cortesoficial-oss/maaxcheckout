@@ -4312,6 +4312,7 @@ function DataView({
         {type === "produtos" && data.products.length ? (
           <ProductRows
             products={data.products}
+            productImages={data.product_images}
             onEdit={(product) => onNavigate(`product_edit:${product.id}`)}
             onReload={onReload}
           />
@@ -4324,7 +4325,7 @@ function DataView({
     </div>
   );
 }
-function ProductRows({ products, onEdit, onReload }) {
+function ProductRows({ products, productImages, onEdit, onReload }) {
   const [feedback, setFeedback] = useState("");
   const copyLink = async (product) => {
     const url = `${location.origin}/checkout/${product.slug}`;
@@ -4361,11 +4362,24 @@ function ProductRows({ products, onEdit, onReload }) {
         <span>Status</span>
         <span>Ações</span>
       </div>
-      {products.map((product) => (
+      {products.map((product) => {
+        const cover = productImages
+          .filter((image) => image.product_id === product.id)
+          .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))[0];
+        return (
         <div className="generic-row" key={product.id}>
-          <span>
-            <b>{product.name}</b>
-            <small>/{product.slug}</small>
+          <span className="product-list-identity">
+            <i className={`product-list-thumb${cover ? " has-image" : ""}`}>
+              {cover ? (
+                <img src={cover.url} alt="" loading="lazy" />
+              ) : (
+                <Package aria-hidden="true" />
+              )}
+            </i>
+            <span>
+              <b>{product.name}</b>
+              <small>/{product.slug}</small>
+            </span>
           </span>
           <span>
             {product.billing_type === "subscription"
@@ -4402,7 +4416,8 @@ function ProductRows({ products, onEdit, onReload }) {
             </button>
           </span>
         </div>
-      ))}
+        );
+      })}
       {feedback && (
         <div className="table-feedback" role="status">
           {feedback}

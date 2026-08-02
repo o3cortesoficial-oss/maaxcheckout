@@ -4236,13 +4236,51 @@ a {
     padding: 18px;
   }
 }
-.product-table .generic-row span:first-child {
+.product-list-identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.product-list-identity > span {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
-.product-table .generic-row span:first-child small {
+.product-list-identity > span b,
+.product-list-identity > span small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.product-list-identity > span small {
   font-size: 7px;
   color: #a0a29b;
+}
+.product-list-thumb {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #e4e5df;
+  border-radius: 8px;
+  background: #f4f5f1;
+  color: #777a72;
+  font-style: normal;
+}
+.product-list-thumb.has-image {
+  background: #fff;
+}
+.product-list-thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.product-list-thumb svg {
+  font-size: 19px;
 }
 .product-actions {
   display: flex;
