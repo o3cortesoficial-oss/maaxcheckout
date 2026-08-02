@@ -36,19 +36,32 @@ async function testConnection(publicKey, secretKey) {
   const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString(
     "base64",
   );
-  const result = await fetch(`${apiUrl}/balance`, {
+  let result = await fetch(`${apiUrl}/balances`, {
     headers: {
       Authorization: `Basic ${credentials}`,
       Accept: "application/json",
     },
   });
+  if (result.status === 401) {
+    result = await fetch(`${apiUrl}/balances`, {
+      headers: {
+        "x-api-key": publicKey,
+        "x-api-secret": secretKey,
+        Accept: "application/json",
+      },
+    });
+  }
   const payload = await result.json().catch(() => ({}));
   if (!result.ok) {
-    const error = new Error(
-      payload.message ||
-        payload.error ||
-        "A Pagamaster recusou as credenciais.",
-    );
+    const message =
+      result.status === 401
+        ? "Credenciais inválidas. Confirme a Public Key e a Secret Key geradas em Integrações na Pagamaster."
+        : result.status === 403
+          ? "Credenciais reconhecidas, mas a conta Pagamaster ainda não possui KYC aprovado."
+          : payload.message ||
+            payload.error ||
+            "A Pagamaster recusou a conexão.";
+    const error = new Error(message);
     error.status = result.status;
     throw error;
   }
@@ -155,18 +168,14 @@ export default async function handler(request, response) {
       : supabase.from("payment_gateways").insert(record);
     const { error } = await operation;
     if (error) throw error;
-    return response
-      .status(200)
-      .json({
-        configured: true,
-        tested: true,
-        publicKeyHint: publicKey.slice(0, 12) + "…",
-      });
+    return response.status(200).json({
+      configured: true,
+      tested: true,
+      publicKeyHint: publicKey.slice(0, 12) + "…",
+    });
   } catch (error) {
-    return response
-      .status(error.status || 500)
-      .json({
-        error: error.message || "Não foi possível configurar a Pagamaster.",
-      });
+    return response.status(error.status || 500).json({
+      error: error.message || "Não foi possível configurar a Pagamaster.",
+    });
   }
 }
