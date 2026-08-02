@@ -30,6 +30,11 @@ const money = (cents = 0) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     Number(cents) / 100,
   );
+const brlToCents = (value = 0) => {
+  const normalized = String(value).trim().replace(/\./g, "").replace(",", ".");
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
+};
 const date = (v) =>
   v
     ? new Intl.DateTimeFormat("pt-BR", {
@@ -1020,6 +1025,7 @@ export function PublicCheckout({ slug }) {
     cvv: "",
   });
   const [submitState, setSubmitState] = useState("");
+  const [protectionSelected, setProtectionSelected] = useState(false);
   useEffect(() => {
     let active = true;
     const loadCheckout = async () => {
@@ -1096,6 +1102,16 @@ export function PublicCheckout({ slug }) {
   const isPhysical = ["physical", "fisico", "físico"].includes(
     (product.product_type || "").toLowerCase(),
   );
+  const protectionAvailable =
+    isPhysical &&
+    enabled("shopper_protection") &&
+    settings.template === "shopper";
+  const protectionCents = protectionAvailable
+    ? brlToCents(settings.shopper_protection_price)
+    : 0;
+  const totalCents =
+    Number(product.price_cents || 0) +
+    (protectionSelected ? protectionCents : 0);
   const submit = (event) => {
     event.preventDefault();
     setSubmitState("Processando pagamento...");
@@ -1122,6 +1138,10 @@ export function PublicCheckout({ slug }) {
         setCard={setCard}
         submit={submit}
         submitState={submitState}
+        protectionSelected={protectionSelected}
+        setProtectionSelected={setProtectionSelected}
+        protectionCents={protectionCents}
+        totalCents={totalCents}
       />
     );
   }
@@ -1491,6 +1511,10 @@ function ShopperCheckout({
   setCard,
   submit,
   submitState,
+  protectionSelected,
+  setProtectionSelected,
+  protectionCents,
+  totalCents,
   preview = false,
 }) {
   const enabled = (id) =>
@@ -1551,14 +1575,20 @@ function ShopperCheckout({
           </div>
           {isPhysical && enabled("shopper_protection") && (
             <label className="shopper-protection">
-              <input type="checkbox" />
+              <input
+                type="checkbox"
+                checked={protectionSelected}
+                onChange={(event) =>
+                  setProtectionSelected(event.target.checked)
+                }
+              />
               <span>
                 <b>Proteção da compra</b>
                 <small>
                   Proteja seu pedido contra danos ou extravio durante a entrega.
                 </small>
               </span>
-              <strong>R$ {settings.shopper_protection_price}</strong>
+              <strong>{money(protectionCents)}</strong>
             </label>
           )}
         </section>
@@ -1708,7 +1738,7 @@ function ShopperCheckout({
         )}
         <section className="shopper-total">
           <span>Total ({isPhysical ? "1 item" : "conteúdo digital"})</span>
-          <strong>{money(product.price_cents)}</strong>
+          <strong>{money(totalCents)}</strong>
         </section>
         {submitState && <p className="public-submit-state">{submitState}</p>}
         <button className="shopper-submit" type="submit">
@@ -2304,6 +2334,7 @@ function CheckoutPreview({ settings, modules }) {
 }
 function ShopperPreview({ settings, modules }) {
   const [device, setDevice] = useState("mobile");
+  const [protectionSelected, setProtectionSelected] = useState(false);
   const [payment, setPayment] = useState(
     (settings.payment_methods || defaultCheckout.payment_methods)[0],
   );
@@ -2320,6 +2351,7 @@ function ShopperPreview({ settings, modules }) {
     description: "Descrição curta do produto",
     price_cents: 19700,
   };
+  const protectionCents = brlToCents(settings.shopper_protection_price);
   if (settings.template === "shopper")
     return (
       <div className={`preview-stage preview-${device}`}>
@@ -2359,6 +2391,13 @@ function ShopperPreview({ settings, modules }) {
             setCard={setCard}
             submit={(event) => event.preventDefault()}
             submitState=""
+            protectionSelected={protectionSelected}
+            setProtectionSelected={setProtectionSelected}
+            protectionCents={protectionCents}
+            totalCents={
+              demoProduct.price_cents +
+              (protectionSelected ? protectionCents : 0)
+            }
           />
         </div>
       </div>
