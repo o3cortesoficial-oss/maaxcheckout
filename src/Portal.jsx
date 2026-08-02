@@ -556,23 +556,42 @@ export function RealDashboard({ navigate }) {
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState("");
-  const load = async () => {
+  const load = async (retried = false) => {
     setLoading(true);
     setError("");
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    let currentSession = sessionData.session;
+    const expiresSoon =
+      currentSession?.expires_at &&
+      currentSession.expires_at * 1000 <= Date.now() + 60000;
+    if (currentSession && expiresSoon) {
+      const { data: refreshed, error: refreshError } =
+        await supabase.auth.refreshSession();
+      if (refreshError || !refreshed.session) {
+        await supabase.auth.signOut({ scope: "local" });
+        navigate("/login");
+        return;
+      }
+      currentSession = refreshed.session;
+    }
+    if (!currentSession) {
       navigate("/login");
       return;
     }
-    setSession(session);
+    setSession(currentSession);
     const { data: spaces, error: spaceError } = await supabase
       .from("workspaces")
       .select("*")
       .order("created_at")
       .limit(1);
     if (spaceError || !spaces?.length) {
+      if (!retried && /jwt|token|session/i.test(spaceError?.message || "")) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed.session) return load(true);
+        await supabase.auth.signOut({ scope: "local" });
+        navigate("/login");
+        return;
+      }
       setError(spaceError?.message || "Nenhum workspace foi encontrado.");
       setLoading(false);
       return;
@@ -601,6 +620,13 @@ export function RealDashboard({ navigate }) {
     const next = {};
     tables.forEach((t, i) => (next[t] = results[i].data || []));
     const failed = results.find((r) => r.error);
+    if (!retried && /jwt|token|session/i.test(failed?.error?.message || "")) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed.session) return load(true);
+      await supabase.auth.signOut({ scope: "local" });
+      navigate("/login");
+      return;
+    }
     if (failed) setError(failed.error.message);
     setData(next);
     setLoading(false);
