@@ -929,6 +929,13 @@ const defaultCheckout = {
   brand_name: "Minha loja",
   accent: "#cbff35",
   background: "#f5f5f2",
+  surface: "#ffffff",
+  secondary_surface: "#f4f5f1",
+  text_color: "#20211e",
+  muted_color: "#74776f",
+  input_background: "#ffffff",
+  card_color: "#242520",
+  card_text_color: "#ffffff",
   radius: 12,
   layout: "split",
   button_text: "Finalizar pagamento",
@@ -1055,6 +1062,13 @@ export function PublicCheckout({ slug }) {
       style={{
         "--checkout-accent": settings.accent,
         "--checkout-bg": settings.background,
+        "--checkout-surface": settings.surface,
+        "--checkout-secondary": settings.secondary_surface,
+        "--checkout-text": settings.text_color,
+        "--checkout-muted": settings.muted_color,
+        "--checkout-input": settings.input_background,
+        "--checkout-card": settings.card_color,
+        "--checkout-card-text": settings.card_text_color,
         "--checkout-radius": `${settings.radius}px`,
       }}
     >
@@ -1628,6 +1642,26 @@ function CheckoutEditor({ workspace }) {
                 />
               </label>
             </div>
+            <div className="editor-colors editor-colors-extended">
+              {[
+                ["surface", "Área do formulário"],
+                ["secondary_surface", "Resumo do pedido"],
+                ["text_color", "Texto principal"],
+                ["muted_color", "Texto secundário"],
+                ["input_background", "Fundo dos campos"],
+                ["card_color", "Cartão virtual"],
+                ["card_text_color", "Texto do cartão"],
+              ].map(([key, label]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type="color"
+                    value={settings[key]}
+                    onChange={(e) => change(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
             <label>
               Raio dos elementos <span>{settings.radius}px</span>
               <input
@@ -1714,13 +1748,26 @@ function CheckoutEditor({ workspace }) {
 }
 function CheckoutPreview({ settings, modules }) {
   const [device, setDevice] = useState("desktop");
+  const [previewPayment, setPreviewPayment] = useState("pix");
   const enabled = (id) => modules.find((m) => m.id === id)?.enabled;
+  const previewMethods =
+    settings.payment_methods || defaultCheckout.payment_methods;
+  const activePreviewPayment = previewMethods.includes(previewPayment)
+    ? previewPayment
+    : previewMethods[0];
   return (
     <div
       className={`preview-stage preview-${device}`}
       style={{
         "--checkout-accent": settings.accent,
         "--checkout-bg": settings.background,
+        "--checkout-surface": settings.surface,
+        "--checkout-secondary": settings.secondary_surface,
+        "--checkout-text": settings.text_color,
+        "--checkout-muted": settings.muted_color,
+        "--checkout-input": settings.input_background,
+        "--checkout-card": settings.card_color,
+        "--checkout-card-text": settings.card_text_color,
         "--checkout-radius": `${settings.radius}px`,
       }}
     >
@@ -1791,13 +1838,13 @@ function CheckoutPreview({ settings, modules }) {
                   <small>02</small>
                   <h3>Pagamento</h3>
                   <div className="payment-choice">
-                    {(
-                      settings.payment_methods ||
-                      defaultCheckout.payment_methods
-                    ).map((method, index) => (
+                    {previewMethods.map((method) => (
                       <button
                         key={method}
-                        className={index === 0 ? "selected" : ""}
+                        className={
+                          activePreviewPayment === method ? "selected" : ""
+                        }
+                        onClick={() => setPreviewPayment(method)}
                       >
                         {method === "pix"
                           ? "Pix"
@@ -1808,6 +1855,16 @@ function CheckoutPreview({ settings, modules }) {
                       </button>
                     ))}
                   </div>
+                  {activePreviewPayment === "card" && (
+                    <div className="preview-virtual-card">
+                      <div>
+                        <span className="virtual-chip" />
+                        <b>maax</b>
+                      </div>
+                      <strong>0000 0000 0000 0000</strong>
+                      <small>SEU NOME&nbsp;&nbsp;&nbsp; MM/AA</small>
+                    </div>
+                  )}
                 </section>
               )}
               {enabled("trust") && (
