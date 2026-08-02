@@ -907,6 +907,7 @@ export function RealDashboard({ navigate }) {
       product_images: [],
       payment_attempts: [],
       checkout_event_counters: [],
+      checkout_presence: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -966,6 +967,7 @@ export function RealDashboard({ navigate }) {
       "product_images",
       "payment_attempts",
       "checkout_event_counters",
+      "checkout_presence",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -974,7 +976,11 @@ export function RealDashboard({ navigate }) {
           .select("*")
           .eq("workspace_id", ws.id)
           .order(
-            t === "checkout_event_counters" ? "updated_at" : "created_at",
+            t === "checkout_event_counters"
+              ? "updated_at"
+              : t === "checkout_presence"
+                ? "last_seen_at"
+                : "created_at",
             { ascending: false },
           )
           .limit(1000),
@@ -1026,6 +1032,25 @@ export function RealDashboard({ navigate }) {
                 (item) => item.event_type !== counter.event_type,
               ),
             ],
+          })),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "checkout_presence" },
+        ({ eventType, new: presence, old }) =>
+          setData((current) => ({
+            ...current,
+            checkout_presence:
+              eventType === "DELETE"
+                ? current.checkout_presence.filter(
+                    (item) => item.session_id !== old.session_id,
+                  )
+                : [
+                    presence,
+                    ...current.checkout_presence.filter(
+                      (item) => item.session_id !== presence.session_id,
+                    ),
+                  ],
           })),
       )
       .subscribe();
@@ -1252,11 +1277,19 @@ function Empty({ type }) {
   );
 }
 
-function CheckoutLiveFeed({ counters = [] }) {
+function CheckoutLiveFeed({ counters = [], presence = [] }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
   const totalFor = (eventType) =>
     Number(counters.find((counter) => counter.event_type === eventType)?.total || 0);
+  const activeAccesses = presence.filter(
+    (item) => now - new Date(item.last_seen_at).getTime() < 30000,
+  ).length;
   const stages = [
-    ["Acessos", totalFor("checkout_opened")],
+    ["Acessos agora", activeAccesses],
     ["Preenchimentos", totalFor("form_started")],
     ["Pagamentos enviados", totalFor("payment_submitted")],
     ["Pix gerados", totalFor("pix_generated")],
@@ -1298,7 +1331,10 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
             <CheckCircle /> Total de pagamentos aprovados
           </p>
         </div>
-        <CheckoutLiveFeed counters={data.checkout_event_counters} />
+        <CheckoutLiveFeed
+          counters={data.checkout_event_counters}
+          presence={data.checkout_presence}
+        />
       </section>
       <div className="metrics">
         <Stat
@@ -1514,6 +1550,45 @@ export function PublicCheckout({ slug }) {
       active = false;
     };
   }, [slug]);
+  useEffect(() => {
+    const productId = state.product?.id;
+    if (!productId) return undefined;
+    const payload = (action) =>
+      JSON.stringify({
+        productId,
+        sessionId: checkoutSessionId.current,
+        action,
+      });
+    const heartbeat = () =>
+      fetch("/api/checkout/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload("heartbeat"),
+      }).catch(() => undefined);
+    const leave = () => {
+      const body = payload("leave");
+      if (navigator.sendBeacon)
+        navigator.sendBeacon(
+          "/api/checkout/presence",
+          new Blob([body], { type: "application/json" }),
+        );
+      else
+        fetch("/api/checkout/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => undefined);
+    };
+    heartbeat();
+    const heartbeatTimer = window.setInterval(heartbeat, 10000);
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.clearInterval(heartbeatTimer);
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, [state.product?.id]);
   if (state.loading)
     return (
       <div className="public-checkout-loading">
