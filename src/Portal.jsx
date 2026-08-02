@@ -907,6 +907,7 @@ export function RealDashboard({ navigate }) {
       payment_gateways: [],
       product_images: [],
       payment_attempts: [],
+      checkout_events: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -965,6 +966,7 @@ export function RealDashboard({ navigate }) {
       "payment_gateways",
       "product_images",
       "payment_attempts",
+      "checkout_events",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -972,7 +974,8 @@ export function RealDashboard({ navigate }) {
           .from(t)
           .select("*")
           .eq("workspace_id", ws.id)
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(t === "checkout_events" ? 12 : 1000),
       ),
     );
     const next = {};
@@ -1003,9 +1006,24 @@ export function RealDashboard({ navigate }) {
     } = supabase.auth.onAuthStateChange((_e, s) => {
       if (!s) navigate("/login");
     });
+    const liveEvents = supabase
+      .channel("checkout-live-events")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "checkout_events" },
+        ({ new: event }) =>
+          setData((current) => ({
+            ...current,
+            checkout_events: [event, ...current.checkout_events]
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, 12),
+          })),
+      )
+      .subscribe();
     const refreshTimer = window.setInterval(() => load(false, true), 30000);
     return () => {
       window.clearInterval(refreshTimer);
+      supabase.removeChannel(liveEvents);
       subscription.unsubscribe();
     };
   }, []);
@@ -1225,6 +1243,65 @@ function Empty({ type }) {
   );
 }
 
+const checkoutEventLabels = {
+  checkout_opened: "Checkout acessado",
+  form_started: "Dados pessoais iniciados",
+  address_started: "Endereço de entrega iniciado",
+  payment_method_selected: "Forma de pagamento escolhida",
+  payment_submitted: "Pagamento enviado",
+  payment_created: "Cobrança gerada",
+  pix_generated: "QR Code Pix gerado",
+  payment_failed: "Falha ao gerar cobrança",
+};
+
+function CheckoutLiveFeed({ events = [] }) {
+  return (
+    <div className="checkout-live-feed">
+      <div className="live-feed-head">
+        <div>
+          <span className="live-dot" />
+          <b>Eventos ao vivo</b>
+        </div>
+        <small>tempo real</small>
+      </div>
+      <div className="live-feed-list" aria-live="polite">
+        {events.length ? (
+          events.slice(0, 4).map((event, index) => (
+            <div
+              className="live-feed-event"
+              key={event.id}
+              style={{ "--event-index": index }}
+            >
+              <i />
+              <span>
+                <b>{checkoutEventLabels[event.event_type] || "Evento do checkout"}</b>
+                <small>
+                  {event.payment_method
+                    ? `${event.payment_method.toUpperCase()} · `
+                    : ""}
+                  {new Intl.DateTimeFormat("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  }).format(new Date(event.created_at))}
+                </small>
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="live-feed-empty">
+            <Crosshair />
+            <span>
+              <b>Aguardando atividade</b>
+              <small>Os acessos aparecerão aqui automaticamente.</small>
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HomeView({ metrics, data, workspace, onNavigate }) {
   return (
     <div className="page-enter">
@@ -1241,11 +1318,7 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
             <CheckCircle /> Total de pagamentos aprovados
           </p>
         </div>
-        <div className="balance-actions">
-          <Button onClick={() => onNavigate("gateways")}>
-            Ver gateways <ArrowRight />
-          </Button>
-        </div>
+        <CheckoutLiveFeed events={data.checkout_events} />
       </section>
       <div className="metrics">
         <Stat
@@ -1377,6 +1450,8 @@ const mergeCheckoutModules = (saved = []) => [
   ),
 ];
 export function PublicCheckout({ slug }) {
+  const checkoutSessionId = useRef(crypto.randomUUID());
+  const trackedInteraction = useRef({ form: false, address: false });
   const [state, setState] = useState({
     loading: true,
     product: null,
@@ -1395,6 +1470,21 @@ export function PublicCheckout({ slug }) {
   const [submitState, setSubmitState] = useState("");
   const [paymentResult, setPaymentResult] = useState(null);
   const [protectionSelected, setProtectionSelected] = useState(false);
+  const trackCheckoutEvent = (eventType, paymentMethod, productId) => {
+    const targetProductId = productId || state.product?.id;
+    if (!targetProductId) return;
+    fetch("/api/checkout/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        productId: targetProductId,
+        sessionId: checkoutSessionId.current,
+        eventType,
+        paymentMethod: paymentMethod || null,
+      }),
+    }).catch(() => undefined);
+  };
   useEffect(() => {
     let active = true;
     const loadCheckout = async () => {
@@ -1437,6 +1527,7 @@ export function PublicCheckout({ slug }) {
         modules: mergeCheckoutModules(configResult.data?.modules || []),
         error: "",
       });
+      trackCheckoutEvent("checkout_opened", null, product.id);
     };
     loadCheckout();
     return () => {
@@ -1466,6 +1557,22 @@ export function PublicCheckout({ slug }) {
   const selectedPayment = paymentMethods.includes(payment)
     ? payment
     : paymentMethods[0];
+  const choosePayment = (method) => {
+    setPayment(method);
+    trackCheckoutEvent("payment_method_selected", method);
+  };
+  const trackFormProgress = (event) => {
+    const fieldName = event.target?.name || "";
+    if (fieldName.startsWith("address_") && !trackedInteraction.current.address) {
+      trackedInteraction.current.address = true;
+      trackCheckoutEvent("address_started", selectedPayment);
+      return;
+    }
+    if (!trackedInteraction.current.form) {
+      trackedInteraction.current.form = true;
+      trackCheckoutEvent("form_started", selectedPayment);
+    }
+  };
   const enabled = (id) =>
     modules.find((module) => module.id === id)?.enabled !== false;
   const isPhysical = ["physical", "fisico", "físico"].includes(
@@ -1483,6 +1590,7 @@ export function PublicCheckout({ slug }) {
     (protectionSelected ? protectionCents : 0);
   const submit = async (event) => {
     event.preventDefault();
+    trackCheckoutEvent("payment_submitted", selectedPayment);
     setSubmitState("Processando pagamento...");
     setPaymentResult(null);
     const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -1516,12 +1624,17 @@ export function PublicCheckout({ slug }) {
       if (!response.ok)
         throw new Error(result.error || "Não foi possível criar a cobrança.");
       setPaymentResult(result);
+      trackCheckoutEvent(
+        result.pix?.qrcode ? "pix_generated" : "payment_created",
+        selectedPayment,
+      );
       setSubmitState(
         result.status === "APPROVED"
           ? "Pagamento aprovado."
           : "Cobrança criada. Conclua o pagamento abaixo.",
       );
     } catch (error) {
+      trackCheckoutEvent("payment_failed", selectedPayment);
       setSubmitState(error.message);
     }
   };
@@ -1535,7 +1648,7 @@ export function PublicCheckout({ slug }) {
         isPhysical={isPhysical}
         paymentMethods={paymentMethods}
         payment={selectedPayment}
-        setPayment={setPayment}
+        setPayment={choosePayment}
         card={card}
         setCard={setCard}
         submit={submit}
@@ -1545,6 +1658,7 @@ export function PublicCheckout({ slug }) {
         protectionCents={protectionCents}
         totalCents={totalCents}
         paymentResult={paymentResult}
+        onFormFocus={trackFormProgress}
       />
     );
   }
@@ -1586,7 +1700,11 @@ export function PublicCheckout({ slug }) {
         )}
       </header>
       <main className={settings.layout === "compact" ? "compact" : ""}>
-        <form className="public-checkout-form" onSubmit={submit}>
+        <form
+          className="public-checkout-form"
+          onSubmit={submit}
+          onFocusCapture={trackFormProgress}
+        >
           <div className="public-product-mobile">
             {images[0] ? (
               <img src={images[0].url} alt={product.name} />
@@ -1805,7 +1923,7 @@ export function PublicCheckout({ slug }) {
                   type="button"
                   hidden={!paymentMethods.includes("pix")}
                   className={selectedPayment === "pix" ? "selected" : ""}
-                  onClick={() => setPayment("pix")}
+                  onClick={() => choosePayment("pix")}
                 >
                   Pix<em>Aprovação imediata</em>
                 </button>
@@ -1813,7 +1931,7 @@ export function PublicCheckout({ slug }) {
                   type="button"
                   hidden={!paymentMethods.includes("card")}
                   className={selectedPayment === "card" ? "selected" : ""}
-                  onClick={() => setPayment("card")}
+                  onClick={() => choosePayment("card")}
                 >
                   Cartão
                 </button>
@@ -1821,7 +1939,7 @@ export function PublicCheckout({ slug }) {
                   <button
                     type="button"
                     className={selectedPayment === "boleto" ? "selected" : ""}
-                    onClick={() => setPayment("boleto")}
+                    onClick={() => choosePayment("boleto")}
                   >
                     Boleto <em>Vencimento em 3 dias</em>
                   </button>
@@ -2078,6 +2196,7 @@ function ShopperCheckout({
   protectionCents,
   totalCents,
   paymentResult,
+  onFormFocus,
   preview = false,
 }) {
   const enabled = (id) =>
@@ -2106,7 +2225,7 @@ function ShopperCheckout({
         <b>{settings.shopper_header_title}</b>
         {enabled("secure_badge") ? <Bank /> : <i />}
       </header>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onFocusCapture={onFormFocus}>
         <section className="shopper-store">
           <div className="shopper-store-name">
             <span className={settings.logo_url ? "has-logo" : ""}>

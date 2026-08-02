@@ -1,0 +1,52 @@
+import { createClient } from "@supabase/supabase-js";
+
+const allowedEvents = new Set([
+  "checkout_opened",
+  "form_started",
+  "address_started",
+  "payment_method_selected",
+  "payment_submitted",
+  "payment_created",
+  "pix_generated",
+  "payment_failed",
+]);
+
+export default async function handler(request, response) {
+  if (request.method !== "POST")
+    return response.status(405).json({ error: "Método não permitido." });
+  try {
+    const { productId, sessionId, eventType, paymentMethod } = request.body || {};
+    if (
+      !allowedEvents.has(eventType) ||
+      !/^[0-9a-f-]{36}$/i.test(String(sessionId || ""))
+    )
+      return response.status(400).json({ error: "Evento inválido." });
+
+    const supabase = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SECRET_KEY,
+      { auth: { persistSession: false } },
+    );
+    const { data: product } = await supabase
+      .from("products")
+      .select("id, workspace_id")
+      .eq("id", productId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (!product)
+      return response.status(404).json({ error: "Produto indisponível." });
+
+    const { error } = await supabase.from("checkout_events").insert({
+      workspace_id: product.workspace_id,
+      product_id: product.id,
+      session_id: sessionId,
+      event_type: eventType,
+      payment_method: paymentMethod || null,
+    });
+    if (error) throw error;
+    return response.status(202).json({ received: true });
+  } catch (error) {
+    console.error("Checkout event capture failed", error);
+    return response.status(500).json({ error: "Falha ao registrar evento." });
+  }
+}
