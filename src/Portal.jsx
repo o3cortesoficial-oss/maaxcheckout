@@ -260,7 +260,11 @@ function Field({ label, ...props }) {
 }
 
 function GatewayModal({ workspace, onClose, onSaved }) {
-  const [form, setForm] = useState({ environment: "production" }),
+  const [form, setForm] = useState({
+      display_name: "Pagamaster",
+      provider: "pagamaster",
+      environment: "production",
+    }),
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   const save = async (e) => {
@@ -290,6 +294,7 @@ function GatewayModal({ workspace, onClose, onSaved }) {
         <Field
           label="Nome da integração"
           placeholder="Gateway principal"
+          value={form.display_name}
           required
           onChange={(e) =>
             setForm((v) => ({ ...v, display_name: e.target.value }))
@@ -299,11 +304,13 @@ function GatewayModal({ workspace, onClose, onSaved }) {
           Provedor
           <select
             required
+            value={form.provider}
             onChange={(e) =>
               setForm((v) => ({ ...v, provider: e.target.value }))
             }
           >
             <option value="">Selecione</option>
+            <option value="pagamaster">Pagamaster</option>
             <option value="stripe">Stripe</option>
             <option value="mercadopago">Mercado Pago</option>
             <option value="pagarme">Pagar.me</option>
@@ -346,6 +353,94 @@ function GatewayModal({ workspace, onClose, onSaved }) {
         </div>
       </form>
     </Modal>
+  );
+}
+
+function GatewayView({ gateways, onAction }) {
+  const [connection, setConnection] = useState({
+    loading: true,
+    configured: false,
+  });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/pagamaster/status")
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((result) => {
+        if (active)
+          setConnection({
+            loading: false,
+            configured: Boolean(result.configured),
+          });
+      })
+      .catch(() => {
+        if (active) setConnection({ loading: false, configured: false });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const registered = gateways.some(
+    (gateway) => gateway.provider === "pagamaster",
+  );
+  const connected = connection.configured && registered;
+
+  return (
+    <div className="page-enter gateway-page">
+      <PageTitle
+        kicker="PAGAMENTOS"
+        title="Gateways"
+        description="Provedores conectados para processar seus checkouts"
+      />
+      <section className="gateway-catalog" aria-label="Gateways disponíveis">
+        <article className="gateway-provider-card">
+          <header>
+            <img src="/pagamaster-logo.png" alt="Pagamaster" />
+            <div>
+              <strong>Pagamaster</strong>
+              <span>Pix, boleto e cartão de crédito</span>
+            </div>
+            <em className={connected ? "connected" : "pending"}>
+              {connection.loading
+                ? "Verificando"
+                : connected
+                  ? "Conectado"
+                  : "Aguardando credenciais"}
+            </em>
+          </header>
+          <div className="gateway-provider-body">
+            <p>
+              Integração server-side com autenticação Basic Auth. As chaves
+              ficam protegidas nas variáveis de ambiente da Vercel.
+            </p>
+            <div>
+              <span>
+                <CheckCircle /> Cobranças em centavos
+              </span>
+              <span>
+                <CheckCircle /> Confirmação por webhook
+              </span>
+              <span>
+                <CheckCircle /> KYC obrigatório
+              </span>
+            </div>
+          </div>
+          <footer>
+            <a
+              href="https://developers.pagamaster.com/docs/getting-started"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ver documentação <ArrowRight />
+            </a>
+            {!registered && (
+              <Button onClick={onAction}>Cadastrar Pagamaster</Button>
+            )}
+          </footer>
+        </article>
+      </section>
+    </div>
   );
 }
 
@@ -3184,6 +3279,8 @@ function DataView({
   }
   if (type === "checkout") return <CheckoutEditor workspace={workspace} />;
   if (type === "tracking") return <TrackingPage workspace={workspace} />;
+  if (type === "gateways")
+    return <GatewayView gateways={data.payment_gateways} onAction={onAction} />;
   const config = {
     vendas: [
       "OPERAÇÃO",
