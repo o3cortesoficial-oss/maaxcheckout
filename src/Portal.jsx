@@ -1522,7 +1522,7 @@ function ShopperCheckout({
       <form onSubmit={submit}>
         <section className="shopper-store">
           <div className="shopper-store-name">
-            <span>
+            <span className={settings.logo_url ? "has-logo" : ""}>
               {settings.logo_url ? (
                 <img src={settings.logo_url} alt={settings.brand_name} />
               ) : (
