@@ -1353,6 +1353,7 @@ export function PublicCheckout({ slug }) {
     cvv: "",
   });
   const [submitState, setSubmitState] = useState("");
+  const [paymentResult, setPaymentResult] = useState(null);
   const [protectionSelected, setProtectionSelected] = useState(false);
   useEffect(() => {
     let active = true;
@@ -1440,16 +1441,48 @@ export function PublicCheckout({ slug }) {
   const totalCents =
     Number(product.price_cents || 0) +
     (protectionSelected ? protectionCents : 0);
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
     setSubmitState("Processando pagamento...");
-    setTimeout(
-      () =>
-        setSubmitState(
-          "Conecte um gateway ativo para receber pagamentos neste checkout.",
-        ),
-      700,
-    );
+    setPaymentResult(null);
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      const response = await fetch("/api/pagamaster/payin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          paymentMethod: selectedPayment,
+          customer: {
+            name: values.customer_name,
+            email: values.customer_email,
+            phone: values.customer_phone,
+            document: values.customer_document,
+          },
+          address: {
+            zipCode: values.address_zip_code,
+            street: values.address_street,
+            number: values.address_number,
+            neighborhood: values.address_neighborhood,
+            city: values.address_city,
+            state: values.address_state,
+            complement: values.address_complement,
+          },
+          card,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(result.error || "Não foi possível criar a cobrança.");
+      setPaymentResult(result);
+      setSubmitState(
+        result.status === "APPROVED"
+          ? "Pagamento aprovado."
+          : "Cobrança criada. Conclua o pagamento abaixo.",
+      );
+    } catch (error) {
+      setSubmitState(error.message);
+    }
   };
   if (settings.template === "shopper") {
     return (
@@ -1470,6 +1503,7 @@ export function PublicCheckout({ slug }) {
         setProtectionSelected={setProtectionSelected}
         protectionCents={protectionCents}
         totalCents={totalCents}
+        paymentResult={paymentResult}
       />
     );
   }
@@ -1529,22 +1563,90 @@ export function PublicCheckout({ slug }) {
               <h2>Seus dados</h2>
               <label>
                 E-mail
-                <input type="email" required placeholder="voce@email.com" />
+                <input
+                  name="customer_email"
+                  type="email"
+                  required
+                  placeholder="voce@email.com"
+                />
               </label>
               <div className="field-pair">
                 <label>
                   Nome
-                  <input required placeholder="Seu nome" />
+                  <input name="customer_name" required placeholder="Seu nome" />
                 </label>
                 <label>
                   CPF
                   <input
+                    name="customer_document"
                     required
                     inputMode="numeric"
                     placeholder="000.000.000-00"
                   />
                 </label>
               </div>
+              <label>
+                Telefone
+                <input
+                  name="customer_phone"
+                  required
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="(11) 99999-9999"
+                />
+              </label>
+            </section>
+          )}
+          {!isPhysical && (
+            <section className="shipping-section">
+              <span>02</span>
+              <h2>Endereço de cobrança</h2>
+              <div className="field-pair">
+                <label>
+                  CEP
+                  <input
+                    name="address_zip_code"
+                    required
+                    inputMode="numeric"
+                    placeholder="00000-000"
+                  />
+                </label>
+                <label>
+                  Número
+                  <input name="address_number" required placeholder="123" />
+                </label>
+              </div>
+              <label>
+                Endereço
+                <input
+                  name="address_street"
+                  required
+                  placeholder="Rua ou avenida"
+                />
+              </label>
+              <div className="shipping-address-grid city">
+                <label>
+                  Bairro
+                  <input name="address_neighborhood" required />
+                </label>
+                <label>
+                  Cidade
+                  <input name="address_city" required />
+                </label>
+                <label>
+                  Estado
+                  <input
+                    name="address_state"
+                    required
+                    maxLength="2"
+                    placeholder="UF"
+                  />
+                </label>
+              </div>
+              <label>
+                Complemento <small>Opcional</small>
+                <input name="address_complement" />
+              </label>
             </section>
           )}
           {isPhysical && (
@@ -1554,6 +1656,7 @@ export function PublicCheckout({ slug }) {
               <label>
                 CEP
                 <input
+                  name="address_zip_code"
                   required
                   inputMode="numeric"
                   autoComplete="postal-code"
@@ -1564,6 +1667,7 @@ export function PublicCheckout({ slug }) {
                 <label>
                   Endereço
                   <input
+                    name="address_street"
                     required
                     autoComplete="street-address"
                     placeholder="Rua ou avenida"
@@ -1571,17 +1675,27 @@ export function PublicCheckout({ slug }) {
                 </label>
                 <label>
                   Número
-                  <input required inputMode="numeric" placeholder="123" />
+                  <input
+                    name="address_number"
+                    required
+                    inputMode="numeric"
+                    placeholder="123"
+                  />
                 </label>
               </div>
               <div className="shipping-address-grid city">
                 <label>
                   Bairro
-                  <input required placeholder="Seu bairro" />
+                  <input
+                    name="address_neighborhood"
+                    required
+                    placeholder="Seu bairro"
+                  />
                 </label>
                 <label>
                   Cidade
                   <input
+                    name="address_city"
                     required
                     autoComplete="address-level2"
                     placeholder="Sua cidade"
@@ -1590,6 +1704,7 @@ export function PublicCheckout({ slug }) {
                 <label>
                   Estado
                   <select
+                    name="address_state"
                     required
                     autoComplete="address-level1"
                     defaultValue=""
@@ -1633,7 +1748,10 @@ export function PublicCheckout({ slug }) {
               </div>
               <label>
                 Complemento <small>Opcional</small>
-                <input placeholder="Apartamento, bloco ou referência" />
+                <input
+                  name="address_complement"
+                  placeholder="Apartamento, bloco ou referência"
+                />
               </label>
             </section>
           )}
@@ -1785,6 +1903,7 @@ export function PublicCheckout({ slug }) {
               {submitState}
             </p>
           )}
+          <PaymentResult result={paymentResult} />
           <button className="checkout-submit" type="submit">
             {settings.button_text}
             <ArrowRight />
@@ -1826,6 +1945,43 @@ export function PublicCheckout({ slug }) {
     </div>
   );
 }
+function PaymentResult({ result }) {
+  if (!result) return null;
+  const pixCode = result.pix?.qrcode;
+  return (
+    <div className="payment-result" role="status">
+      {pixCode && (
+        <>
+          <b>Pix gerado</b>
+          <p>Copie o código abaixo e pague no aplicativo do seu banco.</p>
+          <textarea readOnly value={pixCode} />
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(pixCode)}
+          >
+            <Copy /> Copiar código Pix
+          </button>
+        </>
+      )}
+      {result.boleto?.barcode && (
+        <>
+          <b>Boleto gerado</b>
+          <p>{result.boleto.barcode}</p>
+          <a href={result.boleto.url} target="_blank" rel="noreferrer">
+            Abrir boleto <ArrowRight />
+          </a>
+        </>
+      )}
+      {result.status === "APPROVED" && (
+        <>
+          <CheckCircle />
+          <b>Pagamento aprovado</b>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ShopperCheckout({
   product,
   images,
@@ -1843,6 +1999,7 @@ function ShopperCheckout({
   setProtectionSelected,
   protectionCents,
   totalCents,
+  paymentResult,
   preview = false,
 }) {
   const enabled = (id) =>
@@ -1989,24 +2146,47 @@ function ShopperCheckout({
             </div>
           </section>
         )}
-        {isPhysical && enabled("shopper_shipping") && (
+        {enabled("shopper_shipping") && (
           <section className="shopper-shipping">
             <div>
-              <b>Entrega</b>
-              <small>Alterar</small>
+              <b>{isPhysical ? "Entrega" : "Endereço de cobrança"}</b>
+              <small>Dados obrigatórios</small>
             </div>
-            <label className="shopper-shipping-card">
-              <input type="radio" defaultChecked name="shipping" />
-              <span>
-                <b>Entrega padrão</b>
-                <small>{settings.shopper_shipping_estimate}</small>
-              </span>
-              <strong>Grátis</strong>
-            </label>
+            {isPhysical && (
+              <label className="shopper-shipping-card">
+                <input type="radio" defaultChecked name="shipping" />
+                <span>
+                  <b>Entrega padrão</b>
+                  <small>{settings.shopper_shipping_estimate}</small>
+                </span>
+                <strong>Grátis</strong>
+              </label>
+            )}
             <div className="shopper-address">
-              <input required placeholder="CEP" inputMode="numeric" />
-              <input required placeholder="Endereço e número" />
-              <input required placeholder="Cidade / Estado" />
+              <input
+                name="address_zip_code"
+                required
+                placeholder="CEP"
+                inputMode="numeric"
+              />
+              <input name="address_street" required placeholder="Endereço" />
+              <input name="address_number" required placeholder="Número" />
+              <input
+                name="address_neighborhood"
+                required
+                placeholder="Bairro"
+              />
+              <input name="address_city" required placeholder="Cidade" />
+              <input
+                name="address_state"
+                required
+                maxLength="2"
+                placeholder="UF"
+              />
+              <input
+                name="address_complement"
+                placeholder="Complemento (opcional)"
+              />
             </div>
           </section>
         )}
@@ -2110,6 +2290,7 @@ function ShopperCheckout({
           <strong>{money(totalCents)}</strong>
         </section>
         {submitState && <p className="public-submit-state">{submitState}</p>}
+        <PaymentResult result={paymentResult} />
         <button className="shopper-submit" type="submit">
           {settings.button_text}
         </button>

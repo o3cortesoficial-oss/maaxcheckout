@@ -3774,6 +3774,56 @@ a {
   padding: 10px 12px;
   margin: 0 0 12px;
 }
+.payment-result {
+  grid-column: 1/-1;
+  border: 1px solid color-mix(in srgb, var(--checkout-accent) 45%, #dfe0da);
+  background: var(--checkout-surface, #fff);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  color: var(--checkout-text, #171815);
+}
+.payment-result > b {
+  font-size: 13px;
+}
+.payment-result > p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.55;
+  color: var(--checkout-muted, #73776e);
+  overflow-wrap: anywhere;
+}
+.payment-result > textarea {
+  width: 100%;
+  min-height: 82px;
+  resize: none;
+  border: 1px solid #dedfd9;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 10px;
+  line-height: 1.45;
+  background: var(--checkout-input, #fafbf8);
+  color: var(--checkout-text, #171815);
+}
+.payment-result > button,
+.payment-result > a {
+  min-height: 40px;
+  border-radius: 9px;
+  background: var(--checkout-accent);
+  color: #171815;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 14px;
+}
+.payment-result > svg {
+  font-size: 25px;
+  color: #438557;
+}
 .public-order-summary {
   background: #f4f5f1;
   padding: 42px;
