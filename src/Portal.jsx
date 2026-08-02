@@ -202,7 +202,6 @@ const nav = [
   ["gateways", "Gateways", Bank],
   ["checkout", "Checkout", CreditCard],
   ["tracking", "Rastreamento", Crosshair],
-  ["extrato", "Extrato", Receipt],
   ["clientes", "Clientes", Users],
   ["assinaturas", "Assinaturas", CreditCard],
 ];
