@@ -38,6 +38,12 @@ body {
   margin: 0;
   background: #f7f7f5;
 }
+.home-page,
+.login-page {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
 button,
 input {
   font: inherit;
@@ -189,6 +195,8 @@ a {
   font-weight: 600;
 }
 .hero h1 em {
+  display: inline-block;
+  margin-left: 0.055em;
   font-style: normal;
   color: var(--lime);
 }
@@ -1970,7 +1978,21 @@ a {
   }
   .login-form-wrap {
     min-height: 100dvh;
-    padding: 25px;
+    padding: clamp(24px, 6vw, 48px);
+  }
+  .login-form-wrap form {
+    width: min(420px, 100%);
+  }
+  .login-form-wrap h2 {
+    font-size: clamp(36px, 8.5vw, 43px);
+    line-height: 1.04;
+  }
+  .login-form-wrap input {
+    font-size: 16px;
+  }
+  .close-login {
+    top: clamp(20px, 5vw, 38px);
+    right: clamp(20px, 5vw, 38px);
   }
   .dashboard {
     display: block;
@@ -2060,6 +2082,9 @@ a {
   }
   .hero-visual {
     margin-left: -30px;
+  }
+  .hero-actions {
+    gap: 16px;
   }
   .card-right {
     right: -25%;
