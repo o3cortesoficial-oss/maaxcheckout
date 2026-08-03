@@ -13,7 +13,9 @@ import {
   CreditCard,
   Crosshair,
   CurrencyDollar,
+  DeviceMobile,
   GlobeSimple,
+  Headset,
   House,
   Link as LinkIcon,
   List,
@@ -24,6 +26,7 @@ import {
   Receipt,
   SignOut,
   Sparkle,
+  Storefront,
   TrendUp,
   Trash,
   Truck,
@@ -93,6 +96,107 @@ function Button({
     >
       {children}
     </button>
+  );
+}
+
+function CornerPhone({ onNavigate }) {
+  const [minimized, setMinimized] = useState(false);
+  const [screen, setScreen] = useState("home");
+
+  if (minimized)
+    return (
+      <button
+        type="button"
+        className="corner-phone-launcher"
+        onClick={() => setMinimized(false)}
+        aria-label="Abrir atalhos Maax"
+      >
+        <DeviceMobile weight="fill" />
+        <span>Atalhos</span>
+      </button>
+    );
+
+  return (
+    <div className="corner-phone-scene" role="complementary" aria-label="Atalhos Maax">
+      <div className="phone-hand" aria-hidden="true">
+        <i className="hand-palm" />
+        <i className="hand-thumb" />
+        <i className="hand-finger finger-one" />
+        <i className="hand-finger finger-two" />
+      </div>
+      <div className="corner-iphone">
+        <div className="iphone-side iphone-side-left" />
+        <div className="iphone-side iphone-side-right" />
+        <div className="iphone-screen">
+          <div className="iphone-status">
+            <b>09:41</b>
+            <span><i /><i /><i /></span>
+          </div>
+          <div className="dynamic-island"><i /></div>
+          <button
+            type="button"
+            className="iphone-minimize"
+            onClick={() => setMinimized(true)}
+            aria-label="Minimizar atalhos"
+          >
+            <span />
+          </button>
+
+          {screen === "home" ? (
+            <div className="iphone-home">
+              <header>
+                <span>MAAX OS</span>
+                <b>Seu negócio<br />na palma da mão.</b>
+              </header>
+              <div className="iphone-live-card">
+                <span><i /> OPERAÇÃO ONLINE</span>
+                <strong>Pronto para ajudar</strong>
+                <small>Acesse suporte ou gerencie sua loja.</small>
+              </div>
+              <div className="iphone-apps">
+                <button type="button" onClick={() => setScreen("support")}>
+                  <i className="support-app"><Headset weight="fill" /></i>
+                  <span>Suporte</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate("produtos");
+                    setScreen("store");
+                  }}
+                >
+                  <i className="store-app"><Storefront weight="fill" /></i>
+                  <span>Store</span>
+                </button>
+              </div>
+              <div className="iphone-dock">
+                <span><Headset weight="fill" /></span>
+                <span><Storefront weight="fill" /></span>
+                <span><Sparkle weight="fill" /></span>
+              </div>
+            </div>
+          ) : (
+            <div className="iphone-app-view">
+              <button type="button" onClick={() => setScreen("home")}>
+                <CaretLeft /> Início
+              </button>
+              <div className={screen === "support" ? "support-app" : "store-app"}>
+                {screen === "support" ? <Headset weight="fill" /> : <Storefront weight="fill" />}
+              </div>
+              <span>{screen === "support" ? "SUPORTE MAAX" : "STORE MAAX"}</span>
+              <b>{screen === "support" ? "Como podemos ajudar?" : "Catálogo aberto"}</b>
+              <p>
+                {screen === "support"
+                  ? "Nossa equipe está online. O canal de atendimento será conectado em breve."
+                  : "Você já está na área de produtos do seu negócio."}
+              </p>
+              <i className="iphone-app-status"><em /> Disponível agora</i>
+            </div>
+          )}
+          <div className="iphone-home-indicator" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1800,6 +1904,7 @@ export function RealDashboard({ navigate }) {
           )}
         </main>
       </div>
+      <CornerPhone onNavigate={setActive} />
       {modal && (
         <CreateModal
           type={modal}
