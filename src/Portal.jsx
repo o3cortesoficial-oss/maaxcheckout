@@ -2027,6 +2027,7 @@ export function RealDashboard({ navigate }) {
       .order("created_at");
     if (!spaceError && !billingReady) {
       setNeedsBilling(true);
+      setActive("assinaturas");
       setBillingWorkspace(spaces?.[0] || null);
       setWorkspaces(spaces || []);
       setWorkspace(spaces?.[0]);
@@ -2376,23 +2377,6 @@ export function RealDashboard({ navigate }) {
         </div>
       </div>
     );
-  if (needsBilling)
-    return (
-      <div className="billing-onboarding-page">
-        <header>
-          <Mark />
-          <button type="button" onClick={logout}>Sair da conta</button>
-        </header>
-        <main>
-          <div className="billing-onboarding-intro">
-            <span>ÚLTIMA ETAPA</span>
-            <h1>Escolha seu plano para começar.</h1>
-            <p>Confirme um cartão válido. Depois da ativação, seu primeiro negócio será criado e o painel completo será liberado.</p>
-          </div>
-          <SubscriptionPlansPreview revenue={0} workspace={billingWorkspace} onReload={() => load(false, false)} />
-        </main>
-      </div>
-    );
   const userName =
     session?.user?.user_metadata?.full_name ||
     session?.user?.email?.split("@")[0] ||
@@ -2412,7 +2396,7 @@ export function RealDashboard({ navigate }) {
       <aside className={menu ? "open" : ""}>
         <div className="side-head">
           <Mark />
-          {!adminMode && (
+          {!adminMode && !needsBilling && (
             <BusinessSwitcher
               workspaces={workspaces}
               workspace={workspace}
@@ -2451,10 +2435,11 @@ export function RealDashboard({ navigate }) {
           {(adminMode ? adminNav : nav).map(([id, label, Icon]) => (
             <a
               key={id}
-              className={(adminMode ? adminSection : active) === id ? "active" : ""}
+              className={`${(adminMode ? adminSection : active) === id ? "active" : ""} ${!adminMode && needsBilling && id !== "assinaturas" ? "locked" : ""}`}
+              aria-disabled={!adminMode && needsBilling && id !== "assinaturas"}
               onClick={() => {
                 if (adminMode) setAdminSection(id);
-                else setActive(id);
+                else if (!needsBilling || id === "assinaturas") setActive(id);
                 setMenu(false);
               }}
             >
@@ -2466,7 +2451,7 @@ export function RealDashboard({ navigate }) {
             </a>
           ))}
         </nav>
-        {adminMode ? <div className="side-help admin-help"><Sparkle /><b>Acesso exclusivo</b><small>Visão protegida de toda a plataforma.</small></div> : <BillingCycleCard workspace={workspace} orders={data.orders} onOpen={() => { setActive("assinaturas"); setMenu(false); }} />}
+        {adminMode ? <div className="side-help admin-help"><Sparkle /><b>Acesso exclusivo</b><small>Visão protegida de toda a plataforma.</small></div> : needsBilling ? <div className="side-help billing-required-help"><Lock /><b>Assinatura necessária</b><small>Ative um plano para liberar o painel.</small></div> : <BillingCycleCard workspace={workspace} orders={data.orders} onOpen={() => { setActive("assinaturas"); setMenu(false); }} />}
         <button className="logout" onClick={logout}>
           <SignOut /> Sair da conta
         </button>
@@ -2476,7 +2461,7 @@ export function RealDashboard({ navigate }) {
           <button className="mobile-menu" onClick={() => setMenu(true)}>
             <List />
           </button>
-          {!adminMode ? (
+          {!adminMode && !needsBilling ? (
           <div className="search" ref={searchRootRef}>
             <MagnifyingGlass />
             <input
@@ -2538,9 +2523,13 @@ export function RealDashboard({ navigate }) {
               </div>
             )}
           </div>
-          ) : (
+          ) : adminMode ? (
             <div className="admin-header-mark">
               <ShieldCheck weight="fill" /> Controle administrativo
+            </div>
+          ) : (
+            <div className="billing-header-lock">
+              <Lock weight="fill" /> Ative sua assinatura para liberar o painel
             </div>
           )}
           <div className="header-actions">
@@ -2570,7 +2559,13 @@ export function RealDashboard({ navigate }) {
               <button onClick={load}>Tentar novamente</button>
             </div>
           )}
-          {adminMode ? (
+          {needsBilling ? (
+            <SubscriptionPlansPreview
+              revenue={0}
+              workspace={billingWorkspace}
+              onReload={() => load(false, false)}
+            />
+          ) : adminMode ? (
             <AdminConsole session={session} section={adminSection} />
           ) : active === "home" ? (
             <HomeView
@@ -2593,7 +2588,7 @@ export function RealDashboard({ navigate }) {
         </main>
       </div>
       {!adminMode && <CornerPhone orders={data.orders} session={session} />}
-      {modal && (
+      {!needsBilling && modal && (
         <CreateModal
           type={modal}
           workspace={workspace}
@@ -2602,7 +2597,7 @@ export function RealDashboard({ navigate }) {
           onSaved={load}
         />
       )}
-      {businessModal && (
+      {!needsBilling && businessModal && (
         <CreateBusinessModal
           onClose={() => setBusinessModal(false)}
           onCreated={businessCreated}
