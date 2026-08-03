@@ -3307,8 +3307,10 @@ function ShippingSelector({
               />
               <i />
               <span>
-                <b>{option.name}</b>
-                <small>{option.estimate}</small>
+                <b>{option.title || option.name}</b>
+                <small>
+                  {option.description || `${option.name} · ${option.estimate}`}
+                </small>
               </span>
               <strong>
                 {Number(option.price_cents || 0)
@@ -4148,8 +4150,10 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                         <Truck />
                       </i>
                       <span>
-                        <b>{option.name}</b>
-                        <small>{option.estimate}</small>
+                        <b>{option.title || option.name}</b>
+                        <small>
+                          {option.description || `${option.name} · ${option.estimate}`}
+                        </small>
                       </span>
                       <strong>
                         {Number(option.price_cents || 0)
@@ -5663,6 +5667,8 @@ function ShippingPage({ workspace }) {
         ...(current.shipping_options || []),
         {
           id: crypto.randomUUID(),
+          title: "Entrega padrão",
+          description: "Envio seguro com acompanhamento até a entrega.",
           name: "Entrega padrão",
           estimate: "Receba em até 6 dias úteis",
           price_cents: 0,
@@ -5688,6 +5694,8 @@ function ShippingPage({ workspace }) {
       ...settings,
       shipping_options: options.map((option) => ({
         ...option,
+        title: String(option.title || option.name || "").trim(),
+        description: String(option.description || "").trim(),
         name: String(option.name || "").trim(),
         estimate: String(option.estimate || "").trim(),
         price_cents: Math.max(0, Number(option.price_cents || 0)),
@@ -5695,10 +5703,14 @@ function ShippingPage({ workspace }) {
     };
     if (
       normalizedSettings.shipping_options.some(
-        (option) => !option.name || !option.estimate,
+        (option) =>
+          !option.title ||
+          !option.description ||
+          !option.name ||
+          !option.estimate,
       )
     ) {
-      setMessage("Preencha o nome e o prazo de todas as opções.");
+      setMessage("Preencha título, descrição, forma de envio e prazo.");
       setSaving(false);
       return;
     }
@@ -5760,16 +5772,42 @@ function ShippingPage({ workspace }) {
                   </i>
                   <span>
                     <small>OPÇÃO {String(index + 1).padStart(2, "0")}</small>
-                    <b>{option.name || "Nova entrega"}</b>
+                    <b>{option.title || option.name || "Nova entrega"}</b>
                   </span>
                   <button
                     type="button"
                     onClick={() => removeOption(option.id)}
-                    aria-label={`Excluir ${option.name}`}
+                    className="shipping-delete"
+                    aria-label={`Excluir ${option.title || option.name}`}
                   >
                     <Trash />
+                    Excluir
                   </button>
                 </div>
+                <label>
+                  Título do frete
+                  <input
+                    value={option.title ?? option.name ?? ""}
+                    maxLength="48"
+                    placeholder="Ex.: Entrega econômica"
+                    onChange={(event) =>
+                      updateOption(option.id, "title", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  Descrição
+                  <textarea
+                    value={option.description || ""}
+                    maxLength="140"
+                    rows="3"
+                    placeholder="Explique ao cliente como funciona esta entrega."
+                    onChange={(event) =>
+                      updateOption(option.id, "description", event.target.value)
+                    }
+                  />
+                  <small>{String(option.description || "").length}/140 caracteres</small>
+                </label>
                 <label>
                   Forma de envio
                   <input

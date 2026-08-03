@@ -246,11 +246,13 @@ export default async function handler(request, response) {
       ...(shippingOption && shippingCents
         ? [
             {
-              title: String(shippingOption.name || "Frete").slice(0, 120),
-              description: String(shippingOption.estimate || "Entrega").slice(
-                0,
-                255,
-              ),
+              title: String(
+                shippingOption.title || shippingOption.name || "Frete",
+              ).slice(0, 120),
+              description: String(
+                shippingOption.description ||
+                  `${shippingOption.name || "Entrega"} · ${shippingOption.estimate || ""}`,
+              ).slice(0, 255),
               quantity: 1,
               unitPrice: shippingCents,
             },
@@ -417,6 +419,8 @@ export default async function handler(request, response) {
           protection_selected: protectionCents > 0,
           protection_cents: protectionCents,
           shipping_option_id: shippingOption?.id || null,
+          shipping_title: shippingOption?.title || shippingOption?.name || null,
+          shipping_description: shippingOption?.description || null,
           shipping_name: shippingOption?.name || null,
           shipping_estimate: shippingOption?.estimate || null,
           shipping_cents: shippingCents,

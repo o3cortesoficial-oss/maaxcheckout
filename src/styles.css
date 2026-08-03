@@ -8028,6 +8028,18 @@ html {
   color: #c5322e;
   border-color: #efc7c5;
 }
+.shipping-option-card-head .shipping-delete {
+  display: inline-flex;
+  width: auto;
+  padding: 0 10px;
+  gap: 6px;
+  color: #a23b37;
+  font-size: 9px;
+  font-weight: 700;
+}
+.shipping-option-card-head .shipping-delete svg {
+  font-size: 13px;
+}
 .shipping-option-card > label {
   display: grid;
   gap: 7px;
@@ -8035,7 +8047,8 @@ html {
   font-size: 10px;
   font-weight: 650;
 }
-.shipping-option-card input {
+.shipping-option-card input,
+.shipping-option-card textarea {
   width: 100%;
   min-width: 0;
   height: 44px;
@@ -8047,7 +8060,15 @@ html {
   color: #191b17;
   font: inherit;
 }
-.shipping-option-card input:focus {
+.shipping-option-card textarea {
+  height: auto;
+  min-height: 76px;
+  padding-top: 12px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.shipping-option-card input:focus,
+.shipping-option-card textarea:focus {
   border-color: #95b52e;
   box-shadow: inset 0 0 0 1px #95b52e;
 }
