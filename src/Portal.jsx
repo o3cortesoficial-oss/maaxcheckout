@@ -352,7 +352,26 @@ export function RealLogin({ navigate }) {
     [notice, setNotice] = useState("");
   useEffect(() => {
     if (!supabase) return;
-    if (new URLSearchParams(window.location.search).get("confirmed") === "1")
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const confirmationType = params.get("type");
+    if (tokenHash && confirmationType === "signup") {
+      setLoading(true);
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type: "signup" })
+        .then(({ error: confirmationError }) => {
+          window.history.replaceState({}, "", "/login");
+          if (confirmationError) {
+            setError("Este link de confirmação é inválido ou já expirou.");
+            return;
+          }
+          setNotice("E-mail confirmado. Preparando seu ambiente...");
+          navigate("/dashboard");
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
+    if (params.get("confirmed") === "1")
       setNotice("E-mail confirmado. Preparando seu ambiente...");
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate("/dashboard");

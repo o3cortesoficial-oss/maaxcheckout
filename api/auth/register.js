@@ -11,16 +11,24 @@ import { decryptIntegrationConfig } from "../_integrationSecrets.js";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const appOrigin = (request) => {
-  const host = String(
-    request.headers["x-forwarded-host"] || request.headers.host || "",
-  )
-    .split(",")[0]
-    .trim();
-  const protocol = String(request.headers["x-forwarded-proto"] || "https")
-    .split(",")[0]
-    .trim();
-  return `${protocol}://${host}`;
+const appOrigin = () => {
+  const configured = String(
+    process.env.PUBLIC_APP_URL ||
+      process.env.VITE_PUBLIC_APP_URL ||
+      process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+      "https://maaxcheckout.vercel.app",
+  ).trim();
+  const withProtocol = /^https?:\/\//i.test(configured)
+    ? configured
+    : `https://${configured}`;
+  try {
+    const url = new URL(withProtocol);
+    if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname))
+      return "https://maaxcheckout.vercel.app";
+    return url.origin;
+  } catch {
+    return "https://maaxcheckout.vercel.app";
+  }
 };
 
 export default async function handler(request, response) {
@@ -95,7 +103,8 @@ export default async function handler(request, response) {
     return response.status(503).json({
       error: "O cadastro por e-mail ainda não foi configurado no servidor.",
     });
-  const redirectTo = `${appOrigin(request)}/login?confirmed=1`;
+  const publicOrigin = appOrigin();
+  const redirectTo = `${publicOrigin}/login?confirmed=1`;
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
       type: "signup",
@@ -113,7 +122,10 @@ export default async function handler(request, response) {
     return response.status(400).json({ error: "Não foi possível criar a conta." });
   }
 
-  const confirmUrl = linkData?.properties?.action_link;
+  const tokenHash = linkData?.properties?.hashed_token;
+  const confirmUrl = tokenHash
+    ? `${publicOrigin}/login?token_hash=${encodeURIComponent(tokenHash)}&type=signup`
+    : null;
   if (!confirmUrl) {
     if (linkData?.user?.id)
       await admin.auth.admin.deleteUser(linkData.user.id).catch(() => undefined);
