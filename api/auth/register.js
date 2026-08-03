@@ -7,6 +7,7 @@ import {
   rateLimit,
   requireSameOrigin,
 } from "../_security.js";
+import { decryptIntegrationConfig } from "../_integrationSecrets.js";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -61,9 +62,6 @@ export default async function handler(request, response) {
   const requiredEnvironment = [
     "VITE_SUPABASE_URL",
     "SUPABASE_SECRET_KEY",
-    "RESEND_API_KEY",
-    "RESEND_FROM_EMAIL",
-    "RESEND_CONFIRM_TEMPLATE_ID",
   ];
   if (requiredEnvironment.some((key) => !process.env[key]))
     return response.status(503).json({
@@ -75,6 +73,28 @@ export default async function handler(request, response) {
     process.env.SUPABASE_SECRET_KEY,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+  let resendConfig = {
+    api_key: process.env.RESEND_API_KEY,
+    from_email: process.env.RESEND_FROM_EMAIL,
+    template_id: process.env.RESEND_CONFIRM_TEMPLATE_ID,
+  };
+  const { data: savedIntegration } = await admin
+    .from("platform_integrations")
+    .select("encrypted_config,status")
+    .eq("provider", "resend")
+    .eq("status", "active")
+    .maybeSingle();
+  if (savedIntegration?.encrypted_config) {
+    try {
+      resendConfig = decryptIntegrationConfig(savedIntegration.encrypted_config);
+    } catch {
+      return response.status(503).json({ error: "A configuração de e-mail precisa ser revisada." });
+    }
+  }
+  if (!resendConfig.api_key || !resendConfig.from_email || !resendConfig.template_id)
+    return response.status(503).json({
+      error: "O cadastro por e-mail ainda não foi configurado no servidor.",
+    });
   const redirectTo = `${appOrigin(request)}/login?confirmed=1`;
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
@@ -100,13 +120,13 @@ export default async function handler(request, response) {
     return response.status(502).json({ error: "Não foi possível gerar a confirmação." });
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const resend = new Resend(resendConfig.api_key);
   const { error: emailError } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL,
+    from: resendConfig.from_email,
     to: email,
     subject: "Confirme sua conta na Maax",
     template: {
-      id: process.env.RESEND_CONFIRM_TEMPLATE_ID,
+      id: resendConfig.template_id,
       variables: {
         USER_NAME: name,
         BUSINESS_NAME: businessName,

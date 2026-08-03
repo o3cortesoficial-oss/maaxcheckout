@@ -1502,7 +1502,7 @@ function AdminConsole({ session, section }) {
     admin_overview: ["CONTROLE DA PLATAFORMA", "Central administrativa", "Acompanhe usuários, operações e infraestrutura da Maax."],
     admin_users: ["CONTAS", "Usuários da plataforma", "Cadastros reais e situação de confirmação de cada acesso."],
     admin_operations: ["NEGÓCIOS", "Operações criadas", "Ambientes independentes cadastrados pelos usuários da plataforma."],
-    admin_tools: ["INFRAESTRUTURA", "Ferramentas e APIs", "Espaço reservado para integrações administrativas futuras."],
+    admin_tools: ["INFRAESTRUTURA", "Ferramentas e APIs", "Configure os serviços essenciais da plataforma sem expor credenciais."],
   }[section] || ["CONTROLE DA PLATAFORMA", "Central administrativa", "Visão global da Maax."],
     [kicker, title, description] = heading;
 
@@ -1577,12 +1577,87 @@ function AdminConsole({ session, section }) {
       )}
 
       {section === "admin_tools" && (
-        <div className="admin-tools-empty">
-          <i><Wrench weight="duotone" /></i>
-          <span>ÁREA DE EXPANSÃO</span>
-          <h2>Suas próximas ferramentas entram aqui.</h2>
-          <p>Este ambiente está preparado para receber APIs de suporte, análise, automação e infraestrutura sem misturá-las aos dados dos usuários.</p>
-          <button type="button" disabled><Plus /> Adicionar ferramenta em breve</button>
+        <ResendAdminTool session={session} />
+      )}
+    </section>
+  );
+}
+
+function ResendAdminTool({ session }) {
+  const [config, setConfig] = useState({ configured: false, active: false, api_key_hint: "", from_email: "", template_id: "" });
+  const [form, setForm] = useState({ api_key: "", from_email: "", template_id: "" });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState(null);
+
+  const request = async (method = "GET", body) => {
+    const result = await fetch("/api/admin/tools", {
+      method,
+      headers: { Authorization: `Bearer ${session.access_token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const payload = await result.json().catch(() => ({}));
+    if (!result.ok) throw new Error(payload.error || "Não foi possível atualizar a Resend.");
+    return payload;
+  };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const payload = await request();
+      setConfig(payload);
+      setForm((current) => ({ ...current, from_email: payload.from_email, template_id: payload.template_id }));
+    } catch (error) { setMessage({ type: "error", text: error.message }); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const run = async (action) => {
+    setBusy(action); setMessage(null);
+    try {
+      const payload = await request("POST", { action, ...form });
+      setMessage({ type: "success", text: action === "save" ? "Integração salva e conexão validada." : "Conexão validada com a Resend." });
+      if (payload.api_key_hint) setForm((current) => ({ ...current, api_key: "" }));
+      await load();
+    } catch (error) { setMessage({ type: "error", text: error.message }); }
+    finally { setBusy(""); }
+  };
+
+  const toggle = async () => {
+    const next = !config.active;
+    setBusy("toggle"); setMessage(null);
+    try {
+      await request("POST", { action: "toggle", active: next });
+      setConfig((current) => ({ ...current, active: next }));
+      setMessage({ type: "success", text: next ? "Resend ativada para novos cadastros." : "Resend desativada." });
+    } catch (error) { setMessage({ type: "error", text: error.message }); }
+    finally { setBusy(""); }
+  };
+
+  return (
+    <section className="resend-tool">
+      <header className="resend-tool-head">
+        <div className="resend-brand-mark" aria-hidden="true"><span>R</span></div>
+        <div><span>E-MAIL TRANSACIONAL</span><h2>Resend</h2><p>Confirmação de conta com remetente próprio e template publicado.</p></div>
+        <div className={`resend-status ${config.active ? "active" : ""}`}><i /> {config.active ? "Ativa" : config.configured ? "Configurada" : "Não configurada"}</div>
+      </header>
+
+      {loading ? <div className="resend-form-loading"><i /><i /><i /></div> : (
+        <div className="resend-tool-body">
+          <div className="resend-fields">
+            <label><span>API Key</span><input type="password" autoComplete="new-password" value={form.api_key} placeholder={config.api_key_hint || "re_xxxxxxxxxxxxxxxxx"} onChange={(event) => setForm({ ...form, api_key: event.target.value })} /><small>{config.configured ? `Chave protegida: ${config.api_key_hint}. Preencha somente para trocar.` : "Crie uma chave com permissão de envio no painel da Resend."}</small></label>
+            <label><span>Remetente verificado</span><input value={form.from_email} placeholder="Maax <contato@seudominio.com>" onChange={(event) => setForm({ ...form, from_email: event.target.value })} /><small>O domínio desse endereço precisa estar verificado na Resend.</small></label>
+            <label><span>ID ou alias do template</span><input value={form.template_id} placeholder="confirm-account" onChange={(event) => setForm({ ...form, template_id: event.target.value })} /><small>Use um template publicado, não uma versão em rascunho.</small></label>
+          </div>
+          <aside className="resend-guide">
+            <span>CONTRATO DO TEMPLATE</span><h3>Variáveis obrigatórias</h3><p>O cadastro envia estes dados automaticamente para o template selecionado.</p>
+            <div><code>USER_NAME</code><small>Nome da pessoa</small></div><div><code>BUSINESS_NAME</code><small>Nome do negócio</small></div><div><code>CONFIRM_URL</code><small>Link seguro de confirmação</small></div>
+          </aside>
+          {message && <div className={`resend-message ${message.type}`}>{message.type === "success" ? <CheckCircle weight="fill" /> : <WarningCircle weight="fill" />}{message.text}</div>}
+          <footer className="resend-actions">
+            <button className="resend-toggle-row" type="button" onClick={toggle} disabled={Boolean(busy)}><span><b>Usar nos novos cadastros</b><small>O envio só acontece quando a integração estiver ativa.</small></span><i className={config.active ? "active" : ""}><em /></i></button>
+            <div><button className="resend-test" type="button" onClick={() => run("test")} disabled={Boolean(busy)}>{busy === "test" ? "Testando..." : "Testar conexão"}</button><button className="resend-save" type="button" onClick={() => run("save")} disabled={Boolean(busy)}>{busy === "save" ? "Salvando..." : "Salvar alterações"}</button></div>
+          </footer>
         </div>
       )}
     </section>
