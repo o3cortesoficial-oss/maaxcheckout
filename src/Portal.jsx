@@ -100,7 +100,9 @@ function Button({
 }
 
 function CornerPhone({ onNavigate }) {
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(() =>
+    window.matchMedia("(max-width: 720px)").matches,
+  );
   const [screen, setScreen] = useState("home");
 
   if (minimized)
@@ -118,15 +120,13 @@ function CornerPhone({ onNavigate }) {
 
   return (
     <div className="corner-phone-scene" role="complementary" aria-label="Atalhos Maax">
-      <div className="phone-hand" aria-hidden="true">
-        <i className="hand-palm" />
-        <i className="hand-thumb" />
-        <i className="hand-finger finger-one" />
-        <i className="hand-finger finger-two" />
-      </div>
+      <img
+        className="phone-hand-photo"
+        src="/assets/maax-phone-hand.webp"
+        alt=""
+        aria-hidden="true"
+      />
       <div className="corner-iphone">
-        <div className="iphone-side iphone-side-left" />
-        <div className="iphone-side iphone-side-right" />
         <div className="iphone-screen">
           <div className="iphone-status">
             <b>09:41</b>
