@@ -1039,7 +1039,7 @@ a {
   background: #f4f5f1;
   color: #171815;
 }
-.dashboard aside {
+.dashboard > aside {
   background: #fff;
   border-right: 1px solid #e3e4de;
   padding: 28px 18px;
@@ -1957,11 +1957,11 @@ a {
   .dashboard {
     display: block;
   }
-  .dashboard aside {
+  .dashboard > aside {
     transform: translateX(-105%);
     transition: 0.3s;
   }
-  .dashboard aside.open {
+  .dashboard > aside.open {
     transform: none;
   }
   .side-head {

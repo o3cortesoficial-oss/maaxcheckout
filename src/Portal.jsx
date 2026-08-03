@@ -1882,7 +1882,7 @@ function CampaignAttributionPanel({ orders = [] }) {
         <div><span>Taxa de atribuição</span><strong>{attributionRate}%</strong></div>
       </div>
       <div className="campaign-panel-grid">
-        <aside className="campaign-ranking">
+        <div className="campaign-ranking">
           <header>
             <span>TOP 10</span>
             <b>Melhores campanhas</b>
@@ -1908,7 +1908,7 @@ function CampaignAttributionPanel({ orders = [] }) {
               <small>As vendas atribuídas formarão o ranking automaticamente.</small>
             </div>
           )}
-        </aside>
+        </div>
         <div className="campaign-sales">
           <header>
             <div>
