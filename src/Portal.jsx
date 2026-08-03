@@ -1309,6 +1309,30 @@ export function RealDashboard({ navigate }) {
             };
           }),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        ({ eventType, new: order, old }) =>
+          setData((current) => {
+            if (eventType === "DELETE") {
+              return {
+                ...current,
+                orders: current.orders.filter((item) => item.id !== old.id),
+              };
+            }
+            if (order.workspace_id !== workspaceIdRef.current) return current;
+            const orders = [
+              order,
+              ...current.orders.filter((item) => item.id !== order.id),
+            ]
+              .sort(
+                (a, b) =>
+                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+              )
+              .slice(0, 1000);
+            return { ...current, orders };
+          }),
+      )
       .subscribe();
     const refreshTimer = window.setInterval(() => load(false, true), 30000);
     return () => {
@@ -1818,9 +1842,12 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
             <span>ATIVIDADE REAL</span>
             <h2>Últimas vendas</h2>
           </div>
+          <div className="sales-live-status">
+            <i /> Tempo real <small>10 mais recentes</small>
+          </div>
         </div>
         {data.orders.length ? (
-          <OrderRows rows={data.orders.slice(0, 6)} />
+          <OrderRows rows={data.orders.slice(0, 10)} />
         ) : (
           <Empty type="vendas" />
         )}

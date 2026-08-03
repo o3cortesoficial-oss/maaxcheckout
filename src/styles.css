@@ -2641,6 +2641,38 @@ a {
   font-size: 18px;
   margin: 5px 0 0;
 }
+.sales-live-status {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #e1e3dc;
+  border-radius: 9px;
+  background: #f8f9f5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #55584f;
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.sales-live-status > i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 0 4px rgba(183,255,30,.12);
+  animation: live-status-pulse 1.8s ease-in-out infinite;
+}
+.sales-live-status small {
+  margin-left: 3px;
+  padding-left: 8px;
+  border-left: 1px solid #dfe1da;
+  color: #969990;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
 .resource-controls {
   display: flex;
   gap: 9px;
@@ -6546,6 +6578,7 @@ html {
   .business-delete-confirm { grid-template-columns: 1fr; align-items: stretch; }
   .business-delete-confirm > button { justify-content: center; }
   .business-manage { opacity: 1; }
+  .sales-live-status small { display: none; }
 }
 .dashboard > aside .side-nav > span {
   color: #777a72;
