@@ -6345,6 +6345,8 @@ html {
   min-width: 0;
   flex: 1;
   padding: 3px;
+  border: 0;
+  background: transparent;
   display: grid;
   grid-template-columns: 31px minmax(0,1fr) 16px;
   align-items: center;
@@ -6400,6 +6402,8 @@ html {
   height: 31px;
   flex: 0 0 26px;
   border-radius: 7px;
+  border: 0;
+  background: transparent;
   display: grid;
   place-items: center;
   color: #8d9087;
