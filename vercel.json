@@ -25,6 +25,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/billing/checkout",
+      "destination": "/api/admin/stripe?maax_route=billing_checkout"
+    },
+    {
+      "source": "/api/stripe/webhook",
+      "destination": "/api/pagamaster/webhook?maax_route=stripe_webhook"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },

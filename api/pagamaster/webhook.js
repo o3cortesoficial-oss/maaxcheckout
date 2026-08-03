@@ -6,6 +6,16 @@ import {
   rateLimit,
 } from "../_security.js";
 import { accruePaidOrderFee } from "../_lib/platformFee.js";
+import stripeWebhookHandler from "../_lib/stripeWebhookHandler.js";
+
+export const config = { api: { bodyParser: false } };
+
+async function readRawBody(request) {
+  if (Buffer.isBuffer(request.body)) return request.body;
+  const chunks = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
 
 function decrypt(value) {
   const key = crypto
@@ -23,6 +33,7 @@ function decrypt(value) {
 }
 
 export default async function handler(request, response) {
+  if (request.query?.maax_route === "stripe_webhook") return stripeWebhookHandler(request, response);
   applyApiSecurityHeaders(response);
   if (request.method !== "POST")
     return response.status(405).json({ error: "Método não permitido." });
@@ -36,7 +47,13 @@ export default async function handler(request, response) {
   )
     return;
 
-  const reported = request.body || {};
+  let reported;
+  try {
+    const payload = await readRawBody(request);
+    reported = JSON.parse(payload.toString("utf8") || "{}");
+  } catch {
+    return response.status(400).json({ error: "Evento inválido." });
+  }
   const transactionId = String(reported.id || "").trim();
   if (!/^payin_[a-z0-9_-]+$/i.test(transactionId))
     return response.status(400).json({ error: "Evento inválido." });

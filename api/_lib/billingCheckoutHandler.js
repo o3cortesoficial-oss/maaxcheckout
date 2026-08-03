@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
-import { ensureWeeklyPrice, stripeBillingClient } from "../_lib/stripeBilling.js";
+import { ensureWeeklyPrice, stripeBillingClient } from "./stripeBilling.js";
 
 const plans = {
   essential: { id: "essential", name: "Essencial", fixedCents: 0, ratePercent: 2.5 },

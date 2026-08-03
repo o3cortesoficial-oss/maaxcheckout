@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
 import { decryptIntegrationConfig, encryptIntegrationConfig } from "../_integrationSecrets.js";
+import billingCheckoutHandler from "../_lib/billingCheckoutHandler.js";
 
 const provider = "stripe";
 const mask = (value) => value ? `${value.slice(0, 7)}••••••••${value.slice(-4)}` : "";
@@ -23,6 +24,7 @@ async function testStripe(config) {
 }
 
 export default async function handler(request, response) {
+  if (request.query?.maax_route === "billing_checkout") return billingCheckoutHandler(request, response);
   applyApiSecurityHeaders(response);
   if (!["GET", "POST"].includes(request.method)) return response.status(405).json({ error: "Método não permitido." });
   if (!requireSameOrigin(request, response) ||

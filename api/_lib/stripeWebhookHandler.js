@@ -1,9 +1,7 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { applyApiSecurityHeaders, rateLimit } from "../_security.js";
-import { invoiceSubscriptionId, stripeBillingClient } from "../_lib/stripeBilling.js";
-
-export const config = { api: { bodyParser: false } };
+import { invoiceSubscriptionId, stripeBillingClient } from "./stripeBilling.js";
 
 async function rawBody(request) {
   const chunks = [];
