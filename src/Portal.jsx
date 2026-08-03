@@ -130,6 +130,7 @@ function CornerPhone({ orders = [], session }) {
   const [newPassword, setNewPassword] = useState("");
   const [accountNotice, setAccountNotice] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
+  const [deletePrompt, setDeletePrompt] = useState(false);
 
   useEffect(() => {
     const synchronizeClock = () => setNow(new Date());
@@ -203,7 +204,6 @@ function CornerPhone({ orders = [], session }) {
     setAccountBusy(false);
   };
   const deleteAccount = async () => {
-    if (!window.confirm("Excluir definitivamente sua conta e encerrar o acesso?")) return;
     setAccountBusy(true);
     const response = await fetch("/api/account/delete", {
       method: "POST",
@@ -214,6 +214,7 @@ function CornerPhone({ orders = [], session }) {
     if (!response.ok) {
       setAccountNotice(payload.error || "Não foi possível excluir a conta.");
       setAccountBusy(false);
+      setDeletePrompt(false);
       return;
     }
     await supabase.auth.signOut();
@@ -293,7 +294,7 @@ function CornerPhone({ orders = [], session }) {
               <div className="iphone-profile-row"><span>{session?.user?.user_metadata?.avatar_url ? <img src={session.user.user_metadata.avatar_url} alt="Foto de perfil" /> : (session?.user?.email?.[0] || "M").toUpperCase()}</span><label>Alterar foto<input type="file" accept="image/png,image/jpeg,image/webp" disabled={accountBusy} onChange={(event) => uploadProfilePhoto(event.target.files?.[0])} /></label></div>
               <form onSubmit={changePassword}><label>Nova senha<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mínimo de 8 caracteres" /></label><button disabled={accountBusy}>Atualizar senha</button></form>
               {accountNotice && <p>{accountNotice}</p>}
-              <button type="button" className="iphone-delete-account" disabled={accountBusy} onClick={deleteAccount}>Excluir cadastro</button>
+              <button type="button" className="iphone-delete-account" disabled={accountBusy} onClick={() => setDeletePrompt(true)}>Excluir cadastro</button>
             </div>
           ) : screen === "roi" ? (
             <div className="iphone-utility-app iphone-roi-app">
@@ -331,6 +332,20 @@ function CornerPhone({ orders = [], session }) {
                   <em>LOJA EM PREPARAÇÃO</em>
                 </div>
               )}
+            </div>
+          )}
+          {deletePrompt && (
+            <div className="iphone-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+              <div>
+                <i><WarningCircle weight="fill" /></i>
+                <small>EXCLUSÃO PERMANENTE</small>
+                <b id="delete-account-title">Excluir sua conta?</b>
+                <p>Negócios, produtos e configurações serão removidos definitivamente.</p>
+                <span>
+                  <button type="button" onClick={() => setDeletePrompt(false)} disabled={accountBusy}>Cancelar</button>
+                  <button type="button" onClick={deleteAccount} disabled={accountBusy}>{accountBusy ? "Excluindo..." : "Excluir conta"}</button>
+                </span>
+              </div>
             </div>
           )}
           <div className="iphone-home-indicator" />
@@ -1957,6 +1972,7 @@ export function RealDashboard({ navigate }) {
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
     [needsBilling, setNeedsBilling] = useState(false),
+    [billingWorkspace, setBillingWorkspace] = useState(null),
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState(""),
@@ -2009,14 +2025,16 @@ export function RealDashboard({ navigate }) {
       .from("workspaces")
       .select("*")
       .order("created_at");
-    if (!spaceError && !spaces?.length && !billingReady) {
+    if (!spaceError && !billingReady) {
       setNeedsBilling(true);
-      setWorkspaces([]);
-      setWorkspace(undefined);
+      setBillingWorkspace(spaces?.[0] || null);
+      setWorkspaces(spaces || []);
+      setWorkspace(spaces?.[0]);
       setLoading(false);
       return;
     }
     setNeedsBilling(false);
+    setBillingWorkspace(null);
     if (!spaceError && !spaces?.length && !retried) {
       const firstWorkspaceName =
         currentSession.user.user_metadata?.business_name || "Meu negócio";
@@ -2371,7 +2389,7 @@ export function RealDashboard({ navigate }) {
             <h1>Escolha seu plano para começar.</h1>
             <p>Confirme um cartão válido. Depois da ativação, seu primeiro negócio será criado e o painel completo será liberado.</p>
           </div>
-          <SubscriptionPlansPreview revenue={0} workspace={null} onReload={() => load(false, false)} />
+          <SubscriptionPlansPreview revenue={0} workspace={billingWorkspace} onReload={() => load(false, false)} />
         </main>
       </div>
     );

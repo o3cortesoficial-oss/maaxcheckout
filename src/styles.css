@@ -9585,6 +9585,20 @@ html {
 .iphone-settings-app form button { height: 37px; border-radius: 10px; color: #171915; background: #c9ff32; font-size: 8px; font-weight: 850; }
 .iphone-settings-app > p { margin: 10px 2px; color: #62675d; font-size: 8px; line-height: 1.4; }
 .iphone-delete-account { width: 100%; height: 38px; margin-top: 10px; border: 1px solid #d9a4a0; border-radius: 10px; color: #a12f29; background: #fff5f4; font-size: 8px; font-weight: 850; }
+.iphone-confirm-overlay { position: absolute; z-index: 24; inset: 0; display: grid; place-items: center; padding: 18px; background: rgb(23 25 21 / 68%); backdrop-filter: blur(8px); animation: iphone-confirm-in .24s cubic-bezier(.16,1,.3,1) both; }
+.iphone-confirm-overlay > div { width: 100%; padding: 20px 18px 17px; border: 1px solid rgb(255 255 255 / 72%); border-radius: 20px; background: #f8f9f5; color: #171915; box-shadow: 0 20px 45px rgb(18 20 16 / 26%), inset 0 1px 0 #fff; }
+.iphone-confirm-overlay > div > i { width: 38px; height: 38px; margin-bottom: 15px; display: grid; place-items: center; border-radius: 12px; background: #ffe8e5; color: #bc3c32; }
+.iphone-confirm-overlay > div > i svg { width: 20px; height: 20px; }
+.iphone-confirm-overlay small { display: block; color: #9d4a43; font-size: 7px; font-weight: 850; letter-spacing: .12em; }
+.iphone-confirm-overlay b { display: block; margin: 7px 0 6px; font-size: 17px; letter-spacing: -.035em; }
+.iphone-confirm-overlay p { margin: 0; color: #6b7066; font-size: 9px; line-height: 1.55; }
+.iphone-confirm-overlay span { display: grid; grid-template-columns: .8fr 1.2fr; gap: 8px; margin-top: 18px; }
+.iphone-confirm-overlay button { min-height: 40px; border: 0; border-radius: 11px; font: inherit; font-size: 8px; font-weight: 850; cursor: pointer; transition: transform .2s cubic-bezier(.16,1,.3,1), opacity .2s ease; }
+.iphone-confirm-overlay button:first-child { border: 1px solid #d9dcd4; background: #fff; color: #565c52; }
+.iphone-confirm-overlay button:last-child { background: #bd3d33; color: #fff; }
+.iphone-confirm-overlay button:active { transform: translateY(1px) scale(.98); }
+.iphone-confirm-overlay button:disabled { cursor: wait; opacity: .6; }
+@keyframes iphone-confirm-in { from { opacity: 0; transform: scale(.98); } }
 
 .iphone-roi-app > span { display: block; margin-top: 58px; color: #73786e; font-size: 7px; font-weight: 850; letter-spacing: .12em; }
 .iphone-roi-app > strong { display: block; margin: 7px 0 22px; font-size: 28px; letter-spacing: -1.4px; }
