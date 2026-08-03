@@ -46,6 +46,7 @@ import {
 } from "@phosphor-icons/react";
 import { supabase, supabaseConfigured } from "./supabase";
 import QRCode from "qrcode";
+import { PLATFORM_PLANS, platformFeeCents, platformPlan, sevenDayCycle } from "./platformPlans";
 
 const money = (cents = 0) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -2269,16 +2270,7 @@ export function RealDashboard({ navigate }) {
             </a>
           ))}
         </nav>
-        <div className={`side-help ${adminMode ? "admin-help" : ""}`}>
-          <Sparkle />
-          <b>{adminMode ? "Acesso exclusivo" : "Dados em produção"}</b>
-          <small>
-            {adminMode
-              ? "Visão protegida de toda a plataforma."
-              : `Conectado ao workspace ${workspace?.name}.`}
-          </small>
-          {!adminMode && <button onClick={load}>Atualizar dados</button>}
-        </div>
+        {adminMode ? <div className="side-help admin-help"><Sparkle /><b>Acesso exclusivo</b><small>Visão protegida de toda a plataforma.</small></div> : <BillingCycleCard workspace={workspace} orders={data.orders} onOpen={() => { setActive("assinaturas"); setMenu(false); }} />}
         <button className="logout" onClick={logout}>
           <SignOut /> Sair da conta
         </button>
@@ -2431,6 +2423,23 @@ export function RealDashboard({ navigate }) {
       )}
     </div>
   );
+}
+
+function BillingCycleCard({ workspace, orders = [], onOpen }) {
+  const plan = platformPlan(workspace?.platform_plan);
+  const cycle = sevenDayCycle(workspace?.billing_anchor_at || workspace?.created_at);
+  const paidVolume = orders
+    .filter((order) => order.status === "approved" && new Date(order.paid_at || order.created_at) >= cycle.start && new Date(order.paid_at || order.created_at) < cycle.end)
+    .reduce((sum, order) => sum + Number(order.total_cents || 0), 0);
+  const fee = platformFeeCents(plan.id, paidVolume);
+  const dueDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(cycle.end).replace(".", "");
+  return <button type="button" className="billing-cycle-card" onClick={onOpen}>
+    <header><span><CreditCard weight="duotone" /></span><div><small>PLANO ATUAL</small><b>{plan.name}</b></div><CaretRight /></header>
+    <div className="billing-cycle-progress"><i /></div>
+    <div className="billing-cycle-meta"><span><small>Próxima cobrança</small><b>{dueDate}</b></span><span><small>Ciclo</small><b>7 dias</b></span></div>
+    <footer><span>Prévia do ciclo</span><b>{money(fee)}</b></footer>
+    <p>{plan.fixedCents ? `${money(plan.fixedCents)} + ${plan.ratePercent}% dos pedidos pagos` : `${plan.ratePercent}% dos pedidos pagos`}</p>
+  </button>;
 }
 
 function PageTitle({ kicker, title, description, action, onAction }) {
@@ -5999,13 +6008,17 @@ function TrackingPage({ workspace, onReload }) {
   );
 }
 
-function SubscriptionPlansPreview({ revenue }) {
+function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
+  const [savingPlan, setSavingPlan] = useState("");
+  const [planMessage, setPlanMessage] = useState("");
   const plans = [
     {
+      id: "essential",
       name: "Essencial",
-      range: "Até R$ 10 mil/mês",
+      price: "2,5%",
+      priceDetail: "sobre cada pedido pago",
       description:
-        "Para operações que estão começando a faturar pelo checkout.",
+        "Para quem está começando e quer pagar somente quando vender.",
       features: [
         "Checkout completo",
         "Pix, cartão e boleto",
@@ -6013,8 +6026,10 @@ function SubscriptionPlansPreview({ revenue }) {
       ],
     },
     {
+      id: "growth",
       name: "Crescimento",
-      range: "De R$ 10 mil a R$ 50 mil/mês",
+      price: "R$ 67,90 + 1%",
+      priceDetail: "por ciclo + pedidos pagos",
       description: "Para operações com volume recorrente e mais controle.",
       features: [
         "Tudo do Essencial",
@@ -6024,8 +6039,10 @@ function SubscriptionPlansPreview({ revenue }) {
       featured: true,
     },
     {
+      id: "scale",
       name: "Escala",
-      range: "Acima de R$ 50 mil/mês",
+      price: "R$ 127,90",
+      priceDetail: "por ciclo · 0% sobre pedidos",
       description: "Condições preparadas para operações de maior volume.",
       features: [
         "Tudo do Crescimento",
@@ -6034,43 +6051,53 @@ function SubscriptionPlansPreview({ revenue }) {
       ],
     },
   ];
+  const selectedPlan = workspace?.platform_plan || "essential";
+  const selectPlan = async (planId) => {
+    if (planId === selectedPlan || savingPlan) return;
+    setSavingPlan(planId); setPlanMessage("");
+    const { error } = await supabase.from("workspaces").update({ platform_plan: planId, billing_anchor_at: new Date().toISOString() }).eq("id", workspace.id);
+    if (error) setPlanMessage(error.message || "Não foi possível selecionar o plano.");
+    else { setPlanMessage("Plano selecionado. O novo ciclo de 7 dias começou agora."); await onReload?.(); }
+    setSavingPlan("");
+  };
   return (
     <div className="page-enter">
       <PageTitle
         kicker="PLANOS"
         title="Assinaturas"
-        description="Planos futuros definidos pelo faturamento pago no checkout."
+        description="Cobrança semanal, sempre a cada 7 dias corridos."
       />
       <section className="plans-showcase">
         <div className="plans-preview-note">
           <div>
             <span>
-              <i /> Prévia não ativa
+              <i /> Ciclo de 7 dias
             </span>
             <h2>Um plano que acompanha o seu volume.</h2>
           </div>
           <p>
             Faturamento pago atual <b>{money(revenue)}</b>
-            <small>Nenhuma mensalidade será cobrada nesta fase.</small>
+            <small>Finais de semana e feriados não alteram o vencimento.</small>
           </p>
         </div>
+        {planMessage && <div className={`plan-selection-message ${planMessage.includes("selecionado") ? "success" : "error"}`}>{planMessage}</div>}
         <div className="subscription-plan-grid">
           {plans.map((plan, index) => (
             <article
-              className={`subscription-plan ${plan.featured ? "featured" : ""}`}
+              className={`subscription-plan ${plan.featured ? "featured" : ""} ${selectedPlan === plan.id ? "selected" : ""}`}
               key={plan.name}
             >
               <header>
                 <span>0{index + 1}</span>
-                <small>Em breve</small>
+                <small>{selectedPlan === plan.id ? "PLANO ATUAL" : "7 DIAS"}</small>
               </header>
               {plan.featured && <em>MAIS INDICADO</em>}
               <h2>{plan.name}</h2>
-              <strong>{plan.range}</strong>
+              <strong>Cobrança semanal</strong>
               <p>{plan.description}</p>
               <div className="plan-price-placeholder">
-                <b>Valor em definição</b>
-                <small>mensalidade ainda não configurada</small>
+                <b>{plan.price}</b>
+                <small>{plan.priceDetail}</small>
               </div>
               <ul>
                 {plan.features.map((feature) => (
@@ -6079,8 +6106,8 @@ function SubscriptionPlansPreview({ revenue }) {
                   </li>
                 ))}
               </ul>
-              <button type="button" disabled>
-                Indisponível no momento
+              <button type="button" className={selectedPlan === plan.id ? "selected" : ""} onClick={() => selectPlan(plan.id)} disabled={selectedPlan === plan.id || Boolean(savingPlan)}>
+                {savingPlan === plan.id ? "Selecionando..." : selectedPlan === plan.id ? "Plano atual" : "Selecionar plano"}
               </button>
             </article>
           ))}
@@ -6842,7 +6869,7 @@ function DataView({
   if (type === "clientes")
     return <CustomersView customers={data.customers} orders={data.orders} />;
   if (type === "assinaturas")
-    return <SubscriptionPlansPreview revenue={metrics.revenue} />;
+    return <SubscriptionPlansPreview revenue={metrics.revenue} workspace={workspace} onReload={onReload} />;
   const config = {
     vendas: [
       "OPERAÇÃO",
