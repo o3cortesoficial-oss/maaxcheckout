@@ -1,0 +1,269 @@
+import { createClient } from "@supabase/supabase-js";
+import {
+  applyApiSecurityHeaders,
+  enforceJsonBodyLimit,
+  rateLimit,
+  requireSameOrigin,
+} from "../_security.js";
+
+const platformHosts = new Set([
+  "maaxcheckout.vercel.app",
+  "www.maaxcheckout.vercel.app",
+]);
+
+function normalizeDomain(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .split(/[/?#]/)[0]
+    .replace(/\.$/, "");
+  if (
+    raw.length < 4 ||
+    raw.length > 253 ||
+    raw.includes("*") ||
+    platformHosts.has(raw) ||
+    raw.endsWith(".vercel.app") ||
+    !/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(
+      raw,
+    )
+  )
+    return "";
+  return raw;
+}
+
+function supabaseFor(request) {
+  const token = String(request.headers.authorization || "").replace(
+    /^Bearer\s+/i,
+    "",
+  );
+  if (!token)
+    throw Object.assign(new Error("Sessão ausente."), { status: 401 });
+  return createClient(
+    process.env.VITE_SUPABASE_URL,
+    process.env.VITE_SUPABASE_ANON_KEY,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false },
+    },
+  );
+}
+
+const vercelQuery = () => {
+  const teamId = process.env.VERCEL_TEAM_ID;
+  return teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+};
+
+async function vercelRequest(path, options = {}) {
+  const token = process.env.VERCEL_API_TOKEN;
+  const projectId = process.env.VERCEL_PROJECT_ID;
+  if (!token || !projectId)
+    throw Object.assign(
+      new Error("Integração de domínios ainda não configurada no servidor."),
+      { status: 503, code: "VERCEL_DOMAIN_INTEGRATION_MISSING" },
+    );
+  const result = await fetch(
+    `https://api.vercel.com${path.replace("{project}", encodeURIComponent(projectId))}${vercelQuery()}`,
+    {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    },
+  );
+  const payload = await result.json().catch(() => ({}));
+  if (!result.ok) {
+    const message =
+      payload.error?.message || payload.message || "A Vercel recusou a operação.";
+    throw Object.assign(new Error(message), {
+      status: result.status,
+      code: payload.error?.code,
+    });
+  }
+  return payload;
+}
+
+function dnsGuide(domain, verification = []) {
+  const labels = domain.split(".");
+  const looksLikeSubdomain = labels.length > 2 && !domain.endsWith(".com.br");
+  const ownership = Array.isArray(verification)
+    ? verification.find((item) => item.type === "TXT")
+    : null;
+  return {
+    type: ownership?.type || (looksLikeSubdomain ? "CNAME" : "A"),
+    name: ownership?.domain || (looksLikeSubdomain ? labels[0] : "@"),
+    value:
+      ownership?.value ||
+      (looksLikeSubdomain ? "cname.vercel-dns-0.com" : "76.76.21.21"),
+    ownershipRequired: Boolean(ownership),
+  };
+}
+
+async function saveDomainSettings(supabase, workspaceId, customDomain) {
+  const { data: config } = await supabase
+    .from("checkout_configs")
+    .select("id,settings,modules,status")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  const settings = { ...(config?.settings || {}), custom_domain: customDomain };
+  const result = config?.id
+    ? await supabase
+        .from("checkout_configs")
+        .update({ settings, updated_at: new Date().toISOString() })
+        .eq("id", config.id)
+    : await supabase.from("checkout_configs").insert({
+        workspace_id: workspaceId,
+        name: "Checkout principal",
+        settings,
+        modules: [],
+        status: "draft",
+      });
+  if (result.error) throw result.error;
+}
+
+export default async function handler(request, response) {
+  applyApiSecurityHeaders(response);
+  if (!["GET", "POST", "DELETE"].includes(request.method))
+    return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !requireSameOrigin(request, response) ||
+    !rateLimit(request, response, {
+      scope: "domain-config",
+      limit: 30,
+      windowMs: 60000,
+    }) ||
+    (["POST", "DELETE"].includes(request.method) &&
+      !enforceJsonBodyLimit(request, response, 8192))
+  )
+    return;
+
+  try {
+    const supabase = supabaseFor(request);
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user)
+      return response.status(401).json({ error: "Sessão inválida." });
+    const workspaceId =
+      request.method === "GET"
+        ? request.query.workspaceId
+        : request.body?.workspaceId;
+    if (!/^[0-9a-f-]{36}$/i.test(String(workspaceId || "")))
+      return response.status(400).json({ error: "Negócio inválido." });
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("id", workspaceId)
+      .maybeSingle();
+    if (!workspace)
+      return response.status(403).json({ error: "Acesso negado." });
+    const { data: config } = await supabase
+      .from("checkout_configs")
+      .select("settings")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    const saved = config?.settings?.custom_domain || null;
+
+    if (request.method === "GET") {
+      if (!saved?.hostname) return response.status(200).json({ domain: null });
+      try {
+        const remote = await vercelRequest(
+          `/v9/projects/{project}/domains/${encodeURIComponent(saved.hostname)}`,
+        );
+        const domain = {
+          ...saved,
+          verified: Boolean(remote.verified),
+          dns: dnsGuide(saved.hostname, remote.verification),
+          checked_at: new Date().toISOString(),
+        };
+        await saveDomainSettings(supabase, workspaceId, domain);
+        return response.status(200).json({ domain });
+      } catch (error) {
+        if (error.code === "VERCEL_DOMAIN_INTEGRATION_MISSING") throw error;
+        return response.status(200).json({ domain: saved });
+      }
+    }
+
+    if (request.method === "DELETE") {
+      if (saved?.hostname) {
+        await vercelRequest(
+          `/v9/projects/{project}/domains/${encodeURIComponent(saved.hostname)}`,
+          { method: "DELETE" },
+        ).catch((error) => {
+          if (error.status !== 404) throw error;
+        });
+      }
+      await saveDomainSettings(supabase, workspaceId, null);
+      return response.status(200).json({ removed: true });
+    }
+
+    const action = request.body?.action;
+    const hostname = normalizeDomain(request.body?.domain || saved?.hostname);
+    if (!hostname)
+      return response.status(400).json({ error: "Informe um domínio válido." });
+    if (action === "add") {
+      if (!process.env.SUPABASE_SECRET_KEY)
+        throw Object.assign(new Error("Configuração segura indisponível."), {
+          status: 503,
+        });
+      const admin = createClient(
+        process.env.VITE_SUPABASE_URL,
+        process.env.SUPABASE_SECRET_KEY,
+        { auth: { persistSession: false } },
+      );
+      const { data: conflict } = await admin
+        .from("checkout_configs")
+        .select("workspace_id")
+        .contains("settings", { custom_domain: { hostname } })
+        .neq("workspace_id", workspaceId)
+        .limit(1)
+        .maybeSingle();
+      if (conflict)
+        return response.status(409).json({
+          error: "Este domínio já está conectado a outro negócio da Maax.",
+        });
+      const remote = await vercelRequest(`/v10/projects/{project}/domains`, {
+        method: "POST",
+        body: JSON.stringify({ name: hostname }),
+      });
+      const domain = {
+        hostname,
+        verified: Boolean(remote.verified),
+        dns: dnsGuide(hostname, remote.verification),
+        created_at: new Date().toISOString(),
+        checked_at: new Date().toISOString(),
+      };
+      await saveDomainSettings(supabase, workspaceId, domain);
+      return response.status(200).json({ domain });
+    }
+    if (action === "verify") {
+      const remote = await vercelRequest(
+        `/v9/projects/{project}/domains/${encodeURIComponent(hostname)}/verify`,
+        { method: "POST" },
+      );
+      const domain = {
+        ...(saved || {}),
+        hostname,
+        verified: Boolean(remote.verified),
+        dns: dnsGuide(hostname, remote.verification),
+        checked_at: new Date().toISOString(),
+      };
+      await saveDomainSettings(supabase, workspaceId, domain);
+      return response.status(200).json({ domain });
+    }
+    return response.status(400).json({ error: "Ação inválida." });
+  } catch (error) {
+    console.error("Custom domain operation failed", {
+      status: error.status || 500,
+      code: error.code,
+      message: error.message,
+    });
+    return response.status(error.status || 500).json({
+      error:
+        error.status && error.status < 500
+          ? error.message
+          : "Não foi possível concluir a configuração do domínio.",
+      code: error.code || null,
+    });
+  }
+}

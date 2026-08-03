@@ -8351,3 +8351,112 @@ html {
     grid-column: 2;
   }
 }
+
+/* Custom checkout domains */
+.domain-page { display: grid; gap: 24px; }
+.domain-hero {
+  position: relative; overflow: hidden; display: grid; grid-template-columns: 1.1fr .9fr;
+  align-items: center; gap: 48px; min-height: 278px; padding: 40px 44px;
+  border-radius: 26px; background: #171915; color: #fff;
+}
+.domain-hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .38;
+  background: repeating-radial-gradient(ellipse at 8% 120%, transparent 0 35px, rgba(255,255,255,.08) 36px 37px);
+}
+.domain-hero-copy, .domain-address-preview { position: relative; z-index: 1; }
+.domain-hero-copy > span, .domain-config-card header span, .domain-tutorial header > span {
+  color: #b9ed2c; font-size: 8px; font-weight: 700; letter-spacing: .18em;
+}
+.domain-hero-copy h2 { max-width: 520px; margin: 10px 0 12px; font-size: 31px; line-height: 1.05; letter-spacing: -.05em; }
+.domain-hero-copy > p { max-width: 570px; margin: 0; color: #aeb1aa; font-size: 11px; line-height: 1.65; }
+.domain-boundaries { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 23px; }
+.domain-boundaries span { display: inline-flex; align-items: center; gap: 6px; color: #d7dad3; font-size: 9px; }
+.domain-boundaries svg { color: #c9ff32; font-size: 13px; }
+.domain-address-preview {
+  justify-self: stretch; padding: 25px; border: 1px solid rgba(255,255,255,.11);
+  border-radius: 19px; background: rgba(255,255,255,.055); box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+}
+.domain-address-preview > small { color: #858a80; font-size: 7px; letter-spacing: .16em; }
+.domain-address-preview > div { display: flex; align-items: center; gap: 12px; margin: 15px 0 18px; }
+.domain-address-preview > div > svg { color: #c9ff32; font-size: 24px; }
+.domain-address-preview > div span { display: grid; min-width: 0; gap: 5px; }
+.domain-address-preview > div b { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.domain-address-preview > div small { color: #90948b; font-size: 9px; }
+.domain-address-preview > em { display: inline-flex; align-items: center; gap: 7px; color: #969b91; font-size: 8px; font-style: normal; }
+.domain-address-preview > em i { width: 7px; height: 7px; border-radius: 50%; background: #777c72; }
+.domain-address-preview > em.verified { color: #d7f988; }
+.domain-address-preview > em.verified i { background: #c9ff32; box-shadow: 0 0 0 4px rgba(201,255,50,.08); }
+.domain-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(310px, .7fr); gap: 18px; align-items: start; }
+.domain-config-card, .domain-tutorial { border: 1px solid #dcddd8; border-radius: 23px; background: #fff; }
+.domain-config-card { overflow: hidden; }
+.domain-config-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 26px 28px; border-bottom: 1px solid #e5e6e1; }
+.domain-config-card header h2, .domain-tutorial header h2 { margin: 8px 0 0; font-size: 19px; letter-spacing: -.04em; }
+.domain-config-card header em { padding: 7px 10px; border-radius: 999px; font-size: 8px; font-style: normal; font-weight: 700; }
+.domain-config-card header em.verified { background: #eff8d8; color: #637b16; }
+.domain-config-card header em.pending { background: #fff6dc; color: #936e14; }
+.domain-config-card > label, .domain-config-card > .domain-input-label { margin: 25px 28px 0; }
+.domain-input-label { display: grid; gap: 8px; color: #50544b; font-size: 10px; font-weight: 700; }
+.domain-input-label > div { position: relative; }
+.domain-input-label svg { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: #858980; font-size: 17px; }
+.domain-input-label input { width: 100%; height: 49px; padding: 0 15px 0 43px; border: 1px solid #d9dbd4; border-radius: 12px; outline: 0; background: #fafbf8; color: #191b17; font: inherit; }
+.domain-input-label input:focus { border-color: #94b429; box-shadow: inset 0 0 0 1px #94b429; }
+.domain-input-label input:disabled { color: #666a61; cursor: not-allowed; }
+.domain-input-label > small { color: #969a90; font-size: 8px; font-weight: 450; }
+.domain-config-card > .btn { margin: 20px 28px 28px; }
+.domain-actions { display: flex; gap: 9px; margin: 20px 28px 25px; }
+.domain-feedback { display: flex; align-items: center; gap: 9px; margin: 0 28px 22px; padding: 12px 14px; border-radius: 11px; background: #fff3f1; color: #a33a34; font-size: 9px; }
+.domain-feedback.success { background: #f1f8df; color: #667c1f; }
+.domain-feedback.warning { background: #fff7e2; color: #86681d; }
+.domain-feedback svg { flex: 0 0 auto; font-size: 15px; }
+.dns-record { display: grid; gap: 10px; padding: 23px 28px 27px; border-top: 1px solid #e5e6e1; background: #fafbf8; }
+.dns-record-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 4px; }
+.dns-record-title > span { display: grid; gap: 4px; }
+.dns-record-title b { font-size: 11px; }
+.dns-record-title small { color: #92968c; font-size: 8px; }
+.dns-record-title em { padding: 6px 9px; border-radius: 8px; background: #171915; color: #c9ff32; font-size: 8px; font-style: normal; font-weight: 800; }
+.dns-value { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 12px 13px; border: 1px solid #dedfd9; border-radius: 11px; background: #fff; }
+.dns-value > span { display: grid; min-width: 0; gap: 4px; }
+.dns-value small { color: #94988e; font-size: 7px; }
+.dns-value b { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
+.dns-value button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid #dedfd9; border-radius: 8px; background: #f7f8f5; font-size: 8px; font-weight: 700; }
+.dns-ttl { color: #999d93; font-size: 8px; }
+.domain-skeleton { display: grid; gap: 11px; padding: 28px; }
+.domain-skeleton i { height: 47px; border-radius: 11px; background: linear-gradient(90deg,#f0f1ed,#f7f8f5,#f0f1ed); background-size: 200% 100%; animation: domainShimmer 1.3s infinite; }
+.domain-skeleton i:nth-child(2) { width: 64%; }
+.domain-skeleton i:nth-child(3) { width: 38%; }
+@keyframes domainShimmer { to { background-position: -200% 0; } }
+.domain-tutorial { padding: 27px; }
+.domain-tutorial header p { margin: 6px 0 0; color: #92968c; font-size: 9px; }
+.domain-tutorial ol { display: grid; gap: 0; margin: 22px 0; padding: 0; list-style: none; }
+.domain-tutorial li { position: relative; display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 11px; padding-bottom: 18px; }
+.domain-tutorial li:not(:last-child)::after { content: ""; position: absolute; top: 26px; bottom: 3px; left: 14px; width: 1px; background: #dfe1da; }
+.domain-tutorial li > i { position: relative; z-index: 1; display: grid; width: 29px; height: 29px; place-items: center; border-radius: 9px; background: #eff2e8; color: #758e22; font-size: 8px; font-style: normal; font-weight: 800; }
+.domain-tutorial li > span { display: grid; gap: 4px; padding-top: 2px; }
+.domain-tutorial li b { font-size: 10px; }
+.domain-tutorial li small { color: #858980; font-size: 8px; line-height: 1.55; }
+.domain-provider-note { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border-radius: 12px; background: #f2f3ee; }
+.domain-provider-note > svg { flex: 0 0 auto; color: #839d29; font-size: 17px; }
+.domain-provider-note span { display: grid; gap: 4px; }
+.domain-provider-note b { font-size: 8px; }
+.domain-provider-note small { color: #858980; font-size: 7px; line-height: 1.5; }
+
+@media (max-width: 920px) {
+  .domain-hero, .domain-layout { grid-template-columns: 1fr; }
+  .domain-address-preview { justify-self: stretch; }
+}
+@media (max-width: 620px) {
+  .domain-page { gap: 16px; }
+  .domain-hero { gap: 28px; min-height: 0; padding: 28px 20px; border-radius: 20px; }
+  .domain-hero-copy h2 { font-size: 26px; }
+  .domain-boundaries { display: grid; }
+  .domain-layout { gap: 14px; }
+  .domain-config-card > header { padding: 22px 18px; }
+  .domain-config-card > label, .domain-config-card > .domain-input-label { margin-right: 18px; margin-left: 18px; }
+  .domain-config-card > .btn, .domain-actions { margin-right: 18px; margin-left: 18px; }
+  .domain-actions { align-items: stretch; flex-direction: column; }
+  .domain-actions .btn { width: 100%; }
+  .domain-feedback { margin-right: 18px; margin-left: 18px; }
+  .dns-record { padding: 21px 18px; }
+  .dns-value { align-items: flex-start; flex-direction: column; }
+  .domain-tutorial { padding: 22px 18px; }
+}

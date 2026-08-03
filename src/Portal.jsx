@@ -13,6 +13,7 @@ import {
   CreditCard,
   Crosshair,
   CurrencyDollar,
+  GlobeSimple,
   House,
   Link as LinkIcon,
   List,
@@ -203,6 +204,7 @@ const nav = [
   ["home", "Início", House],
   ["produtos", "Produtos", Package],
   ["checkout", "Checkout", CreditCard],
+  ["domains", "Domínio", GlobeSimple],
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
   ["shipping", "Frete", Truck],
@@ -2408,6 +2410,25 @@ export function PublicCheckout({ slug }) {
         ...defaultCheckout,
         ...(configResult.data?.settings || {}),
       };
+      const currentHost = window.location.hostname.toLowerCase();
+      const platformHost =
+        currentHost === "localhost" ||
+        currentHost === "127.0.0.1" ||
+        currentHost.endsWith(".vercel.app");
+      const configuredHost = String(
+        checkoutSettings.custom_domain?.hostname || "",
+      ).toLowerCase();
+      if (
+        !platformHost &&
+        (!checkoutSettings.custom_domain?.verified || configuredHost !== currentHost)
+      ) {
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: "Este domínio não está autorizado para este checkout.",
+        }));
+        return;
+      }
       const configuredBumpIds = checkoutSettings.order_bump_enabled
         ? (checkoutSettings.order_bump_product_ids || []).filter(
             (id) => id !== product.id,
@@ -5622,6 +5643,288 @@ function CustomersView({ customers = [], orders = [] }) {
   );
 }
 
+function DomainPage({ workspace }) {
+  const [domain, setDomain] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
+  const [feedback, setFeedback] = useState({ type: "", message: "" });
+  const [copied, setCopied] = useState("");
+
+  const request = async (options = {}) => {
+    const { data } = await supabase.auth.getSession();
+    const response = await fetch(
+      `/api/domains/config${options.method ? "" : `?workspaceId=${workspace.id}`}`,
+      {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session?.access_token}`,
+          ...options.headers,
+        },
+      },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw Object.assign(
+        new Error(result.error || "Não foi possível configurar o domínio."),
+        { code: result.code },
+      );
+    return result;
+  };
+
+  const loadDomain = async () => {
+    setLoading(true);
+    setFeedback({ type: "", message: "" });
+    try {
+      const result = await request();
+      setDomain(result.domain || null);
+      setDraft(result.domain?.hostname || "");
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    loadDomain();
+  }, [workspace.id]);
+
+  const connect = async () => {
+    setBusy("add");
+    setFeedback({ type: "", message: "" });
+    try {
+      const result = await request({
+        method: "POST",
+        body: JSON.stringify({
+          workspaceId: workspace.id,
+          action: "add",
+          domain: draft,
+        }),
+      });
+      setDomain(result.domain);
+      setDraft(result.domain.hostname);
+      setFeedback({
+        type: "success",
+        message: result.domain.verified
+          ? "Domínio conectado e pronto para uso."
+          : "Domínio adicionado. Configure o DNS indicado abaixo.",
+      });
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setBusy("");
+    }
+  };
+  const verify = async () => {
+    setBusy("verify");
+    setFeedback({ type: "", message: "" });
+    try {
+      const result = await request({
+        method: "POST",
+        body: JSON.stringify({
+          workspaceId: workspace.id,
+          action: "verify",
+          domain: domain?.hostname,
+        }),
+      });
+      setDomain(result.domain);
+      setFeedback({
+        type: result.domain.verified ? "success" : "warning",
+        message: result.domain.verified
+          ? "Conexão confirmada. O SSL será emitido automaticamente."
+          : "O DNS ainda não propagou. Aguarde alguns minutos e teste novamente.",
+      });
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setBusy("");
+    }
+  };
+  const remove = async () => {
+    if (!window.confirm("Remover este domínio dos checkouts públicos?")) return;
+    setBusy("remove");
+    try {
+      await request({
+        method: "DELETE",
+        body: JSON.stringify({ workspaceId: workspace.id }),
+      });
+      setDomain(null);
+      setDraft("");
+      setFeedback({ type: "success", message: "Domínio removido." });
+    } catch (error) {
+      setFeedback({ type: "error", message: error.message });
+    } finally {
+      setBusy("");
+    }
+  };
+  const copyValue = async (key, value) => {
+    await navigator.clipboard.writeText(value);
+    setCopied(key);
+    setTimeout(() => setCopied(""), 1600);
+  };
+  const dns = domain?.dns;
+
+  return (
+    <div className="domain-page page-enter">
+      <PageTitle
+        kicker="IDENTIDADE DIGITAL"
+        title="Domínio"
+        description="Use seu próprio endereço nos checkouts públicos deste negócio."
+      />
+      <section className="domain-hero">
+        <div className="domain-hero-copy">
+          <span>DOMÍNIO DO CHECKOUT</span>
+          <h2>Seu endereço. A estrutura da Maax.</h2>
+          <p>
+            O domínio personalizado funciona apenas nas páginas públicas de
+            checkout. O painel administrativo continua seguro em
+            maaxcheckout.vercel.app.
+          </p>
+          <div className="domain-boundaries">
+            <span><CheckCircle /> Checkout público personalizado</span>
+            <span><CheckCircle /> Plataforma Maax preservada</span>
+            <span><CheckCircle /> SSL automático após a validação</span>
+          </div>
+        </div>
+        <div className="domain-address-preview">
+          <small>SEU LINK PÚBLICO</small>
+          <div>
+            <GlobeSimple />
+            <span>
+              <b>{domain?.verified ? domain.hostname : "checkout.sualoja.com"}</b>
+              <small>/checkout/seu-produto</small>
+            </span>
+          </div>
+          <em className={domain?.verified ? "verified" : ""}>
+            <i /> {domain?.verified ? "Conectado" : "Aguardando conexão"}
+          </em>
+        </div>
+      </section>
+
+      <div className="domain-layout">
+        <section className="domain-config-card">
+          <header>
+            <div>
+              <span>CONFIGURAÇÃO</span>
+              <h2>Conectar domínio</h2>
+            </div>
+            {domain && (
+              <em className={domain.verified ? "verified" : "pending"}>
+                {domain.verified ? "Ativo" : "DNS pendente"}
+              </em>
+            )}
+          </header>
+          {loading ? (
+            <div className="domain-skeleton"><i /><i /><i /></div>
+          ) : (
+            <>
+              <label className="domain-input-label">
+                Domínio ou subdomínio
+                <div>
+                  <GlobeSimple />
+                  <input
+                    value={draft}
+                    disabled={Boolean(domain)}
+                    placeholder="checkout.sualoja.com"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    onChange={(event) => setDraft(event.target.value)}
+                  />
+                </div>
+                <small>
+                  Recomendado: use um subdomínio como checkout.sualoja.com.
+                </small>
+              </label>
+              {!domain ? (
+                <Button onClick={connect} disabled={busy === "add" || !draft.trim()}>
+                  {busy === "add" ? "Conectando..." : "Adicionar domínio"}
+                  <ArrowRight />
+                </Button>
+              ) : (
+                <div className="domain-actions">
+                  <Button onClick={verify} disabled={Boolean(busy)}>
+                    {busy === "verify" ? "Testando..." : "Testar conexão"}
+                  </Button>
+                  <Button secondary onClick={remove} disabled={Boolean(busy)}>
+                    <Trash /> Remover domínio
+                  </Button>
+                </div>
+              )}
+              {feedback.message && (
+                <div className={`domain-feedback ${feedback.type}`}>
+                  {feedback.type === "success" ? <CheckCircle /> : <WarningCircle />}
+                  {feedback.message}
+                </div>
+              )}
+              {domain && dns && (
+                <div className="dns-record">
+                  <div className="dns-record-title">
+                    <span>
+                      <b>Registro necessário no provedor</b>
+                      <small>
+                        {dns.ownershipRequired
+                          ? "Validação de propriedade solicitada pela Vercel"
+                          : "Copie estes dados exatamente como aparecem"}
+                      </small>
+                    </span>
+                    <em>{dns.type}</em>
+                  </div>
+                  {[["Nome / Host", dns.name, "name"], ["Valor / Destino", dns.value, "value"]].map(
+                    ([label, value, key]) => (
+                      <div className="dns-value" key={key}>
+                        <span><small>{label}</small><b>{value}</b></span>
+                        <button onClick={() => copyValue(key, value)}>
+                          {copied === key ? <CheckCircle /> : <Copy />}
+                          {copied === key ? "Copiado" : "Copiar"}
+                        </button>
+                      </div>
+                    ),
+                  )}
+                  <small className="dns-ttl">TTL recomendado: Automático ou 300 segundos.</small>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <aside className="domain-tutorial">
+          <header>
+            <span>GUIA RÁPIDO</span>
+            <h2>Do provedor até a Maax</h2>
+            <p>O processo costuma levar poucos minutos.</p>
+          </header>
+          <ol>
+            <li>
+              <i>01</i>
+              <span><b>Na Maax</b><small>Digite o domínio acima e clique em “Adicionar domínio”.</small></span>
+            </li>
+            <li>
+              <i>02</i>
+              <span><b>No seu provedor</b><small>Abra a área DNS do domínio e escolha “Adicionar registro”.</small></span>
+            </li>
+            <li>
+              <i>03</i>
+              <span><b>Copie sem alterar</b><small>Informe o Tipo, Nome e Valor exibidos pela Maax. Remova registros conflitantes.</small></span>
+            </li>
+            <li>
+              <i>04</i>
+              <span><b>Volte para testar</b><small>Salve no provedor e clique em “Testar conexão”. A propagação pode levar até 48 horas.</small></span>
+            </li>
+          </ol>
+          <div className="domain-provider-note">
+            <WarningCircle />
+            <span>
+              <b>Cloudflare, Registro.br, GoDaddy ou Hostinger</b>
+              <small>Use sempre a seção DNS. No Cloudflare, deixe o proxy desativado durante a primeira validação.</small>
+            </span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 function ShippingPage({ workspace }) {
   const [configId, setConfigId] = useState(null);
   const [settings, setSettings] = useState(defaultCheckout);
@@ -5928,6 +6231,7 @@ function DataView({
     );
   if (type === "tracking")
     return <TrackingPage workspace={workspace} onReload={onReload} />;
+  if (type === "domains") return <DomainPage workspace={workspace} />;
   if (type === "shipping") return <ShippingPage workspace={workspace} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
   if (type === "clientes")
@@ -6072,6 +6376,11 @@ function DataView({
           <ProductRows
             products={data.products}
             productImages={data.product_images}
+            checkoutOrigin={
+              data.checkout_configs?.[0]?.settings?.custom_domain?.verified
+                ? `https://${data.checkout_configs[0].settings.custom_domain.hostname}`
+                : location.origin
+            }
             onEdit={(product) => onNavigate(`product_edit:${product.id}`)}
             onReload={onReload}
           />
@@ -6084,10 +6393,16 @@ function DataView({
     </div>
   );
 }
-function ProductRows({ products, productImages, onEdit, onReload }) {
+function ProductRows({
+  products,
+  productImages,
+  checkoutOrigin = location.origin,
+  onEdit,
+  onReload,
+}) {
   const [feedback, setFeedback] = useState("");
   const copyLink = async (product) => {
-    const url = `${location.origin}/checkout/${product.slug}`;
+    const url = `${checkoutOrigin}/checkout/${product.slug}`;
     await navigator.clipboard.writeText(url);
     setFeedback(`Link de ${product.name} copiado.`);
     setTimeout(() => setFeedback(""), 2500);
