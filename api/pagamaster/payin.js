@@ -21,6 +21,50 @@ const brlToCents = (value = 0) => {
   const amount = Number(String(value).trim().replace(/\./g, "").replace(",", "."));
   return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 };
+const attributionFields = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_id",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "ttclid",
+  "msclkid",
+];
+const cleanText = (value, max = 255) =>
+  String(value || "")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .slice(0, max) || null;
+const normalizeTouch = (touch) => {
+  if (!touch || typeof touch !== "object" || Array.isArray(touch)) return null;
+  const normalized = {};
+  attributionFields.forEach((field) => {
+    const value = cleanText(touch[field]);
+    if (value) normalized[field] = value;
+  });
+  normalized.landing_path = cleanText(touch.landing_path, 1800);
+  normalized.referrer = cleanText(touch.referrer, 1800);
+  const capturedAt = new Date(touch.captured_at);
+  normalized.captured_at = Number.isNaN(capturedAt.getTime())
+    ? new Date().toISOString()
+    : capturedAt.toISOString();
+  return normalized;
+};
+const normalizeAttribution = (attribution) => {
+  const firstTouch = normalizeTouch(attribution?.first_touch);
+  const lastTouch = normalizeTouch(attribution?.last_touch);
+  if (!firstTouch && !lastTouch) return null;
+  return {
+    model: "last_non_direct_click",
+    first_touch: firstTouch || lastTouch,
+    last_touch: lastTouch || firstTouch,
+  };
+};
 
 export default async function handler(request, response) {
   if (request.method !== "POST")
@@ -42,6 +86,8 @@ export default async function handler(request, response) {
       card,
       protectionSelected = false,
       orderBumpProductIds = [],
+      attribution,
+      checkoutSessionId,
     } = request.body || {};
     let productQuery = supabase
       .from("products")
@@ -94,6 +140,10 @@ export default async function handler(request, response) {
       .eq("workspace_id", product.workspace_id)
       .maybeSingle();
     const checkoutSettings = checkoutConfig?.settings || {};
+    const campaignAttribution =
+      checkoutSettings.campaign_attribution_enabled === true
+        ? normalizeAttribution(attribution)
+        : null;
     const configuredBumpIds = checkoutSettings.order_bump_enabled
       ? (checkoutSettings.order_bump_product_ids || []).filter(
           (id) => id !== product.id,
@@ -320,6 +370,12 @@ export default async function handler(request, response) {
           gateway: "pagamaster",
           gateway_transaction_id: result.id,
           reference_id: referenceId,
+          checkout_session_id: /^[0-9a-f-]{36}$/i.test(
+            String(checkoutSessionId || ""),
+          )
+            ? checkoutSessionId
+            : null,
+          attribution: campaignAttribution,
         },
       })
       .select("id")

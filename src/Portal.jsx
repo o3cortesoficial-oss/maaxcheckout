@@ -1138,6 +1138,7 @@ export function RealDashboard({ navigate }) {
       payment_attempts: [],
       checkout_event_counters: [],
       checkout_presence: [],
+      checkout_configs: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -1213,6 +1214,7 @@ export function RealDashboard({ navigate }) {
       "payment_attempts",
       "checkout_event_counters",
       "checkout_presence",
+      "checkout_configs",
     ];
     const results = await Promise.all(
       tables.map((t) =>
@@ -1792,7 +1794,163 @@ function CheckoutLiveFeed({ counters = [], presence = [] }) {
   );
 }
 
+function getCampaignTouch(order) {
+  const touch = order.metadata?.attribution?.last_touch || {};
+  const source =
+    touch.utm_source ||
+    (touch.gclid || touch.gbraid || touch.wbraid
+      ? "google"
+      : touch.fbclid
+        ? "meta"
+        : touch.ttclid
+          ? "tiktok"
+          : touch.msclkid
+            ? "microsoft"
+            : "direct");
+  return {
+    source,
+    medium: touch.utm_medium || (source === "direct" ? "none" : "paid"),
+    campaign: touch.utm_campaign || "Sem campanha",
+    content: touch.utm_content || null,
+    clickId:
+      touch.gclid ||
+      touch.gbraid ||
+      touch.wbraid ||
+      touch.fbclid ||
+      touch.ttclid ||
+      touch.msclkid ||
+      null,
+  };
+}
+
+function CampaignAttributionPanel({ orders = [] }) {
+  const approved = [...orders]
+    .filter(
+      (order) =>
+        order.status === "approved" && order.metadata?.attribution?.last_touch,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.paid_at || b.created_at).getTime() -
+        new Date(a.paid_at || a.created_at).getTime(),
+    );
+  const recent = approved.slice(0, 30).map((order) => ({
+    ...order,
+    campaignTouch: getCampaignTouch(order),
+  }));
+  const attributed = approved.filter(
+    (order) => getCampaignTouch(order).source !== "direct",
+  );
+  const rankingMap = new Map();
+  attributed.forEach((order) => {
+    const touch = getCampaignTouch(order);
+    const key = `${touch.source}::${touch.campaign}`;
+    const current = rankingMap.get(key) || {
+      source: touch.source,
+      campaign: touch.campaign,
+      sales: 0,
+      revenue: 0,
+    };
+    current.sales += 1;
+    current.revenue += Number(order.total_cents || 0);
+    rankingMap.set(key, current);
+  });
+  const ranking = [...rankingMap.values()]
+    .sort((a, b) => b.revenue - a.revenue || b.sales - a.sales)
+    .slice(0, 10);
+  const attributedRevenue = attributed.reduce(
+    (total, order) => total + Number(order.total_cents || 0),
+    0,
+  );
+  const attributionRate = approved.length
+    ? Math.round((attributed.length / approved.length) * 100)
+    : 0;
+
+  return (
+    <section className="campaign-panel">
+      <header className="campaign-panel-head">
+        <div>
+          <span>INTELIGÊNCIA DE AQUISIÇÃO</span>
+          <h2>Campanhas que geram receita.</h2>
+          <p>Somente pedidos aprovados e conciliados pelo gateway.</p>
+        </div>
+        <div className="campaign-panel-live"><i /> Atribuição ativa</div>
+      </header>
+      <div className="campaign-summary">
+        <div><span>Receita atribuída</span><strong>{money(attributedRevenue)}</strong></div>
+        <div><span>Vendas identificadas</span><strong>{attributed.length}</strong></div>
+        <div><span>Taxa de atribuição</span><strong>{attributionRate}%</strong></div>
+      </div>
+      <div className="campaign-panel-grid">
+        <aside className="campaign-ranking">
+          <header>
+            <span>TOP 10</span>
+            <b>Melhores campanhas</b>
+            <small>Ordenado por faturamento aprovado</small>
+          </header>
+          {ranking.length ? (
+            <ol>
+              {ranking.map((campaign, index) => (
+                <li key={`${campaign.source}-${campaign.campaign}`}>
+                  <em>{String(index + 1).padStart(2, "0")}</em>
+                  <span>
+                    <b>{campaign.campaign}</b>
+                    <small>{campaign.source} · {campaign.sales} {campaign.sales === 1 ? "venda" : "vendas"}</small>
+                  </span>
+                  <strong>{money(campaign.revenue)}</strong>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="campaign-ranking-empty">
+              <Crosshair />
+              <b>Aguardando a primeira campanha</b>
+              <small>As vendas atribuídas formarão o ranking automaticamente.</small>
+            </div>
+          )}
+        </aside>
+        <div className="campaign-sales">
+          <header>
+            <div>
+              <span>ÚLTIMAS CONVERSÕES</span>
+              <b>Origem de cada venda</b>
+            </div>
+            <small>{recent.length}/30 linhas</small>
+          </header>
+          {recent.length ? (
+            <div className="campaign-sales-scroll">
+              <div className="campaign-sale-row campaign-sale-th">
+                <span>Campanha</span><span>Origem</span><span>Pedido</span><span>Valor</span><span>Data</span>
+              </div>
+              {recent.map((order) => (
+                <div className="campaign-sale-row" key={order.id}>
+                  <span>
+                    <b>{order.campaignTouch.campaign}</b>
+                    <small>{order.campaignTouch.content || order.campaignTouch.medium}</small>
+                  </span>
+                  <span><i /> {order.campaignTouch.source}</span>
+                  <span>{order.code}</span>
+                  <span><b>{money(order.total_cents)}</b></span>
+                  <span>{date(order.paid_at || order.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="campaign-sales-empty">
+              <TrendUp />
+              <b>Nenhuma venda aprovada ainda</b>
+              <small>As conversões aparecerão aqui em tempo real.</small>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HomeView({ metrics, data, workspace, onNavigate }) {
+  const attributionEnabled =
+    data.checkout_configs?.[0]?.settings?.campaign_attribution_enabled === true;
   return (
     <div className="page-enter">
       <PageTitle
@@ -1836,6 +1994,7 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
           tone="danger"
         />
       </div>
+      {attributionEnabled && <CampaignAttributionPanel orders={data.orders} />}
       <section className="resource-table">
         <div className="resource-head">
           <div>
@@ -1949,9 +2108,72 @@ const mergeCheckoutModules = (saved = []) => [
     (module) => !saved.some((item) => item.id === module.id),
   ),
 ];
+
+const attributionKeys = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_id",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "ttclid",
+  "msclkid",
+];
+
+function captureCampaignAttribution() {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const current = Object.fromEntries(
+    attributionKeys
+      .map((key) => [key, params.get(key)?.trim()])
+      .filter(([, value]) => value),
+  );
+  const hasCampaignSignal = Object.keys(current).length > 0;
+  const now = new Date().toISOString();
+  const touch = {
+    ...current,
+    landing_path: `${window.location.pathname}${window.location.search}`.slice(0, 1800),
+    referrer: document.referrer.slice(0, 1800) || null,
+    captured_at: now,
+  };
+  const storageKey = "maax_campaign_attribution_v1";
+  let stored = null;
+  try {
+    stored = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+  } catch {
+    stored = null;
+  }
+  const inferredTouch = hasCampaignSignal
+    ? touch
+    : stored?.last_touch || {
+        ...touch,
+        utm_source: document.referrer ? "referral" : "direct",
+        utm_medium: document.referrer ? "referral" : "none",
+        utm_campaign: "Sem campanha",
+      };
+  const firstCapturedAt = new Date(stored?.first_touch?.captured_at || 0).getTime();
+  const firstTouchExpired = Date.now() - firstCapturedAt > 90 * 24 * 60 * 60 * 1000;
+  const attribution = {
+    first_touch:
+      !stored?.first_touch || firstTouchExpired ? inferredTouch : stored.first_touch,
+    last_touch: hasCampaignSignal ? inferredTouch : stored?.last_touch || inferredTouch,
+  };
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(attribution));
+  } catch {
+    // Attribution still travels with the current checkout when storage is unavailable.
+  }
+  return attribution;
+}
+
 export function PublicCheckout({ slug }) {
   const checkoutSessionId = useRef(crypto.randomUUID());
   const humanVerifiedRef = useRef(false);
+  const campaignAttribution = useRef(captureCampaignAttribution());
   const trackedInteraction = useRef({ form: false, address: false });
   const [state, setState] = useState({
     loading: true,
@@ -2247,6 +2469,8 @@ export function PublicCheckout({ slug }) {
           card,
           protectionSelected,
           orderBumpProductIds: selectedBumpIds,
+          attribution: campaignAttribution.current,
+          checkoutSessionId: checkoutSessionId.current,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -4524,10 +4748,11 @@ const trackingPlatforms = [
   },
 ];
 
-function TrackingPage({ workspace }) {
+function TrackingPage({ workspace, onReload }) {
   const [config, setConfig] = useState(null);
   const [pixels, setPixels] = useState({ meta: [], google: [], tiktok: [] });
   const [drafts, setDrafts] = useState({ meta: "", google: "", tiktok: "" });
+  const [attributionEnabled, setAttributionEnabled] = useState(false);
   const [state, setState] = useState("Carregando...");
 
   useEffect(() => {
@@ -4549,6 +4774,9 @@ function TrackingPage({ workspace }) {
           google: data?.settings?.tracking_pixels?.google || [],
           tiktok: data?.settings?.tracking_pixels?.tiktok || [],
         });
+        setAttributionEnabled(
+          data?.settings?.campaign_attribution_enabled === true,
+        );
         setState("");
       });
     return () => {
@@ -4556,12 +4784,13 @@ function TrackingPage({ workspace }) {
     };
   }, [workspace.id]);
 
-  const persist = async (nextPixels) => {
+  const persist = async (nextPixels, nextAttributionEnabled = attributionEnabled) => {
     setState("Salvando...");
     const settings = {
       ...defaultCheckout,
       ...(config?.settings || {}),
       tracking_pixels: nextPixels,
+      campaign_attribution_enabled: nextAttributionEnabled,
     };
     const query = config?.id
       ? supabase
@@ -4585,7 +4814,9 @@ function TrackingPage({ workspace }) {
     }
     if (data) setConfig(data);
     setPixels(nextPixels);
+    setAttributionEnabled(nextAttributionEnabled);
     setState("Alterações salvas");
+    onReload?.(false, true);
     setTimeout(() => setState(""), 2200);
     return true;
   };
@@ -4611,6 +4842,9 @@ function TrackingPage({ workspace }) {
       ...pixels,
       [platform]: pixels[platform].filter((item) => item.id !== id),
     });
+
+  const toggleAttribution = () =>
+    persist(pixels, !attributionEnabled);
 
   const totalPixels = Object.values(pixels).reduce(
     (total, platformPixels) => total + platformPixels.length,
@@ -4647,6 +4881,31 @@ function TrackingPage({ workspace }) {
           <i /> {state || "Sincronizado"}
         </div>
       </div>
+      <section className="attribution-control">
+        <div className="attribution-control-icon">
+          <Crosshair />
+        </div>
+        <div className="attribution-control-copy">
+          <span>ATRIBUIÇÃO DE CAMPANHAS</span>
+          <b>Conectar cada venda à origem correta</b>
+          <p>
+            Captura UTMs, origem, mídia, criativo e identificadores de clique
+            usando primeiro e último toque por até 90 dias.
+          </p>
+        </div>
+        <div className="attribution-control-action">
+          <small>{attributionEnabled ? "Ativo neste negócio" : "Recurso opcional"}</small>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={attributionEnabled}
+            className={attributionEnabled ? "active" : ""}
+            onClick={toggleAttribution}
+          >
+            <i />
+          </button>
+        </div>
+      </section>
       <div className="tracking-grid">
         {trackingPlatforms.map((platform, index) => (
           <section
@@ -5005,7 +5264,8 @@ function DataView({
         productImages={data.product_images}
       />
     );
-  if (type === "tracking") return <TrackingPage workspace={workspace} />;
+  if (type === "tracking")
+    return <TrackingPage workspace={workspace} onReload={onReload} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
   if (type === "clientes")
     return <CustomersView customers={data.customers} orders={data.orders} />;
