@@ -60,7 +60,7 @@ export default async function handler(request, response) {
         .from("payment_gateways")
         .select("id,workspace_id,provider,status")
         .limit(1000),
-      admin.from("payment_links").select("id,workspace_id,title,slug,status").limit(1000),
+      admin.from("payment_links").select("id,workspace_id,title,slug,active").limit(1000),
       admin.from("subscriptions").select("*").limit(1000),
       admin.from("platform_user_controls").select("*").limit(1000),
     ]);
@@ -145,7 +145,7 @@ export default async function handler(request, response) {
         workspaces: userWorkspaces.map((workspace) => ({
           id: workspace.id, name: workspace.name,
           products: products.filter((item) => item.workspace_id === workspace.id).map((item) => ({ id: item.id, name: item.name, slug: item.slug, status: item.status })),
-          payment_links: paymentLinks.filter((item) => item.workspace_id === workspace.id).map((item) => ({ id: item.id, title: item.title, slug: item.slug, status: item.status })),
+          payment_links: paymentLinks.filter((item) => item.workspace_id === workspace.id).map((item) => ({ id: item.id, title: item.title, slug: item.slug, status: item.active ? "active" : "inactive" })),
         })),
       };
     }),
