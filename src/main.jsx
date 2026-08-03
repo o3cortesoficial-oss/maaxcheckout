@@ -33,23 +33,29 @@ function HomePage() {
       <div className="hero-proof"><div><ShieldCheck size={25}/><span><b>PCI DSS</b><small>Segurança em cada venda</small></span></div><div className="avatars"><i>LA</i><i>RM</i><i>CV</i><span><b>12 mil+</b><small>negócios vendendo</small></span></div><div className="scroll-note">Role para descobrir <ArrowRight size={14}/></div></div>
     </section>
 
-    <main>
-      <section className="section features" id="recursos">
-        <div className="section-heading"><div><span className="eyebrow">Recursos</span><h2>Um checkout que<br/>trabalha por você.</h2></div><p>Da primeira visita à confirmação do pagamento, cada detalhe foi pensado para reduzir dúvidas e acelerar a decisão.</p></div>
-        <div className="bento">
-          <article className="feature-main"><div className="mock-checkout"><div className="mock-top"><Logo/><span>Compra segura <LockKey size={13}/></span></div><div className="mock-body"><div><small>SEU PEDIDO</small><b>Clube Criadores</b><span>Acesso anual completo</span></div><strong>R$ 297<small>,00</small></strong></div><div className="pay-tabs"><b>Pix</b><span>Cartão</span><span>Boleto</span></div><div className="pix-code"><div className="fake-qr"/><span><b>Escaneie e pague</b><small>Aprovação em segundos</small></span></div><button>Finalizar pagamento</button></div><div className="feature-text"><span>Conversão no centro</span><h3>Uma compra clara do início ao fim</h3><p>Layout responsivo, pagamento rápido e confiança visível.</p></div></article>
-          <article className="feature-small dark-card"><div className="pulse-chart"><span>+18,4%</span><svg viewBox="0 0 300 110"><path d="M0 90 C40 90,45 64,78 70 S130 88,150 50 S195 30,215 52 S260 67,300 14"/></svg></div><div className="feature-text"><span>Dados em tempo real</span><h3>Saiba o que está vendendo</h3></div></article>
-          <article className="feature-small light-card"><div className="security-mark"><ShieldCheck size={48}/><div><Check size={14}/></div></div><div className="feature-text"><span>Proteção Maax</span><h3>Venda segura, sempre</h3></div></article>
+    <main className="reference-flow">
+      <section className="section reference-features" id="recursos">
+        <div className="reference-feature-copy"><span className="eyebrow">Recursos</span><h2>O melhor checkout<br/>para vender mais.</h2><p>Uma estrutura completa para criar ofertas, reduzir atritos e acompanhar cada etapa da compra em tempo real.</p><div><Btn onClick={()=>go('/login')}>Começar agora</Btn><a href="#como">Ver como funciona</a></div></div>
+        <div className="reference-feature-grid">
+          <article><ShieldCheck/><b>Proteção</b><small>Pagamentos e dados protegidos</small></article>
+          <article className="active"><ChartLineUp/><b>Rastreamento</b><small>Atribuição precisa de cada venda</small></article>
+          <article><Package/><b>Flexibilidade</b><small>Produtos físicos e digitais</small></article>
+          <article><Sparkle/><b>Facilidade</b><small>Checkout pronto sem código</small></article>
         </div>
       </section>
 
-      <section className="section about" id="sobre"><div className="about-copy"><span className="eyebrow">Sobre a Maax</span><h2>Menos ferramenta.<br/>Mais resultado.</h2></div><div className="about-side"><p>Criamos tecnologia financeira para quem quer cuidar do produto — e não perder horas tentando receber.</p><a onClick={()=>go('/login')}>Conhecer a plataforma <ArrowUpRight/></a></div><div className="stats"><div><b>24,8<small>mil</small></b><span>vendas processadas<br/>todos os dias</span></div><div><b>R$ 489<small>mi</small></b><span>movimentados<br/>nos últimos 12 meses</span></div><div><b>93,7<small>%</small></b><span>de aprovação em<br/>pagamentos</span></div></div></section>
+      <section className="section reference-about" id="sobre">
+        <div><span className="eyebrow">Sobre a Maax</span><h2>Conheça uma nova<br/>forma de vender.</h2></div><p>A Maax conecta produto, checkout, pagamentos e rastreamento em uma operação clara, rápida e preparada para crescer.</p>
+        <div className="reference-stats"><article><b>Tempo real</b><small>Eventos do checkout acompanhados ao vivo</small></article><article><b>3 meios</b><small>Pix, cartão e boleto configuráveis</small></article><article><b>10 imagens</b><small>Galeria completa em cada produto</small></article></div>
+      </section>
 
-      <section className="section future"><div className="future-copy"><span className="eyebrow dark">Para o seu momento</span><h2>Seu negócio muda.<br/>A Maax acompanha.</h2><p>De quem está começando a quem vende todos os dias, a estrutura cresce junto.</p><Btn onClick={()=>go('/login')}>Criar minha conta <ArrowRight/></Btn></div><div className="future-art"><CardArt tone="pink"/><CardArt tone="mint"/><div className="hand-shape"/></div></section>
+      <section className="section reference-banner"><div><span className="eyebrow dark">Feito para conversão</span><h2>Seu checkout pronto<br/>para a próxima venda.</h2><Btn onClick={()=>go('/login')}>Criar minha conta</Btn></div><div className="reference-banner-art"><CardArt tone="pink"/><CardArt tone="mint"/><span className="banner-orbit"/></div></section>
 
-      <section className="section steps" id="como"><div className="section-heading"><div><span className="eyebrow">Comece em minutos</span><h2>Do cadastro à<br/>primeira venda.</h2></div><p>Sem código, sem contrato longo e sem precisar esperar dias para colocar seu produto no ar.</p></div><div className="step-list"><div><b>01</b><span><strong>Crie sua conta</strong><small>Cadastre seus dados com segurança.</small></span><CheckCircle/></div><div><b>02</b><span><strong>Adicione seu produto</strong><small>Preço, descrição e formas de pagamento.</small></span><ArrowUpRight/></div><div><b>03</b><span><strong>Compartilhe seu link</strong><small>Comece a receber de qualquer lugar.</small></span><ArrowUpRight/></div></div></section>
+      <section className="section reference-partners"><div className="section-heading"><div><span className="eyebrow">Integrações</span><h2>Conecte as ferramentas<br/>da sua operação.</h2></div><p>Gateways, pixels e domínios trabalham juntos sem tirar do usuário o controle sobre seus dados.</p></div><div className="partner-grid">{['Pagamaster','Pix','Visa','Meta','Google','TikTok','Stripe','Resend','Domínio próprio'].map((item)=><article key={item}>{item}</article>)}</div></section>
 
-      <section className="section cta"><div><span className="eyebrow dark">Sua próxima venda começa aqui</span><h2>Pronto para vender<br/>do seu jeito?</h2><Btn onClick={()=>go('/login')}>Entrar na Maax <ArrowRight/></Btn></div><div className="cta-rings"/><Logo light/><footer><span>© 2026 Maax Pagamentos</span><span>Termos & Privacidade</span></footer></section>
+      <section className="section reference-strategy" id="como"><div className="section-heading"><div><span className="eyebrow">Estratégia</span><h2>Veja como a Maax<br/>funciona.</h2></div><p>Crie o produto, personalize o checkout, conecte o gateway e acompanhe a venda do acesso à confirmação.</p></div><div className="strategy-screen"><div className="strategy-logo"><span>M</span><b>Maax</b><button aria-label="Reproduzir demonstração">▶</button></div><div className="strategy-steps"><span>01 Produto</span><span>02 Checkout</span><span>03 Pagamento</span><span>04 Rastreamento</span></div></div></section>
+
+      <section className="section cta reference-cta"><div><span className="eyebrow dark">Sua operação começa aqui</span><h2>Venda com clareza.<br/>Cresça com controle.</h2><Btn onClick={()=>go('/login')}>Entrar na Maax <ArrowRight/></Btn></div><div className="cta-rings"/><Logo light/><footer><span>© 2026 Maax Checkout</span><span>Termos & Privacidade</span></footer></section>
     </main>
   </div>
 }
