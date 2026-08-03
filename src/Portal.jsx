@@ -201,7 +201,6 @@ export function RealLogin({ navigate }) {
 
 const nav = [
   ["home", "Início", House],
-  ["vendas", "Pedidos", Receipt],
   ["produtos", "Produtos", Package],
   ["checkout", "Checkout", CreditCard],
   ["links", "Links de pagamento", LinkIcon],
