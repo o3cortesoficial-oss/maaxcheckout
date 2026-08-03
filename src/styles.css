@@ -905,6 +905,7 @@ a {
   place-items: center;
   position: relative;
   padding: 40px;
+  overflow-y: auto;
 }
 .close-login {
   position: absolute;
@@ -919,7 +920,9 @@ a {
 }
 .login-form-wrap form {
   width: min(420px, 100%);
+  padding: 30px 0;
 }
+.login-form-wrap form.signup-form { padding: 54px 0 34px; }
 .form-kicker {
   font-size: 10px;
   color: #8a8d84;
@@ -1006,6 +1009,42 @@ a {
   background: #fff0ef;
   border-radius: 8px;
   margin-bottom: 12px;
+}
+.form-success {
+  margin: 16px 0 0;
+  padding: 12px 13px;
+  border: 1px solid #d6e5aa;
+  border-radius: 10px;
+  background: #f2f8e2;
+  color: #526b17;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.signup-fields { display: grid; gap: 0; }
+.login-form-wrap .signup-form label:not(.remember) { margin-top: 16px; }
+.password-rule {
+  display: block;
+  margin-top: 7px;
+  color: #676b62;
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+.login-form-wrap .signup {
+  display: block;
+  margin-top: 20px;
+  color: #777b72;
+  font-size: 10px;
+  text-align: center;
+}
+.login-form-wrap .signup button {
+  padding: 0;
+  background: transparent;
+  color: #20211e;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .or {
   display: flex;

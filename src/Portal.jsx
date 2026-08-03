@@ -208,12 +208,19 @@ function CornerPhone() {
 }
 
 export function RealLogin({ navigate }) {
-  const [email, setEmail] = useState(""),
+  const [mode, setMode] = useState("login"),
+    [name, setName] = useState(""),
+    [businessName, setBusinessName] = useState(""),
+    [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [passwordConfirmation, setPasswordConfirmation] = useState(""),
     [loading, setLoading] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
   useEffect(() => {
     if (!supabase) return;
+    if (new URLSearchParams(window.location.search).get("confirmed") === "1")
+      setNotice("E-mail confirmado. Preparando seu ambiente...");
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate("/dashboard");
     });
@@ -221,21 +228,53 @@ export function RealLogin({ navigate }) {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    setNotice("");
     if (!supabaseConfigured) {
-      setError("As variáveis do Supabase não estão configuradas.");
+      setError("As variáveis da autenticação não estão configuradas.");
+      return;
+    }
+    if (mode === "signup") {
+      if (password !== passwordConfirmation) {
+        setError("As senhas informadas não são iguais.");
+        return;
+      }
+      setLoading(true);
+      const result = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, business_name: businessName, email, password }),
+      });
+      const payload = await result.json().catch(() => ({}));
+      setLoading(false);
+      if (!result.ok) {
+        setError(payload.error || "Não foi possível criar sua conta.");
+        return;
+      }
+      setNotice("Enviamos um link de confirmação. Confira sua caixa de entrada e o spam.");
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     setLoading(false);
-    if (error) {
-      setError("E-mail ou senha inválidos.");
+    if (authError) {
+      setError(
+        /confirm/i.test(authError.message || "")
+          ? "Confirme seu e-mail antes de entrar."
+          : "E-mail ou senha inválidos.",
+      );
       return;
     }
     navigate("/dashboard");
+  };
+  const changeMode = (nextMode) => {
+    setMode(nextMode);
+    setError("");
+    setNotice("");
+    setPassword("");
+    setPasswordConfirmation("");
   };
   return (
     <div className="login-page">
@@ -269,10 +308,42 @@ export function RealLogin({ navigate }) {
         <button className="close-login" onClick={() => navigate("/")}>
           <X />
         </button>
-        <form onSubmit={submit}>
-          <span className="form-kicker">ACESSO ADMINISTRATIVO</span>
-          <h2>Acesse sua conta</h2>
-          <p>Use as credenciais cadastradas para continuar.</p>
+        <form className={mode === "signup" ? "signup-form" : ""} onSubmit={submit}>
+          <span className="form-kicker">
+            {mode === "login" ? "ACESSO À PLATAFORMA" : "COMECE NA MAAX"}
+          </span>
+          <h2>{mode === "login" ? "Acesse sua conta" : "Crie sua conta"}</h2>
+          <p>
+            {mode === "login"
+              ? "Use suas credenciais para continuar."
+              : "Confirme seu e-mail e prepare sua primeira operação."}
+          </p>
+          {mode === "signup" && (
+            <div className="signup-fields">
+              <label>
+                Seu nome
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Como devemos chamar você?"
+                  required
+                  autoComplete="name"
+                  maxLength="80"
+                />
+              </label>
+              <label>
+                Nome do negócio
+                <input
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Ex.: Minha operação"
+                  required
+                  autoComplete="organization"
+                  maxLength="60"
+                />
+              </label>
+            </div>
+          )}
           <label>
             E-mail
             <input
@@ -292,19 +363,52 @@ export function RealLogin({ navigate }) {
               placeholder="Sua senha"
               type="password"
               required
-              autoComplete="current-password"
+              minLength="8"
+              maxLength="72"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
             />
           </label>
+          {mode === "signup" && (
+            <>
+              <small className="password-rule">
+                Use 8 caracteres ou mais, com maiúscula, minúscula e número.
+              </small>
+              <label>
+                Confirme a senha
+                <input
+                  value={passwordConfirmation}
+                  onChange={(e) => setPasswordConfirmation(e.target.value)}
+                  placeholder="Digite a senha novamente"
+                  type="password"
+                  required
+                  minLength="8"
+                  maxLength="72"
+                  autoComplete="new-password"
+                />
+              </label>
+            </>
+          )}
           {error && <div className="form-error">{error}</div>}
+          {notice && <div className="form-success">{notice}</div>}
           <Button type="submit" disabled={loading}>
             {loading ? (
-              "Autenticando..."
+              mode === "login" ? "Autenticando..." : "Criando conta..."
             ) : (
               <>
-                Entrar na plataforma <ArrowRight />
+                {mode === "login" ? "Entrar na plataforma" : "Criar minha conta"}{" "}
+                <ArrowRight />
               </>
             )}
           </Button>
+          <small className="signup">
+            {mode === "login" ? "Ainda não tem uma conta?" : "Já possui uma conta?"}{" "}
+            <button
+              type="button"
+              onClick={() => changeMode(mode === "login" ? "signup" : "login")}
+            >
+              {mode === "login" ? "Criar conta" : "Entrar agora"}
+            </button>
+          </small>
         </form>
       </div>
     </div>
@@ -1411,6 +1515,18 @@ export function RealDashboard({ navigate }) {
       .from("workspaces")
       .select("*")
       .order("created_at");
+    if (!spaceError && !spaces?.length && !retried) {
+      const firstWorkspaceName =
+        currentSession.user.user_metadata?.business_name || "Meu negócio";
+      const { error: createWorkspaceError } = await supabase.rpc(
+        "create_business_workspace",
+        { p_name: firstWorkspaceName },
+      );
+      if (!createWorkspaceError) return load(true, silent);
+      setError(createWorkspaceError.message);
+      setLoading(false);
+      return;
+    }
     if (spaceError || !spaces?.length) {
       if (!retried && /jwt|token|session/i.test(spaceError?.message || "")) {
         const { data: refreshed } = await supabase.auth.refreshSession();
