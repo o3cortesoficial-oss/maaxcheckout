@@ -46,7 +46,7 @@ export default async function handler(request, response) {
   )
     return response.status(403).json({ error: "Acesso administrativo negado." });
 
-  const [usersResult, workspacesResult, ordersResult, productsResult, gatewaysResult, linksResult, subscriptionsResult, controlsResult] =
+  const [usersResult, workspacesResult, ordersResult, productsResult, gatewaysResult, linksResult, subscriptionsResult, controlsResult, commissionsResult] =
     await Promise.all([
       admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       admin.from("workspaces").select("id,name,owner_id,created_at").limit(1000),
@@ -63,6 +63,7 @@ export default async function handler(request, response) {
       admin.from("payment_links").select("id,workspace_id,title,slug,active").limit(1000),
       admin.from("subscriptions").select("*").limit(1000),
       admin.from("platform_user_controls").select("*").limit(1000),
+      admin.from("partner_commissions").select("*").order("created_at", { ascending: false }).limit(1000),
     ]);
 
   const failure = [
@@ -74,6 +75,7 @@ export default async function handler(request, response) {
     linksResult.error,
     subscriptionsResult.error,
     controlsResult.error,
+    commissionsResult.error,
   ].find(Boolean);
   if (failure)
     return response.status(500).json({ error: "Não foi possível carregar os dados administrativos." });
@@ -87,6 +89,8 @@ export default async function handler(request, response) {
   const paymentLinks = linksResult.data || [];
   const subscriptions = subscriptionsResult.data || [];
   const controls = new Map((controlsResult.data || []).map((item) => [item.user_id, item]));
+  const usersById = new Map(users.map((item) => [item.id, item]));
+  const commissions = commissionsResult.data || [];
   const workspacesByOwner = new Map();
   workspaces.forEach((item) => {
     const existing = workspacesByOwner.get(item.owner_id) || [];
@@ -129,6 +133,15 @@ export default async function handler(request, response) {
         created_at: user.created_at,
         last_sign_in_at: user.last_sign_in_at,
         account_type: control.account_type || "standard",
+        partner_code: control.partner_code || "",
+        custom_fixed_cents: control.custom_fixed_cents,
+        custom_rate_percent: control.custom_rate_percent,
+        referred_by: control.referred_by_user_id ? {
+          id: control.referred_by_user_id,
+          email: usersById.get(control.referred_by_user_id)?.email || "",
+          partner_code: controls.get(control.referred_by_user_id)?.partner_code || "",
+        } : null,
+        partner_earnings: commissions.filter((item) => item.partner_user_id === user.id).reduce((sum, item) => sum + Number(item.commission_cents || 0), 0),
         access_status: control.access_status || (user.banned_until && new Date(user.banned_until) > new Date() ? "blocked" : "active"),
         block_reason: control.block_reason || "",
         subscription: {

@@ -50,6 +50,20 @@ export default async function handler(request, response) {
       if (event.type === "invoice.paid") {
         await admin.from("platform_user_controls").update({ subscription_status: "active", access_status: "active", block_reason: null, updated_at: now }).eq("user_id", userId);
         await admin.from("workspaces").update({ billing_suspended: false }).eq("owner_id", userId);
+        const { data: referred } = await admin.from("platform_user_controls").select("referred_by_user_id,referred_at").eq("user_id", userId).maybeSingle();
+        if (referred?.referred_by_user_id && referred.referred_at) {
+          const firstMonthEnds = new Date(referred.referred_at);
+          firstMonthEnds.setMonth(firstMonthEnds.getMonth() + 1);
+          const paidAt = new Date((object.status_transitions?.paid_at || event.created) * 1000);
+          const gross = Math.max(0, Number(object.amount_paid || 0));
+          if (paidAt < firstMonthEnds && gross > 0) await admin.from("partner_commissions").upsert({
+            partner_user_id: referred.referred_by_user_id,
+            referred_user_id: userId,
+            stripe_invoice_id: object.id,
+            gross_platform_revenue_cents: gross,
+            commission_cents: Math.round(gross / 2),
+          }, { onConflict: "stripe_invoice_id", ignoreDuplicates: true });
+        }
       }
       if (["invoice.payment_failed", "invoice.finalization_failed"].includes(event.type)) {
         const { data: control } = await admin.from("platform_user_controls").select("account_type").eq("user_id", userId).maybeSingle();

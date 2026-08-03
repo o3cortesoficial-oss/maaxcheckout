@@ -11,7 +11,8 @@ export async function stripeBillingClient(admin) {
 }
 
 export async function ensureWeeklyPrice(stripe, plan) {
-  const lookupKey = `maax_${plan.id}_weekly_brl_v1`;
+  const safeSuffix = String(plan.priceKeySuffix || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+  const lookupKey = `maax_${plan.id}_weekly_brl_v1${safeSuffix ? `_${safeSuffix}` : ""}`;
   const existing = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
   if (existing.data[0]) return existing.data[0].id;
   const product = await stripe.products.create({ name: `Maax ${plan.name}`, metadata: { maax_plan: plan.id } });
@@ -29,4 +30,3 @@ export async function ensureWeeklyPrice(stripe, plan) {
 export const invoiceSubscriptionId = (invoice) =>
   typeof invoice.subscription === "string" ? invoice.subscription :
   invoice.parent?.subscription_details?.subscription || null;
-

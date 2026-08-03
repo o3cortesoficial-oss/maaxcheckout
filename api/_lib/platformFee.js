@@ -5,9 +5,9 @@ const rates = { essential: 2.5, growth: 1, scale: 0 };
 export async function accruePaidOrderFee(admin, { workspaceId, orderId, amountCents }) {
   const { data: workspace } = await admin.from("workspaces").select("owner_id,platform_plan").eq("id", workspaceId).single();
   if (!workspace) return;
-  const rate = rates[workspace.platform_plan] ?? rates.essential;
+  const { data: control } = await admin.from("platform_user_controls").select("account_type,subscription_status,stripe_customer_id,stripe_subscription_id,custom_rate_percent").eq("user_id", workspace.owner_id).maybeSingle();
+  const rate = control?.custom_rate_percent == null ? (rates[workspace.platform_plan] ?? rates.essential) : Number(control.custom_rate_percent);
   const feeCents = Math.round(Number(amountCents || 0) * rate / 100);
-  const { data: control } = await admin.from("platform_user_controls").select("account_type,subscription_status,stripe_customer_id,stripe_subscription_id").eq("user_id", workspace.owner_id).maybeSingle();
   const waived = control?.account_type === "partner" || feeCents === 0;
   if (waived) return;
   if (!control?.stripe_customer_id || !control?.stripe_subscription_id || !["active", "trialing"].includes(control.subscription_status)) return;

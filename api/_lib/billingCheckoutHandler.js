@@ -37,8 +37,14 @@ export default async function handler(request, response) {
       if (workspace) await admin.from("workspaces").update({ platform_plan: plan.id, billing_anchor_at: new Date().toISOString() }).eq("id", workspace.id);
       return response.status(200).json({ active: true, partner: true });
     }
+    const effectivePlan = {
+      ...plan,
+      fixedCents: control?.custom_fixed_cents == null ? plan.fixedCents : Number(control.custom_fixed_cents),
+      ratePercent: control?.custom_rate_percent == null ? plan.ratePercent : Number(control.custom_rate_percent),
+      priceKeySuffix: control?.custom_fixed_cents == null ? "" : `${auth.user.id}_${Number(control.custom_fixed_cents)}`,
+    };
     const { stripe, config } = await stripeBillingClient(admin);
-    const priceId = await ensureWeeklyPrice(stripe, plan);
+    const priceId = await ensureWeeklyPrice(stripe, effectivePlan);
     let customerId = control?.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({ email: auth.user.email, name: auth.user.user_metadata?.full_name || workspace?.name || auth.user.user_metadata?.business_name || "Cliente Maax", metadata: { maax_user_id: auth.user.id } });

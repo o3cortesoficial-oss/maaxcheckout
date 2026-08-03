@@ -368,6 +368,7 @@ export function RealLogin({ navigate }) {
   useEffect(() => {
     if (!supabase) return;
     const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") === "signup") setMode("signup");
     const tokenHash = params.get("token_hash");
     const confirmationType = params.get("type");
     if (tokenHash && confirmationType === "signup") {
@@ -409,7 +410,7 @@ export function RealLogin({ navigate }) {
       const result = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, business_name: businessName, email, password }),
+        body: JSON.stringify({ name, business_name: businessName, email, password, referral_code: new URLSearchParams(window.location.search).get("ref") || "" }),
       });
       const payload = await result.json().catch(() => ({}));
       setLoading(false);
@@ -1744,8 +1745,16 @@ function AdminUsersPanel({ users, session, onRefresh }) {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [commercial, setCommercial] = useState({ plan_name: "essential", fixed_reais: "0,00", rate: "2,5" });
   const pageSize = 50;
   const current = users.find((item) => item.id === selected?.id) || selected;
+  useEffect(() => {
+    if (!current) return;
+    const defaults = { essential: [0, 2.5], growth: [6790, 1], scale: [12790, 0] };
+    const plan = String(current.subscription?.plan_name || "essential").toLowerCase().replace("crescimento", "growth").replace("essencial", "essential").replace("escala", "scale");
+    const fallback = defaults[plan] || defaults.essential;
+    setCommercial({ plan_name: plan, fixed_reais: ((current.custom_fixed_cents ?? fallback[0]) / 100).toFixed(2).replace(".", ","), rate: String(current.custom_rate_percent ?? fallback[1]).replace(".", ",") });
+  }, [current?.id]);
   const filteredUsers = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("pt-BR");
     if (!normalized) return users;
@@ -1792,6 +1801,19 @@ function AdminUsersPanel({ users, session, onRefresh }) {
             <article><span>Gerado sem pagar</span><b>{money(current.finance?.generated_unpaid_cents)}</b><small>{current.finance?.unpaid_orders || 0} pedidos pendentes</small></article>
           </div>
           <section className="admin-subscription-status"><div><span>ASSINATURA</span><h3>{current.account_type === "partner" ? "Conta parceira" : current.subscription?.plan_name || "Nenhum plano ativo"}</h3><p>{current.account_type === "partner" ? "Isenta de cobranças da plataforma." : current.subscription?.status === "past_due" ? "Pagamento em atraso." : "A cobrança Stripe ainda não foi iniciada."}</p></div><b className={current.subscription?.status || "not_started"}>{current.account_type === "partner" ? "ISENTA" : labels[current.subscription?.status] || "NÃO INICIADA"}</b></section>
+          <section className="admin-commercial-card">
+            <header><div><span>CONDIÇÕES COMERCIAIS</span><h3>Plano e taxas individuais</h3></div><CurrencyDollar /></header>
+            <div className="admin-commercial-grid">
+              <label>Plano<select value={commercial.plan_name} onChange={(event) => setCommercial((value) => ({ ...value, plan_name: event.target.value }))}><option value="essential">Essencial</option><option value="growth">Crescimento</option><option value="scale">Escala</option></select></label>
+              <label>Fixo semanal (R$)<input value={commercial.fixed_reais} inputMode="decimal" onChange={(event) => setCommercial((value) => ({ ...value, fixed_reais: event.target.value }))} /></label>
+              <label>Taxa por pedido (%)<input value={commercial.rate} inputMode="decimal" onChange={(event) => setCommercial((value) => ({ ...value, rate: event.target.value }))} /></label>
+            </div>
+            <button type="button" onClick={() => act("commercial", { plan_name: commercial.plan_name, custom_fixed_cents: Math.round(Number(commercial.fixed_reais.replace(",", ".")) * 100), custom_rate_percent: Number(commercial.rate.replace(",", ".")) })} disabled={Boolean(busy)}>Salvar condições</button>
+          </section>
+          {(current.account_type === "partner" || current.referred_by) && <section className="admin-referral-card">
+            {current.account_type === "partner" && <><span>LINK DE CONVITE</span><div><code>{`${location.origin}/login?mode=signup&ref=${current.partner_code || ""}`}</code><button type="button" onClick={() => navigator.clipboard.writeText(`${location.origin}/login?mode=signup&ref=${current.partner_code || ""}`)} aria-label="Copiar link"><Copy /></button></div><small>Ganhos registrados: <b>{money(current.partner_earnings)}</b></small></>}
+            {current.referred_by && <><span>ORIGEM DO CADASTRO</span><h4>{current.referred_by.email || "Parceiro identificado"}</h4><small>Código {current.referred_by.partner_code}</small></>}
+          </section>}
           <section className="admin-user-resources"><header><span>PRODUTOS E LINKS</span><b>{current.workspaces?.reduce((sum, item) => sum + item.products.length + item.payment_links.length, 0) || 0}</b></header>
             {current.workspaces?.map((workspace) => <div key={workspace.id}><h4>{workspace.name}</h4>{workspace.products.map((product) => <a key={product.id} href={`/checkout/${product.slug}`} target="_blank" rel="noreferrer"><Package /><span><b>{product.name}</b><small>Produto · {labels[product.status] || product.status}</small></span><ArrowSquareOut /></a>)}{workspace.payment_links.map((link) => <a key={link.id} href={`/checkout/${link.slug}`} target="_blank" rel="noreferrer"><LinkIcon /><span><b>{link.title || link.slug}</b><small>Link de pagamento</small></span><ArrowSquareOut /></a>)}</div>)}
             {!current.workspaces?.some((item) => item.products.length || item.payment_links.length) && <p className="admin-user-empty">Nenhum produto ou link publicado nesta conta.</p>}

@@ -50,6 +50,7 @@ export default async function handler(request, response) {
   const businessName = cleanString(request.body?.business_name, 60);
   const email = cleanString(request.body?.email, 254).toLowerCase();
   const password = String(request.body?.password || "");
+  const referralCode = cleanString(request.body?.referral_code, 48).toUpperCase();
   if (name.length < 2 || businessName.length < 2)
     return response
       .status(400)
@@ -104,6 +105,12 @@ export default async function handler(request, response) {
       error: "O cadastro por e-mail ainda não foi configurado no servidor.",
     });
   const publicOrigin = appOrigin();
+  let referrerId = null;
+  if (referralCode) {
+    const { data: partner } = await admin.from("platform_user_controls")
+      .select("user_id").eq("partner_code", referralCode).eq("account_type", "partner").maybeSingle();
+    referrerId = partner?.user_id || null;
+  }
   const redirectTo = `${publicOrigin}/login?confirmed=1`;
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
@@ -130,6 +137,19 @@ export default async function handler(request, response) {
     if (linkData?.user?.id)
       await admin.auth.admin.deleteUser(linkData.user.id).catch(() => undefined);
     return response.status(502).json({ error: "Não foi possível gerar a confirmação." });
+  }
+
+  if (linkData?.user?.id && referrerId) {
+    const { error: referralError } = await admin.from("platform_user_controls").upsert({
+      user_id: linkData.user.id,
+      referred_by_user_id: referrerId,
+      referred_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    if (referralError) {
+      await admin.auth.admin.deleteUser(linkData.user.id).catch(() => undefined);
+      return response.status(502).json({ error: "NÃ£o foi possÃ­vel vincular o convite." });
+    }
   }
 
   const resend = new Resend(resendConfig.api_key);
