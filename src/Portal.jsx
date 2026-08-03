@@ -2438,7 +2438,7 @@ function BillingCycleCard({ workspace, orders = [], onOpen }) {
     <div className="billing-cycle-progress"><i /></div>
     <div className="billing-cycle-meta"><span><small>Próxima cobrança</small><b>{dueDate}</b></span><span><small>Ciclo</small><b>7 dias</b></span></div>
     <footer><span>Prévia do ciclo</span><b>{money(fee)}</b></footer>
-    <p>{plan.fixedCents ? `${money(plan.fixedCents)} + ${plan.ratePercent}% dos pedidos pagos` : `${plan.ratePercent}% dos pedidos pagos`}</p>
+    <p>{plan.fixedCents ? `${money(plan.fixedCents)} + ${String(plan.ratePercent).replace(".", ",")}% dos pedidos pagos` : `${String(plan.ratePercent).replace(".", ",")}% dos pedidos pagos`}</p>
   </button>;
 }
 
