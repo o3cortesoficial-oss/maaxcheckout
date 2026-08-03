@@ -26,6 +26,7 @@ import {
   PencilSimple,
   Plus,
   Receipt,
+  ShieldCheck,
   SignOut,
   Sparkle,
   Storefront,
@@ -35,6 +36,7 @@ import {
   Users,
   Wallet,
   WarningCircle,
+  Wrench,
   X,
 } from "@phosphor-icons/react";
 import { supabase, supabaseConfigured } from "./supabase";
@@ -426,6 +428,12 @@ const nav = [
   ["tracking", "Rastreamento", Crosshair],
   ["clientes", "Clientes", Users],
   ["assinaturas", "Assinaturas", CreditCard],
+];
+const adminNav = [
+  ["admin_overview", "Visão geral", ShieldCheck],
+  ["admin_users", "Usuários", Users],
+  ["admin_operations", "Operações", Buildings],
+  ["admin_tools", "Ferramentas", Wrench],
 ];
 const emptyCopy = {
   vendas: [
@@ -1453,6 +1461,152 @@ function CreateModal({ type, workspace, products, onClose, onSaved }) {
   );
 }
 
+function AdminConsole({ session, section }) {
+  const [adminData, setAdminData] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(true);
+  const [adminError, setAdminError] = useState("");
+  const loadAdmin = async () => {
+    setAdminLoading(true);
+    setAdminError("");
+    const result = await fetch("/api/admin/overview", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const payload = await result.json().catch(() => ({}));
+    setAdminLoading(false);
+    if (!result.ok) {
+      setAdminError(payload.error || "Não foi possível carregar a administração.");
+      return;
+    }
+    setAdminData(payload);
+  };
+  useEffect(() => {
+    loadAdmin();
+  }, []);
+
+  if (adminLoading)
+    return (
+      <div className="admin-console-loading" aria-label="Carregando administração">
+        <i /><i /><i />
+      </div>
+    );
+  if (adminError)
+    return (
+      <div className="data-error admin-console-error">
+        {adminError}
+        <button onClick={loadAdmin}>Tentar novamente</button>
+      </div>
+    );
+
+  const metrics = adminData.metrics;
+  const heading = {
+    admin_overview: ["CONTROLE DA PLATAFORMA", "Central administrativa", "Acompanhe usuários, operações e infraestrutura da Maax."],
+    admin_users: ["CONTAS", "Usuários da plataforma", "Cadastros reais e situação de confirmação de cada acesso."],
+    admin_operations: ["NEGÓCIOS", "Operações criadas", "Ambientes independentes cadastrados pelos usuários da plataforma."],
+    admin_tools: ["INFRAESTRUTURA", "Ferramentas e APIs", "Espaço reservado para integrações administrativas futuras."],
+  }[section] || ["CONTROLE DA PLATAFORMA", "Central administrativa", "Visão global da Maax."],
+    [kicker, title, description] = heading;
+
+  return (
+    <section className="admin-console admin-panel-enter">
+      <header className="admin-console-head">
+        <div>
+          <span>{kicker}</span>
+          <h1>{title}<i>.</i></h1>
+          <p>{description}</p>
+        </div>
+        <div className="admin-live-state"><i /> Dados protegidos</div>
+      </header>
+
+      {section === "admin_overview" && (
+        <>
+          <div className="admin-hero">
+            <div>
+              <span>RECEITA APROVADA</span>
+              <strong>{money(metrics.approved_revenue_cents)}</strong>
+              <small>Somatório real dos pedidos aprovados</small>
+            </div>
+            <div className="admin-hero-stats">
+              <span><b>{metrics.users}</b><small>Usuários</small></span>
+              <span><b>{metrics.workspaces}</b><small>Operações</small></span>
+              <span><b>{metrics.orders}</b><small>Pedidos</small></span>
+            </div>
+          </div>
+          <div className="admin-metrics">
+            <article><span>Pedidos aprovados</span><b>{metrics.approved_orders}</b></article>
+            <article><span>Produtos ativos</span><b>{metrics.active_products}</b></article>
+            <article><span>Gateways ativos</span><b>{metrics.active_gateways}</b></article>
+          </div>
+          <AdminList
+            title="Novos usuários"
+            columns={["Usuário", "Negócio", "Confirmação", "Cadastro"]}
+            rows={adminData.users.slice(0, 10).map((user) => [
+              user.name || user.email,
+              user.business_name || "Ainda não informado",
+              user.confirmed ? "Confirmado" : "Pendente",
+              date(user.created_at),
+            ])}
+          />
+        </>
+      )}
+
+      {section === "admin_users" && (
+        <AdminList
+          title={`${adminData.users.length} usuários encontrados`}
+          columns={["Usuário", "E-mail", "Negócio", "Situação", "Último acesso"]}
+          rows={adminData.users.map((user) => [
+            user.name || "Sem nome",
+            user.email,
+            user.business_name || "Não informado",
+            user.confirmed ? "Confirmado" : "Pendente",
+            user.last_sign_in_at ? date(user.last_sign_in_at) : "Nunca acessou",
+          ])}
+        />
+      )}
+
+      {section === "admin_operations" && (
+        <AdminList
+          title={`${adminData.workspaces.length} operações criadas`}
+          columns={["Operação", "Proprietário", "Identificador", "Criação"]}
+          rows={adminData.workspaces.map((item) => [
+            item.name,
+            item.owner_email || "Proprietário removido",
+            item.id.slice(0, 8).toUpperCase(),
+            date(item.created_at),
+          ])}
+        />
+      )}
+
+      {section === "admin_tools" && (
+        <div className="admin-tools-empty">
+          <i><Wrench weight="duotone" /></i>
+          <span>ÁREA DE EXPANSÃO</span>
+          <h2>Suas próximas ferramentas entram aqui.</h2>
+          <p>Este ambiente está preparado para receber APIs de suporte, análise, automação e infraestrutura sem misturá-las aos dados dos usuários.</p>
+          <button type="button" disabled><Plus /> Adicionar ferramenta em breve</button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdminList({ title, columns, rows }) {
+  return (
+    <section className="admin-list">
+      <header><span>REGISTROS</span><h2>{title}</h2></header>
+      <div className="admin-list-scroll">
+        <div className="admin-list-row admin-list-labels" style={{ "--admin-columns": columns.length }}>
+          {columns.map((column) => <span key={column}>{column}</span>)}
+        </div>
+        {rows.length ? rows.map((row, rowIndex) => (
+          <div className="admin-list-row" style={{ "--admin-columns": columns.length }} key={`${row[0]}-${rowIndex}`}>
+            {row.map((value, index) => <span key={`${index}-${value}`}>{value}</span>)}
+          </div>
+        )) : <div className="admin-list-empty">Nenhum registro encontrado.</div>}
+      </div>
+    </section>
+  );
+}
+
 export function RealDashboard({ navigate }) {
   const [session, setSession] = useState(),
     [workspaces, setWorkspaces] = useState([]),
@@ -1480,7 +1634,9 @@ export function RealDashboard({ navigate }) {
     [businessModal, setBusinessModal] = useState(false),
     [managedBusiness, setManagedBusiness] = useState(null),
     [searchQuery, setSearchQuery] = useState(""),
-    [searchOpen, setSearchOpen] = useState(false);
+    [searchOpen, setSearchOpen] = useState(false),
+    [adminMode, setAdminMode] = useState(false),
+    [adminSection, setAdminSection] = useState("admin_overview");
   const workspaceIdRef = useRef(null);
   const searchInputRef = useRef(null);
   const searchRootRef = useRef(null);
@@ -1860,39 +2016,64 @@ export function RealDashboard({ navigate }) {
     session?.user?.user_metadata?.full_name ||
     session?.user?.email?.split("@")[0] ||
     "Administrador";
+  const canUseAdminMode =
+    String(session?.user?.email || "").toLowerCase() ===
+    "saidlabsglobal@gmail.com";
+  const toggleAdminMode = () => {
+    if (!canUseAdminMode) return;
+    setAdminMode((current) => !current);
+    setAdminSection("admin_overview");
+    setMenu(false);
+    setSearchOpen(false);
+  };
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${adminMode ? "platform-admin-mode" : ""}`}>
       <aside className={menu ? "open" : ""}>
         <div className="side-head">
           <Mark />
-          <BusinessSwitcher
-            workspaces={workspaces}
-            workspace={workspace}
-            open={businessMenu}
-            onToggle={() => setBusinessMenu((current) => !current)}
-            onClose={() => setBusinessMenu(false)}
-            onSelect={switchWorkspace}
-            onManage={(item) => {
-              setBusinessMenu(false);
-              setManagedBusiness(item);
-            }}
-            onCreate={() => {
-              setBusinessMenu(false);
-              setBusinessModal(true);
-            }}
-          />
+          {!adminMode && (
+            <BusinessSwitcher
+              workspaces={workspaces}
+              workspace={workspace}
+              open={businessMenu}
+              onToggle={() => setBusinessMenu((current) => !current)}
+              onClose={() => setBusinessMenu(false)}
+              onSelect={switchWorkspace}
+              onManage={(item) => {
+                setBusinessMenu(false);
+                setManagedBusiness(item);
+              }}
+              onCreate={() => {
+                setBusinessMenu(false);
+                setBusinessModal(true);
+              }}
+            />
+          )}
           <button onClick={() => setMenu(false)}>
             <X />
           </button>
         </div>
+        {canUseAdminMode && (
+          <button
+            type="button"
+            className={`admin-mode-toggle ${adminMode ? "active" : ""}`}
+            onClick={toggleAdminMode}
+            aria-pressed={adminMode}
+          >
+            <span><ShieldCheck weight="fill" /></span>
+            <div><small>MODO DE ACESSO</small><b>{adminMode ? "Admin da plataforma" : "Painel do usuário"}</b></div>
+            <i><em /></i>
+          </button>
+        )}
         <nav className="side-nav">
-          <span>PLATAFORMA</span>
-          {nav.map(([id, label, Icon]) => (
+          <span>{adminMode ? "ADMINISTRAÇÃO" : "PLATAFORMA"}</span>
+          {(adminMode ? adminNav : nav).map(([id, label, Icon]) => (
             <a
               key={id}
-              className={active === id ? "active" : ""}
+              className={(adminMode ? adminSection : active) === id ? "active" : ""}
               onClick={() => {
-                setActive(id);
+                if (adminMode) setAdminSection(id);
+                else setActive(id);
                 setMenu(false);
               }}
             >
@@ -1904,11 +2085,15 @@ export function RealDashboard({ navigate }) {
             </a>
           ))}
         </nav>
-        <div className="side-help">
+        <div className={`side-help ${adminMode ? "admin-help" : ""}`}>
           <Sparkle />
-          <b>Dados em produção</b>
-          <small>Conectado ao workspace {workspace?.name}.</small>
-          <button onClick={load}>Atualizar dados</button>
+          <b>{adminMode ? "Acesso exclusivo" : "Dados em produção"}</b>
+          <small>
+            {adminMode
+              ? "Visão protegida de toda a plataforma."
+              : `Conectado ao workspace ${workspace?.name}.`}
+          </small>
+          {!adminMode && <button onClick={load}>Atualizar dados</button>}
         </div>
         <button className="logout" onClick={logout}>
           <SignOut /> Sair da conta
@@ -1919,6 +2104,7 @@ export function RealDashboard({ navigate }) {
           <button className="mobile-menu" onClick={() => setMenu(true)}>
             <List />
           </button>
+          {!adminMode ? (
           <div className="search" ref={searchRootRef}>
             <MagnifyingGlass />
             <input
@@ -1980,6 +2166,11 @@ export function RealDashboard({ navigate }) {
               </div>
             )}
           </div>
+          ) : (
+            <div className="admin-header-mark">
+              <ShieldCheck weight="fill" /> Controle administrativo
+            </div>
+          )}
           <div className="header-actions">
             <button className="notify">
               <Bell />
@@ -1995,19 +2186,21 @@ export function RealDashboard({ navigate }) {
               </span>
               <div>
                 <b>{userName}</b>
-                <small>Administrador</small>
+                <small>{adminMode ? "Admin da plataforma" : "Administrador"}</small>
               </div>
             </div>
           </div>
         </header>
-        <main className="dash-content">
+        <main key={adminMode ? "admin" : "user"} className="dash-content panel-mode-transition">
           {error && (
             <div className="data-error">
               {error}
               <button onClick={load}>Tentar novamente</button>
             </div>
           )}
-          {active === "home" ? (
+          {adminMode ? (
+            <AdminConsole session={session} section={adminSection} />
+          ) : active === "home" ? (
             <HomeView
               metrics={metrics}
               data={data}
@@ -2027,7 +2220,7 @@ export function RealDashboard({ navigate }) {
           )}
         </main>
       </div>
-      <CornerPhone />
+      {!adminMode && <CornerPhone />}
       {modal && (
         <CreateModal
           type={modal}
