@@ -9427,3 +9427,71 @@ html {
   .iphone-apps button > i { width: 45px; height: 45px; }
   .iphone-dock button { width: 42px; height: 42px; }
 }
+
+/* Maax phone applications */
+.iphone-home {
+  padding: 62px 14px 15px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(201,255,50,.18), transparent 28%),
+    repeating-radial-gradient(ellipse at 8% 86%, transparent 0 28px, rgba(255,255,255,.035) 29px 30px),
+    linear-gradient(150deg,#262923 0%,#171915 48%,#30342a 100%);
+}
+.iphone-maax-widget { position: relative; z-index: 2; min-height: 132px; padding: 20px; border: 1px solid rgba(255,255,255,.11); border-radius: 23px; color: #f7f8f4; background: rgba(23,25,21,.68); box-shadow: inset 0 1px 0 rgba(255,255,255,.09); backdrop-filter: blur(12px); }
+.iphone-maax-widget span { color: #b7bcb1; font-size: 9px; font-weight: 750; text-transform: capitalize; }
+.iphone-maax-widget b { display: block; margin: 18px 0 4px; font-size: 31px; line-height: .9; letter-spacing: -1.8px; }
+.iphone-maax-widget b::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 3px; border-radius: 50%; background: #c9ff32; }
+.iphone-maax-widget small { color: #8d9288; font-size: 9px; font-weight: 650; }
+.iphone-apps { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px 4px; padding: 22px 0 0; }
+.iphone-apps button > i { width: 49px; height: 49px; border-radius: 15px; }
+.iphone-apps button { color: #f4f5f0; font-size: 8px; text-shadow: none; }
+.iphone-apps button span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.support-app { color: #171915 !important; background: #c9ff32 !important; }
+.store-app { color: #f7f8f4 !important; background: #2b2e28 !important; }
+.settings-app { color: #171915 !important; background: #f4f5f0 !important; }
+.roi-app { color: #171915 !important; background: linear-gradient(145deg,#d8ff68,#aedd27) !important; }
+.iphone-dock { margin-top: auto; background: rgba(244,245,240,.13); border-color: rgba(255,255,255,.16); }
+.iphone-dock button { width: 45px; height: 45px; }
+.iphone-home-indicator { background: #f5f6f2; }
+
+.iphone-chat-app, .iphone-utility-app { position: absolute; inset: 0; padding-top: 43px; color: #1b1d18; background: #eceee8; }
+.iphone-chat-app { display: grid; grid-template-rows: 51px minmax(0,1fr) 54px; background: #e5e8df; }
+.iphone-chat-app > header, .iphone-utility-app > header { display: flex; align-items: center; gap: 9px; padding: 0 13px; border-bottom: 1px solid #d8dbd2; background: #f7f8f4; }
+.iphone-chat-app > header > button, .iphone-utility-app > header > button { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; background: #e9ebe5; }
+.iphone-chat-app > header > span { display: flex; align-items: center; gap: 8px; }
+.iphone-chat-app > header > span > i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #171915; background: #c9ff32; }
+.iphone-chat-app > header svg { width: 14px; }
+.iphone-chat-app > header b { display: grid; font-size: 10px; }
+.iphone-chat-app > header small { color: #69883b; font-size: 7px; font-weight: 650; }
+.iphone-chat-messages { padding: 13px 11px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none; }
+.iphone-chat-messages p { position: relative; max-width: 83%; margin: 0; padding: 9px 9px 14px; border-radius: 11px 11px 11px 3px; background: #fff; font-size: 8.5px; font-weight: 600; line-height: 1.4; box-shadow: 0 1px 1px rgba(22,25,19,.07); }
+.iphone-chat-messages p.user { align-self: flex-end; border-radius: 11px 11px 3px 11px; background: #ddf5a2; }
+.iphone-chat-messages p small { position: absolute; right: 7px; bottom: 4px; color: #8c9188; font-size: 5.5px; }
+.iphone-chat-app > form { padding: 7px 9px; display: grid; grid-template-columns: minmax(0,1fr) 37px; gap: 6px; background: #f7f8f4; }
+.iphone-chat-app > form input { min-width: 0; border: 1px solid #d9dcd3; border-radius: 18px; padding: 0 12px; background: #fff; font-size: 9px; outline: none; }
+.iphone-chat-app > form input:focus { border-color: #a4ca3d; }
+.iphone-chat-app > form button { border-radius: 50%; color: #171915; background: #c9ff32; }
+
+.iphone-utility-app { overflow-y: auto; padding: 57px 15px 22px; scrollbar-width: none; }
+.iphone-utility-app > header { position: absolute; top: 43px; left: 0; right: 0; height: 51px; }
+.iphone-utility-app > header b { font-size: 12px; }
+.iphone-profile-row { margin-top: 52px; padding: 13px; display: flex; align-items: center; gap: 11px; border-radius: 15px; background: #fff; }
+.iphone-profile-row > span { width: 43px; height: 43px; overflow: hidden; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #c9ff32; font-size: 14px; font-weight: 850; }
+.iphone-profile-row img { width: 100%; height: 100%; object-fit: cover; }
+.iphone-profile-row label { min-height: 31px; padding: 0 11px; display: flex; align-items: center; border-radius: 9px; background: #ecefe7; font-size: 8px; font-weight: 800; }
+.iphone-profile-row input { display: none; }
+.iphone-settings-app > form { margin-top: 12px; padding: 13px; display: grid; gap: 9px; border-radius: 15px; background: #fff; }
+.iphone-settings-app label, .iphone-roi-app > label { display: grid; gap: 6px; font-size: 8px; font-weight: 800; }
+.iphone-settings-app input, .iphone-roi-app input { width: 100%; height: 39px; padding: 0 10px; border: 1px solid #daddd5; border-radius: 10px; background: #f8f9f6; font-size: 9px; outline: none; }
+.iphone-settings-app form button { height: 37px; border-radius: 10px; color: #171915; background: #c9ff32; font-size: 8px; font-weight: 850; }
+.iphone-settings-app > p { margin: 10px 2px; color: #62675d; font-size: 8px; line-height: 1.4; }
+.iphone-delete-account { width: 100%; height: 38px; margin-top: 10px; border: 1px solid #d9a4a0; border-radius: 10px; color: #a12f29; background: #fff5f4; font-size: 8px; font-weight: 850; }
+
+.iphone-roi-app > span { display: block; margin-top: 58px; color: #73786e; font-size: 7px; font-weight: 850; letter-spacing: .12em; }
+.iphone-roi-app > strong { display: block; margin: 7px 0 22px; font-size: 28px; letter-spacing: -1.4px; }
+.iphone-roi-app > div { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.iphone-roi-app article { min-height: 66px; padding: 10px; display: grid; align-content: space-between; border: 1px solid #daddd4; border-radius: 12px; background: #fff; }
+.iphone-roi-app article:first-child { color: #171915; background: #c9ff32; border-color: #c9ff32; }
+.iphone-roi-app article:nth-child(3) { grid-column: 1/-1; }
+.iphone-roi-app article small { color: #747970; font-size: 7px; }
+.iphone-roi-app article b { font-size: 14px; }
+.iphone-roi-app > p { margin: 13px 1px 0; color: #777c72; font-size: 7.5px; line-height: 1.45; }

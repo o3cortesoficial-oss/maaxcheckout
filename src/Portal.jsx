@@ -114,12 +114,20 @@ function Button({
   );
 }
 
-function CornerPhone() {
+function CornerPhone({ orders = [], session }) {
   const [minimized, setMinimized] = useState(() =>
     window.matchMedia("(max-width: 720px)").matches,
   );
   const [screen, setScreen] = useState("home");
   const [now, setNow] = useState(() => new Date());
+  const [supportText, setSupportText] = useState("");
+  const [supportMessages, setSupportMessages] = useState([
+    { from: "maax", text: "Olá. Sou o suporte inteligente da Maax. Me conte o que você precisa configurar." },
+  ]);
+  const [campaignSpend, setCampaignSpend] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [accountNotice, setAccountNotice] = useState("");
+  const [accountBusy, setAccountBusy] = useState(false);
 
   useEffect(() => {
     const synchronizeClock = () => setNow(new Date());
@@ -140,6 +148,75 @@ function CornerPhone() {
   const currentMonth = new Intl.DateTimeFormat("pt-BR", { month: "short" })
     .format(now)
     .replace(".", "");
+  const paidRevenue = orders
+    .filter((order) => order.status === "approved")
+    .reduce((total, order) => total + Number(order.total_cents || 0), 0);
+  const spendCents = brlToCents(campaignSpend);
+  const profitCents = paidRevenue - spendCents;
+  const roi = spendCents > 0 ? (profitCents / spendCents) * 100 : 0;
+
+  const supportAnswer = (question) => {
+    const normalized = question.toLowerCase();
+    if (/pixel|meta|facebook|google|tiktok|rastrea/.test(normalized))
+      return "Para configurar um pixel, abra Rastreamento, escolha a plataforma, informe o ID e salve. A Maax envia eventos somente quando o gateway confirma o pagamento. Se me disser qual plataforma, eu detalho cada campo.";
+    if (/gateway|pagamaster|chave|api|pagamento/.test(normalized))
+      return "Abra Gateways, selecione o provedor, informe as chaves, teste a conexão e só depois ative o gateway. Nunca envie sua chave secreta nesta conversa.";
+    if (/frete|entrega/.test(normalized))
+      return "Em Frete você pode criar até três opções com título, descrição, prazo e valor. Depois selecione quais aparecerão no editor do checkout.";
+    if (/produto|imagem|preço|preco/.test(normalized))
+      return "Abra Produtos e edite a oferta desejada. Você pode definir preço, preço comparativo, tipo físico ou digital e até dez imagens.";
+    if (/domínio|dominio|dns/.test(normalized))
+      return "Abra Domínio, cadastre o endereço público e siga os registros DNS mostrados na tela. Use Testar conexão antes de divulgar o link.";
+    return "Entendi sua dúvida. Para eu orientar com precisão, diga em qual área você está: Checkout, Produtos, Gateways, Frete, Domínio ou Rastreamento.";
+  };
+  const sendSupportMessage = (event) => {
+    event.preventDefault();
+    const question = supportText.trim();
+    if (!question) return;
+    setSupportMessages((messages) => [...messages, { from: "user", text: question }, { from: "maax", text: supportAnswer(question) }]);
+    setSupportText("");
+  };
+  const changePassword = async (event) => {
+    event.preventDefault();
+    if (newPassword.length < 8) return setAccountNotice("Use uma senha com pelo menos 8 caracteres.");
+    setAccountBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setAccountBusy(false);
+    setAccountNotice(error ? error.message : "Senha atualizada com segurança.");
+    if (!error) setNewPassword("");
+  };
+  const uploadProfilePhoto = async (file) => {
+    if (!file || !session?.user?.id) return;
+    setAccountBusy(true);
+    const extension = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `profiles/${session.user.id}/avatar-${Date.now()}.${extension}`;
+    const upload = await supabase.storage.from("checkout-assets").upload(path, file, { cacheControl: "3600", upsert: true });
+    if (upload.error) {
+      setAccountNotice(upload.error.message);
+    } else {
+      const avatarUrl = supabase.storage.from("checkout-assets").getPublicUrl(path).data.publicUrl;
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: avatarUrl } });
+      setAccountNotice(error ? error.message : "Foto de perfil atualizada.");
+    }
+    setAccountBusy(false);
+  };
+  const deleteAccount = async () => {
+    if (!window.confirm("Excluir definitivamente sua conta e encerrar o acesso?")) return;
+    setAccountBusy(true);
+    const response = await fetch("/api/account/delete", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session?.access_token || ""}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setAccountNotice(payload.error || "Não foi possível excluir a conta.");
+      setAccountBusy(false);
+      return;
+    }
+    await supabase.auth.signOut();
+    window.location.assign("/login");
+  };
 
   if (minimized)
     return (
@@ -176,11 +253,8 @@ function CornerPhone() {
 
           {screen === "home" ? (
             <div className="iphone-home">
+              <div className="iphone-maax-widget"><span>{currentWeekday}, {currentDay} de {currentMonth}</span><b>Maax.</b><small>Seu negócio, seus dados.</small></div>
               <div className="iphone-apps">
-                <button type="button" className="iphone-calendar-app" aria-label={`Calendário, ${currentDay} de ${currentMonth}`}>
-                  <i><small>{currentWeekday}</small><b>{currentDay}</b></i>
-                  <span>Calendário</span>
-                </button>
                 <button type="button" onClick={() => setScreen("support")}>
                   <i className="support-app"><Headset weight="fill" /></i>
                   <span>Suporte</span>
@@ -189,66 +263,43 @@ function CornerPhone() {
                   <i className="store-app"><Storefront weight="fill" /></i>
                   <span>Store</span>
                 </button>
-                <button type="button" onClick={() => setScreen("store")}>
-                  <i className="accounts-app"><Megaphone weight="fill" /></i>
-                  <span>Contas</span>
-                </button>
-                <button type="button" onClick={() => setScreen("store")}>
-                  <i className="scripts-app"><TerminalWindow weight="bold" /></i>
-                  <span>Scripts</span>
-                </button>
-                <button type="button">
-                  <i className="orders-app"><Package weight="fill" /></i>
-                  <span>Pedidos</span>
-                </button>
-                <button type="button">
-                  <i className="metrics-app"><ChartLineUp weight="bold" /></i>
-                  <span>Métricas</span>
-                </button>
-                <button type="button">
-                  <i className="status-app"><CloudSun weight="fill" /></i>
-                  <span>Status</span>
-                </button>
-                <button type="button">
-                  <i className="messages-app"><ChatCircleDots weight="fill" /></i>
-                  <span>Mensagens</span>
-                </button>
-                <button type="button">
+                <button type="button" onClick={() => setScreen("settings")}>
                   <i className="settings-app"><GearSix weight="fill" /></i>
-                  <span>Ajustes</span>
+                  <span>Configurações</span>
                 </button>
-                <button type="button">
-                  <i className="billing-app"><Wallet weight="fill" /></i>
-                  <span>Cobranças</span>
-                </button>
-                <button type="button">
-                  <i className="security-app"><ShieldCheck weight="fill" /></i>
-                  <span>Segurança</span>
-                </button>
-                <button type="button">
-                  <i className="domains-app"><GlobeSimple weight="bold" /></i>
-                  <span>Domínios</span>
-                </button>
-                <button type="button">
-                  <i className="shipping-app"><Truck weight="fill" /></i>
-                  <span>Fretes</span>
-                </button>
-                <button type="button">
-                  <i className="tracking-app"><Crosshair weight="bold" /></i>
-                  <span>Pixels</span>
-                </button>
-                <button type="button">
-                  <i className="links-app"><LinkIcon weight="bold" /></i>
-                  <span>Links</span>
+                <button type="button" onClick={() => setScreen("roi")}>
+                  <i className="roi-app"><ChartLineUp weight="bold" /></i>
+                  <span>Calculadora ROI</span>
                 </button>
               </div>
-              <div className="iphone-page-dots"><i /><i /><i /></div>
               <div className="iphone-dock">
                 <button type="button" className="support-app" onClick={() => setScreen("support")} aria-label="Suporte"><Headset weight="fill" /></button>
                 <button type="button" className="store-app" onClick={() => setScreen("store")} aria-label="Store"><Storefront weight="fill" /></button>
-                <button type="button" className="accounts-app" onClick={() => setScreen("store")} aria-label="Contas de anúncios"><Megaphone weight="fill" /></button>
-                <button type="button" className="scripts-app" onClick={() => setScreen("store")} aria-label="Scripts"><Code weight="bold" /></button>
+                <button type="button" className="settings-app" onClick={() => setScreen("settings")} aria-label="Configurações"><GearSix weight="fill" /></button>
+                <button type="button" className="roi-app" onClick={() => setScreen("roi")} aria-label="Calculadora de ROI"><ChartLineUp weight="bold" /></button>
               </div>
+            </div>
+          ) : screen === "support" ? (
+            <div className="iphone-chat-app">
+              <header><button type="button" onClick={() => setScreen("home")}><CaretLeft /></button><span><i><Headset weight="fill" /></i><b>Suporte Maax<small>online agora</small></b></span></header>
+              <div className="iphone-chat-messages">{supportMessages.map((message, index) => <p key={`${message.from}-${index}`} className={message.from}>{message.text}<small>{currentTime}</small></p>)}</div>
+              <form onSubmit={sendSupportMessage}><input value={supportText} onChange={(event) => setSupportText(event.target.value)} placeholder="Digite sua dúvida" /><button type="submit"><ArrowRight weight="bold" /></button></form>
+            </div>
+          ) : screen === "settings" ? (
+            <div className="iphone-utility-app iphone-settings-app">
+              <header><button type="button" onClick={() => setScreen("home")}><CaretLeft /></button><b>Configurações</b></header>
+              <div className="iphone-profile-row"><span>{session?.user?.user_metadata?.avatar_url ? <img src={session.user.user_metadata.avatar_url} alt="Foto de perfil" /> : (session?.user?.email?.[0] || "M").toUpperCase()}</span><label>Alterar foto<input type="file" accept="image/png,image/jpeg,image/webp" disabled={accountBusy} onChange={(event) => uploadProfilePhoto(event.target.files?.[0])} /></label></div>
+              <form onSubmit={changePassword}><label>Nova senha<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mínimo de 8 caracteres" /></label><button disabled={accountBusy}>Atualizar senha</button></form>
+              {accountNotice && <p>{accountNotice}</p>}
+              <button type="button" className="iphone-delete-account" disabled={accountBusy} onClick={deleteAccount}>Excluir cadastro</button>
+            </div>
+          ) : screen === "roi" ? (
+            <div className="iphone-utility-app iphone-roi-app">
+              <header><button type="button" onClick={() => setScreen("home")}><CaretLeft /></button><b>Calculadora de ROI</b></header>
+              <span>VENDAS PAGAS</span><strong>{money(paidRevenue)}</strong>
+              <label>Investimento na campanha<input value={campaignSpend} onChange={(event) => setCampaignSpend(event.target.value)} inputMode="decimal" placeholder="R$ 0,00" /></label>
+              <div><article><small>ROI</small><b>{spendCents ? `${roi.toFixed(1).replace(".", ",")}%` : "—"}</b></article><article><small>Lucro após mídia</small><b>{money(profitCents)}</b></article><article><small>ROAS</small><b>{spendCents ? `${(paidRevenue / spendCents).toFixed(2).replace(".", ",")}x` : "—"}</b></article></div>
+              <p>O cálculo considera somente pedidos confirmados como pagos pelo gateway.</p>
             </div>
           ) : (
             <div className="iphone-app-view">
@@ -2468,7 +2519,7 @@ export function RealDashboard({ navigate }) {
           )}
         </main>
       </div>
-      {!adminMode && <CornerPhone />}
+      {!adminMode && <CornerPhone orders={data.orders} session={session} />}
       {modal && (
         <CreateModal
           type={modal}
