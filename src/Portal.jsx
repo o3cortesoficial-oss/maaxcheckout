@@ -1994,6 +1994,7 @@ export function RealDashboard({ navigate }) {
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
     [needsBilling, setNeedsBilling] = useState(false),
+    [partnerInfo, setPartnerInfo] = useState(null),
     [billingWorkspace, setBillingWorkspace] = useState(null),
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
@@ -2041,6 +2042,7 @@ export function RealDashboard({ navigate }) {
     const billingControl = billingResponse.ok
       ? await billingResponse.json().catch(() => ({}))
       : {};
+    setPartnerInfo(billingControl?.account_type === "partner" ? billingControl : null);
     const isPlatformAdmin = String(currentSession.user.email || "").toLowerCase() === "saidlabsglobal@gmail.com";
     const billingReady = isPlatformAdmin || billingControl?.account_type === "partner" || ["active", "trialing"].includes(billingControl?.subscription_status);
     const { data: spaces, error: spaceError } = await supabase
@@ -2594,6 +2596,7 @@ export function RealDashboard({ navigate }) {
               metrics={metrics}
               data={data}
               workspace={workspace}
+              partnerInfo={partnerInfo}
               onNavigate={setActive}
             />
           ) : (
@@ -2929,9 +2932,19 @@ function CampaignAttributionPanel({ orders = [] }) {
   );
 }
 
-function HomeView({ metrics, data, workspace, onNavigate }) {
+function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
+  const [inviteCopied, setInviteCopied] = useState(false);
   const attributionEnabled =
     data.checkout_configs?.[0]?.settings?.campaign_attribution_enabled === true;
+  const inviteUrl = partnerInfo?.partner_code
+    ? `${window.location.origin}/login?mode=signup&ref=${partnerInfo.partner_code}`
+    : "";
+  const copyInvite = async () => {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setInviteCopied(true);
+    window.setTimeout(() => setInviteCopied(false), 1800);
+  };
   return (
     <div className="page-enter">
       <PageTitle
@@ -2939,6 +2952,10 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
         title={`Olá, ${workspace?.name}.`}
         description="Resumo atualizado do seu checkout."
       />
+      {partnerInfo && inviteUrl && <section className="partner-home-card">
+        <div className="partner-home-status"><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é sua.</b><p>Compartilhe seu link exclusivo e acompanhe seus ganhos pela Maax.</p></span></div>
+        <div className="partner-home-invite"><span>LINK DE CONVITE</span><div><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados: <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>
+      </section>}
       <section className="balance">
         <div className="balance-copy">
           <span>Volume processado</span>

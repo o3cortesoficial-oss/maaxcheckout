@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
 import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
 import { ensureWeeklyPrice, stripeBillingClient } from "./stripeBilling.js";
 
@@ -18,12 +19,26 @@ export default async function handler(request, response) {
     const { data: auth, error: authError } = await admin.auth.getUser(token);
     if (authError || !auth.user) return response.status(401).json({ error: "Sessão inválida." });
     const { data: control } = await admin.from("platform_user_controls").select("*").eq("user_id", auth.user.id).maybeSingle();
-    if (request.method === "GET") return response.status(200).json({
-      account_type: control?.account_type || "standard",
-      subscription_status: control?.subscription_status || "not_started",
-      plan_name: control?.plan_name || null,
-      access_status: control?.access_status || "active",
-    });
+    if (request.method === "GET") {
+      let partnerCode = control?.partner_code || null;
+      let partnerEarningsCents = 0;
+      if (control?.account_type === "partner") {
+        if (!partnerCode) {
+          partnerCode = crypto.randomBytes(6).toString("hex").toUpperCase();
+          await admin.from("platform_user_controls").update({ partner_code: partnerCode, updated_at: new Date().toISOString() }).eq("user_id", auth.user.id);
+        }
+        const { data: commissions } = await admin.from("partner_commissions").select("commission_cents").eq("partner_user_id", auth.user.id).neq("status", "cancelled");
+        partnerEarningsCents = (commissions || []).reduce((sum, item) => sum + Number(item.commission_cents || 0), 0);
+      }
+      return response.status(200).json({
+        account_type: control?.account_type || "standard",
+        subscription_status: control?.subscription_status || "not_started",
+        plan_name: control?.plan_name || null,
+        access_status: control?.access_status || "active",
+        partner_code: partnerCode,
+        partner_earnings_cents: partnerEarningsCents,
+      });
+    }
     const workspaceId = cleanString(request.body?.workspace_id, 40);
     const plan = plans[cleanString(request.body?.plan_id, 20)];
     if (!plan || (workspaceId && !/^[0-9a-f-]{36}$/i.test(workspaceId))) return response.status(400).json({ error: "Plano inválido." });
