@@ -2173,7 +2173,7 @@ function captureCampaignAttribution() {
 export function PublicCheckout({ slug }) {
   const checkoutSessionId = useRef(crypto.randomUUID());
   const humanVerifiedRef = useRef(false);
-  const campaignAttribution = useRef(captureCampaignAttribution());
+  const [campaignAttribution] = useState(() => captureCampaignAttribution());
   const trackedInteraction = useRef({ form: false, address: false });
   const [state, setState] = useState({
     loading: true,
@@ -2469,7 +2469,7 @@ export function PublicCheckout({ slug }) {
           card,
           protectionSelected,
           orderBumpProductIds: selectedBumpIds,
-          attribution: campaignAttribution.current,
+          attribution: campaignAttribution,
           checkoutSessionId: checkoutSessionId.current,
         }),
       });
