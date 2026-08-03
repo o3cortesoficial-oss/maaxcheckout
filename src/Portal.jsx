@@ -1951,6 +1951,7 @@ const mergeCheckoutModules = (saved = []) => [
 ];
 export function PublicCheckout({ slug }) {
   const checkoutSessionId = useRef(crypto.randomUUID());
+  const humanVerifiedRef = useRef(false);
   const trackedInteraction = useRef({ form: false, address: false });
   const [state, setState] = useState({
     loading: true,
@@ -1984,6 +1985,7 @@ export function PublicCheckout({ slug }) {
         sessionId: checkoutSessionId.current,
         eventType,
         paymentMethod: paymentMethod || null,
+        humanVerified: humanVerifiedRef.current,
       }),
     }).catch(() => undefined);
   };
@@ -2076,18 +2078,23 @@ export function PublicCheckout({ slug }) {
   useEffect(() => {
     const productId = state.product?.id;
     if (!productId) return undefined;
+    let humanVerified = false;
+    let heartbeatTimer;
     const payload = (action) =>
       JSON.stringify({
         productId,
         sessionId: checkoutSessionId.current,
         action,
+        humanVerified,
       });
-    const heartbeat = () =>
-      fetch("/api/checkout/presence", {
+    const heartbeat = () => {
+      if (!humanVerified || document.visibilityState !== "visible") return;
+      return fetch("/api/checkout/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payload("heartbeat"),
       }).catch(() => undefined);
+    };
     const leave = () => {
       const body = payload("leave");
       if (navigator.sendBeacon)
@@ -2103,12 +2110,45 @@ export function PublicCheckout({ slug }) {
           keepalive: true,
         }).catch(() => undefined);
     };
-    heartbeat();
-    const heartbeatTimer = window.setInterval(heartbeat, 10000);
+    const verifyHuman = (event) => {
+      if (
+        humanVerified ||
+        !event.isTrusted ||
+        navigator.webdriver ||
+        document.visibilityState !== "visible"
+      )
+        return;
+      humanVerified = true;
+      humanVerifiedRef.current = true;
+      heartbeat();
+      heartbeatTimer = window.setInterval(heartbeat, 10000);
+      humanEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, verifyHuman),
+      );
+    };
+    const visibilityChanged = () => {
+      if (document.visibilityState === "hidden") leave();
+      else if (humanVerified) heartbeat();
+    };
+    const humanEvents = [
+      "pointerdown",
+      "pointermove",
+      "touchstart",
+      "keydown",
+      "scroll",
+    ];
+    humanEvents.forEach((eventName) =>
+      window.addEventListener(eventName, verifyHuman, { passive: true }),
+    );
     window.addEventListener("pagehide", leave);
+    document.addEventListener("visibilitychange", visibilityChanged);
     return () => {
-      window.clearInterval(heartbeatTimer);
+      if (heartbeatTimer) window.clearInterval(heartbeatTimer);
+      humanEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, verifyHuman),
+      );
       window.removeEventListener("pagehide", leave);
+      document.removeEventListener("visibilitychange", visibilityChanged);
       leave();
     };
   }, [state.product?.id]);

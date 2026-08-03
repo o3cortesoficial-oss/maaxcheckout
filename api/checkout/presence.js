@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isLikelyAutomated } from "../_traffic.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST")
@@ -6,7 +7,7 @@ export default async function handler(request, response) {
   try {
     const body =
       typeof request.body === "string" ? JSON.parse(request.body) : request.body || {};
-    const { productId, sessionId, action = "heartbeat" } = body;
+    const { productId, sessionId, action = "heartbeat", humanVerified = false } = body;
     if (!/^[0-9a-f-]{36}$/i.test(String(sessionId || "")))
       return response.status(400).json({ error: "Sessão inválida." });
 
@@ -19,6 +20,8 @@ export default async function handler(request, response) {
       await supabase.from("checkout_presence").delete().eq("session_id", sessionId);
       return response.status(202).json({ active: false });
     }
+    if (!humanVerified || isLikelyAutomated(request))
+      return response.status(202).json({ active: false, filtered: true });
 
     const { data: product } = await supabase
       .from("products")
