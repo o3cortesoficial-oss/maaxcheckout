@@ -1101,7 +1101,23 @@ a {
   top: 0;
   width: 246px;
   height: 100dvh;
+  max-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #45483f transparent;
   z-index: 5;
+}
+.dashboard > aside::-webkit-scrollbar {
+  width: 4px;
+}
+.dashboard > aside::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dashboard > aside::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: #45483f;
 }
 .side-head {
   padding: 0 12px 28px;
