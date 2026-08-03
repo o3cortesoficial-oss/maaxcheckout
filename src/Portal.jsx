@@ -25,6 +25,7 @@ import {
   Sparkle,
   TrendUp,
   Trash,
+  Truck,
   Users,
   Wallet,
   WarningCircle,
@@ -204,6 +205,7 @@ const nav = [
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
   ["checkout", "Checkout", CreditCard],
+  ["shipping", "Frete", Truck],
   ["tracking", "Rastreamento", Crosshair],
   ["clientes", "Clientes", Users],
   ["assinaturas", "Assinaturas", CreditCard],
@@ -263,7 +265,16 @@ function Field({ label, ...props }) {
   );
 }
 
-function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSelect, onCreate, onManage }) {
+function BusinessSwitcher({
+  workspaces,
+  workspace,
+  open,
+  onToggle,
+  onClose,
+  onSelect,
+  onCreate,
+  onManage,
+}) {
   const root = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -296,23 +307,51 @@ function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSe
         <CaretDown className={open ? "open" : ""} />
       </button>
       {open && (
-        <div className="business-menu" role="listbox" aria-label="Seus negócios">
+        <div
+          className="business-menu"
+          role="listbox"
+          aria-label="Seus negócios"
+        >
           <header>
             <span>SUAS OPERAÇÕES</span>
             <small>{workspaces.length}</small>
           </header>
           <div className="business-options">
             {workspaces.map((item) => (
-              <div className={item.id === workspace?.id ? "selected" : ""} role="option" aria-selected={item.id === workspace?.id} key={item.id}>
-                <button type="button" className="business-option-main" onClick={() => onSelect(item)}>
-                  <i>{item.logo_url ? <img src={item.logo_url} alt="" /> : item.name.slice(0, 1).toUpperCase()}</i>
+              <div
+                className={item.id === workspace?.id ? "selected" : ""}
+                role="option"
+                aria-selected={item.id === workspace?.id}
+                key={item.id}
+              >
+                <button
+                  type="button"
+                  className="business-option-main"
+                  onClick={() => onSelect(item)}
+                >
+                  <i>
+                    {item.logo_url ? (
+                      <img src={item.logo_url} alt="" />
+                    ) : (
+                      item.name.slice(0, 1).toUpperCase()
+                    )}
+                  </i>
                   <span>
                     <b>{item.name}</b>
-                    <small>{item.id === workspace?.id ? "Operação atual" : "Abrir operação"}</small>
+                    <small>
+                      {item.id === workspace?.id
+                        ? "Operação atual"
+                        : "Abrir operação"}
+                    </small>
                   </span>
                   {item.id === workspace?.id && <CheckCircle />}
                 </button>
-                <button type="button" className="business-manage" onClick={() => onManage(item)} aria-label={`Editar ${item.name}`}>
+                <button
+                  type="button"
+                  className="business-manage"
+                  onClick={() => onManage(item)}
+                  aria-label={`Editar ${item.name}`}
+                >
                   <PencilSimple />
                 </button>
               </div>
@@ -349,10 +388,15 @@ function CreateBusinessModal({ onClose, onCreated }) {
   return (
     <Modal title="Criar novo negócio" onClose={onClose}>
       <div className="business-modal-intro">
-        <i><Buildings /></i>
+        <i>
+          <Buildings />
+        </i>
         <div>
           <b>Uma operação totalmente nova</b>
-          <p>Produtos, gateways, chaves, checkout, clientes e rastreamento começarão vazios.</p>
+          <p>
+            Produtos, gateways, chaves, checkout, clientes e rastreamento
+            começarão vazios.
+          </p>
         </div>
       </div>
       <form className="data-form business-form" onSubmit={save}>
@@ -369,7 +413,9 @@ function CreateBusinessModal({ onClose, onCreated }) {
         <small>Use um nome que ajude você a identificar esta operação.</small>
         {error && <div className="form-error">{error}</div>}
         <div className="modal-actions">
-          <Button secondary onClick={onClose}>Cancelar</Button>
+          <Button secondary onClick={onClose}>
+            Cancelar
+          </Button>
           <Button type="submit" disabled={saving || name.trim().length < 2}>
             {saving ? "Criando..." : "Criar negócio"}
           </Button>
@@ -379,7 +425,13 @@ function CreateBusinessModal({ onClose, onCreated }) {
   );
 }
 
-function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted }) {
+function ManageBusinessModal({
+  business,
+  canDelete,
+  onClose,
+  onSaved,
+  onDeleted,
+}) {
   const [name, setName] = useState(business.name);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(business.logo_url || "");
@@ -388,14 +440,21 @@ function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmation, setConfirmation] = useState("");
 
-  useEffect(() => () => {
-    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
-  }, [preview]);
+  useEffect(
+    () => () => {
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
 
   const chooseLogo = (event) => {
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
-    if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(nextFile.type)) {
+    if (
+      !["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(
+        nextFile.type,
+      )
+    ) {
       setError("Use uma imagem PNG, JPEG, WebP ou SVG.");
       return;
     }
@@ -412,23 +471,33 @@ function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted 
   const save = async (event) => {
     event.preventDefault();
     const cleanName = name.trim();
-    if (cleanName.length < 2) return setError("Use um nome com pelo menos 2 caracteres.");
+    if (cleanName.length < 2)
+      return setError("Use um nome com pelo menos 2 caracteres.");
     setSaving(true);
     setError("");
     let logoUrl = business.logo_url || null;
     if (file) {
       const extension = file.name.split(".").pop()?.toLowerCase() || "png";
       const path = `${business.id}/business-logo-${Date.now()}.${extension}`;
-      const upload = await supabase.storage.from("checkout-assets").upload(path, file, { cacheControl: "3600", upsert: true });
+      const upload = await supabase.storage
+        .from("checkout-assets")
+        .upload(path, file, { cacheControl: "3600", upsert: true });
       if (upload.error) {
         setSaving(false);
-        return setError(`Não foi possível enviar a imagem: ${upload.error.message}`);
+        return setError(
+          `Não foi possível enviar a imagem: ${upload.error.message}`,
+        );
       }
-      logoUrl = supabase.storage.from("checkout-assets").getPublicUrl(path).data.publicUrl;
+      logoUrl = supabase.storage.from("checkout-assets").getPublicUrl(path)
+        .data.publicUrl;
     }
     const { data, error: saveError } = await supabase
       .from("workspaces")
-      .update({ name: cleanName, logo_url: logoUrl, updated_at: new Date().toISOString() })
+      .update({
+        name: cleanName,
+        logo_url: logoUrl,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", business.id)
       .select()
       .single();
@@ -441,7 +510,10 @@ function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted 
     if (confirmation !== business.name) return;
     setSaving(true);
     setError("");
-    const { error: deleteError } = await supabase.rpc("delete_business_workspace", { p_workspace_id: business.id });
+    const { error: deleteError } = await supabase.rpc(
+      "delete_business_workspace",
+      { p_workspace_id: business.id },
+    );
     setSaving(false);
     if (deleteError) return setError(deleteError.message);
     onDeleted(business.id);
@@ -452,38 +524,80 @@ function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted 
       <form className="data-form business-manage-form" onSubmit={save}>
         <div className="business-logo-editor">
           <div className="business-logo-preview">
-            {preview ? <img src={preview} alt="Prévia da marca" /> : <b>{name.slice(0, 1).toUpperCase()}</b>}
+            {preview ? (
+              <img src={preview} alt="Prévia da marca" />
+            ) : (
+              <b>{name.slice(0, 1).toUpperCase()}</b>
+            )}
           </div>
           <div>
             <b>Imagem do negócio</b>
             <p>PNG, JPEG, WebP ou SVG. Quadrada, 512 × 512 px e até 2 MB.</p>
             <label className="business-logo-action">
               <Camera /> {preview ? "Trocar imagem" : "Adicionar imagem"}
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={chooseLogo} />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={chooseLogo}
+              />
             </label>
           </div>
         </div>
-        <Field label="Nome do negócio" value={name} onChange={(event) => setName(event.target.value)} minLength="2" maxLength="60" required />
+        <Field
+          label="Nome do negócio"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          minLength="2"
+          maxLength="60"
+          required
+        />
         {error && <div className="form-error">{error}</div>}
         <div className="modal-actions">
-          <Button secondary onClick={onClose}>Cancelar</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</Button>
+          <Button secondary onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Salvar alterações"}
+          </Button>
         </div>
       </form>
       <section className="business-danger-zone">
         <div>
           <b>Excluir este negócio</b>
-          <p>Produtos, pedidos, clientes, gateways e configurações desta operação serão excluídos.</p>
+          <p>
+            Produtos, pedidos, clientes, gateways e configurações desta operação
+            serão excluídos.
+          </p>
         </div>
         {!confirmDelete ? (
-          <button type="button" disabled={!canDelete} onClick={() => setConfirmDelete(true)}><Trash /> Excluir negócio</button>
+          <button
+            type="button"
+            disabled={!canDelete}
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash /> Excluir negócio
+          </button>
         ) : (
           <div className="business-delete-confirm">
-            <label>Digite <b>{business.name}</b> para confirmar<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
-            <button type="button" disabled={saving || confirmation !== business.name} onClick={remove}>Excluir definitivamente</button>
+            <label>
+              Digite <b>{business.name}</b> para confirmar
+              <input
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={saving || confirmation !== business.name}
+              onClick={remove}
+            >
+              Excluir definitivamente
+            </button>
           </div>
         )}
-        {!canDelete && <small>Crie outro negócio antes de excluir o único existente.</small>}
+        {!canDelete && (
+          <small>Crie outro negócio antes de excluir o único existente.</small>
+        )}
       </section>
     </Modal>
   );
@@ -1153,7 +1267,11 @@ export function RealDashboard({ navigate }) {
   const workspaceIdRef = useRef(null);
   const searchInputRef = useRef(null);
   const searchRootRef = useRef(null);
-  const load = async (retried = false, silent = false, targetWorkspaceId = null) => {
+  const load = async (
+    retried = false,
+    silent = false,
+    targetWorkspaceId = null,
+  ) => {
     if (!silent) setLoading(true);
     setError("");
     const { data: sessionData } = await supabase.auth.getSession();
@@ -1329,7 +1447,8 @@ export function RealDashboard({ navigate }) {
             ]
               .sort(
                 (a, b) =>
-                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                  new Date(b.created_at).getTime() -
+                  new Date(a.created_at).getTime(),
               )
               .slice(0, 1000);
             return { ...current, orders };
@@ -1418,7 +1537,10 @@ export function RealDashboard({ navigate }) {
           Icon: Package,
         })),
       ...data.customers
-        .filter((item) => matches(item.name) || matches(item.email) || matches(item.phone))
+        .filter(
+          (item) =>
+            matches(item.name) || matches(item.email) || matches(item.phone),
+        )
         .map((item) => ({
           id: `customer-${item.id}`,
           label: item.name,
@@ -1489,7 +1611,8 @@ export function RealDashboard({ navigate }) {
     setManagedBusiness(null);
     const remaining = workspaces.find((item) => item.id !== deletedId);
     workspaceIdRef.current = remaining?.id || null;
-    if (remaining) window.localStorage.setItem("maax_active_workspace", remaining.id);
+    if (remaining)
+      window.localStorage.setItem("maax_active_workspace", remaining.id);
     await load(false, false, remaining?.id || null);
   };
   if (loading)
@@ -1605,7 +1728,9 @@ export function RealDashboard({ navigate }) {
                         role="option"
                         key={result.id}
                       >
-                        <i><ResultIcon /></i>
+                        <i>
+                          <ResultIcon />
+                        </i>
                         <span>
                           <b>{result.label}</b>
                           <small>{result.detail}</small>
@@ -1874,12 +1999,23 @@ function CampaignAttributionPanel({ orders = [] }) {
           <h2>Campanhas que geram receita.</h2>
           <p>Somente pedidos aprovados e conciliados pelo gateway.</p>
         </div>
-        <div className="campaign-panel-live"><i /> Atribuição ativa</div>
+        <div className="campaign-panel-live">
+          <i /> Atribuição ativa
+        </div>
       </header>
       <div className="campaign-summary">
-        <div><span>Receita atribuída</span><strong>{money(attributedRevenue)}</strong></div>
-        <div><span>Vendas identificadas</span><strong>{attributed.length}</strong></div>
-        <div><span>Taxa de atribuição</span><strong>{attributionRate}%</strong></div>
+        <div>
+          <span>Receita atribuída</span>
+          <strong>{money(attributedRevenue)}</strong>
+        </div>
+        <div>
+          <span>Vendas identificadas</span>
+          <strong>{attributed.length}</strong>
+        </div>
+        <div>
+          <span>Taxa de atribuição</span>
+          <strong>{attributionRate}%</strong>
+        </div>
       </div>
       <div className="campaign-panel-grid">
         <div className="campaign-ranking">
@@ -1895,7 +2031,10 @@ function CampaignAttributionPanel({ orders = [] }) {
                   <em>{String(index + 1).padStart(2, "0")}</em>
                   <span>
                     <b>{campaign.campaign}</b>
-                    <small>{campaign.source} · {campaign.sales} {campaign.sales === 1 ? "venda" : "vendas"}</small>
+                    <small>
+                      {campaign.source} · {campaign.sales}{" "}
+                      {campaign.sales === 1 ? "venda" : "vendas"}
+                    </small>
                   </span>
                   <strong>{money(campaign.revenue)}</strong>
                 </li>
@@ -1905,7 +2044,9 @@ function CampaignAttributionPanel({ orders = [] }) {
             <div className="campaign-ranking-empty">
               <Crosshair />
               <b>Aguardando a primeira campanha</b>
-              <small>As vendas atribuídas formarão o ranking automaticamente.</small>
+              <small>
+                As vendas atribuídas formarão o ranking automaticamente.
+              </small>
             </div>
           )}
         </div>
@@ -1920,17 +2061,28 @@ function CampaignAttributionPanel({ orders = [] }) {
           {recent.length ? (
             <div className="campaign-sales-scroll">
               <div className="campaign-sale-row campaign-sale-th">
-                <span>Campanha</span><span>Origem</span><span>Pedido</span><span>Valor</span><span>Data</span>
+                <span>Campanha</span>
+                <span>Origem</span>
+                <span>Pedido</span>
+                <span>Valor</span>
+                <span>Data</span>
               </div>
               {recent.map((order) => (
                 <div className="campaign-sale-row" key={order.id}>
                   <span>
                     <b>{order.campaignTouch.campaign}</b>
-                    <small>{order.campaignTouch.content || order.campaignTouch.medium}</small>
+                    <small>
+                      {order.campaignTouch.content ||
+                        order.campaignTouch.medium}
+                    </small>
                   </span>
-                  <span><i /> {order.campaignTouch.source}</span>
+                  <span>
+                    <i /> {order.campaignTouch.source}
+                  </span>
                   <span>{order.code}</span>
-                  <span><b>{money(order.total_cents)}</b></span>
+                  <span>
+                    <b>{money(order.total_cents)}</b>
+                  </span>
                   <span>{date(order.paid_at || order.created_at)}</span>
                 </div>
               ))}
@@ -1972,11 +2124,7 @@ function HomeView({ metrics, data, workspace, onNavigate }) {
         />
       </section>
       <div className="metrics">
-        <Stat
-          label="Pedidos pagos"
-          value={metrics.paid}
-          icon={CheckCircle}
-        />
+        <Stat label="Pedidos pagos" value={metrics.paid} icon={CheckCircle} />
         <Stat
           label="Pedidos gerados"
           value={metrics.generated}
@@ -2077,6 +2225,8 @@ const defaultCheckout = {
   order_bump_title: "Aproveite esta oferta",
   order_bump_description: "Adicione ao seu pedido com apenas um clique.",
   order_bump_product_ids: [],
+  shipping_options: [],
+  checkout_shipping_option_ids: [],
 };
 const defaultModules = [
   { id: "secure_badge", label: "Selo Compra segura", enabled: true },
@@ -2136,7 +2286,10 @@ function captureCampaignAttribution() {
   const now = new Date().toISOString();
   const touch = {
     ...current,
-    landing_path: `${window.location.pathname}${window.location.search}`.slice(0, 1800),
+    landing_path: `${window.location.pathname}${window.location.search}`.slice(
+      0,
+      1800,
+    ),
     referrer: document.referrer.slice(0, 1800) || null,
     captured_at: now,
   };
@@ -2155,12 +2308,19 @@ function captureCampaignAttribution() {
         utm_medium: document.referrer ? "referral" : "none",
         utm_campaign: "Sem campanha",
       };
-  const firstCapturedAt = new Date(stored?.first_touch?.captured_at || 0).getTime();
-  const firstTouchExpired = Date.now() - firstCapturedAt > 90 * 24 * 60 * 60 * 1000;
+  const firstCapturedAt = new Date(
+    stored?.first_touch?.captured_at || 0,
+  ).getTime();
+  const firstTouchExpired =
+    Date.now() - firstCapturedAt > 90 * 24 * 60 * 60 * 1000;
   const attribution = {
     first_touch:
-      !stored?.first_touch || firstTouchExpired ? inferredTouch : stored.first_touch,
-    last_touch: hasCampaignSignal ? inferredTouch : stored?.last_touch || inferredTouch,
+      !stored?.first_touch || firstTouchExpired
+        ? inferredTouch
+        : stored.first_touch,
+    last_touch: hasCampaignSignal
+      ? inferredTouch
+      : stored?.last_touch || inferredTouch,
   };
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(attribution));
@@ -2180,6 +2340,7 @@ export function PublicCheckout({ slug }) {
     product: null,
     images: [],
     orderBumps: [],
+    shippingOptions: [],
     settings: defaultCheckout,
     modules: defaultModules,
     error: "",
@@ -2195,6 +2356,7 @@ export function PublicCheckout({ slug }) {
   const [paymentResult, setPaymentResult] = useState(null);
   const [protectionSelected, setProtectionSelected] = useState(false);
   const [selectedBumpIds, setSelectedBumpIds] = useState([]);
+  const [selectedShippingId, setSelectedShippingId] = useState("");
   const trackCheckoutEvent = (eventType, paymentMethod, productId) => {
     const targetProductId = productId || state.product?.id;
     if (!targetProductId) return;
@@ -2279,13 +2441,24 @@ export function PublicCheckout({ slug }) {
             )?.url,
           }));
       }
+      const configuredShippingIds =
+        checkoutSettings.checkout_shipping_option_ids || [];
+      const shippingOptions = (checkoutSettings.shipping_options || [])
+        .filter(
+          (option) =>
+            option.active !== false &&
+            configuredShippingIds.includes(option.id),
+        )
+        .slice(0, 3);
       if (!active) return;
       setSelectedBumpIds([]);
+      setSelectedShippingId(shippingOptions[0]?.id || "");
       setState({
         loading: false,
         product,
         images: imageResult.data || [],
         orderBumps,
+        shippingOptions,
         settings: checkoutSettings,
         modules: mergeCheckoutModules(configResult.data?.modules || []),
         error: "",
@@ -2390,7 +2563,8 @@ export function PublicCheckout({ slug }) {
         <p>{state.error}</p>
       </div>
     );
-  const { product, settings, modules, images, orderBumps } = state;
+  const { product, settings, modules, images, orderBumps, shippingOptions } =
+    state;
   const paymentMethods = settings.payment_methods?.length
     ? settings.payment_methods
     : ["pix"];
@@ -2403,7 +2577,10 @@ export function PublicCheckout({ slug }) {
   };
   const trackFormProgress = (event) => {
     const fieldName = event.target?.name || "";
-    if (fieldName.startsWith("address_") && !trackedInteraction.current.address) {
+    if (
+      fieldName.startsWith("address_") &&
+      !trackedInteraction.current.address
+    ) {
       trackedInteraction.current.address = true;
       trackCheckoutEvent("address_started", selectedPayment);
       return;
@@ -2425,8 +2602,13 @@ export function PublicCheckout({ slug }) {
   const protectionCents = protectionAvailable
     ? brlToCents(settings.shopper_protection_price)
     : 0;
+  const selectedShipping = isPhysical
+    ? shippingOptions.find((option) => option.id === selectedShippingId)
+    : null;
+  const shippingCents = Number(selectedShipping?.price_cents || 0);
   const totalCents =
     Number(product.price_cents || 0) +
+    shippingCents +
     (protectionSelected ? protectionCents : 0) +
     orderBumps
       .filter((bump) => selectedBumpIds.includes(bump.id))
@@ -2469,6 +2651,7 @@ export function PublicCheckout({ slug }) {
           card,
           protectionSelected,
           orderBumpProductIds: selectedBumpIds,
+          shippingOptionId: selectedShipping?.id || null,
           attribution: campaignAttribution,
           checkoutSessionId: checkoutSessionId.current,
         }),
@@ -2510,6 +2693,9 @@ export function PublicCheckout({ slug }) {
         setProtectionSelected={setProtectionSelected}
         protectionCents={protectionCents}
         orderBumps={orderBumps}
+        shippingOptions={shippingOptions}
+        selectedShippingId={selectedShippingId}
+        onSelectShipping={setSelectedShippingId}
         selectedBumpIds={selectedBumpIds}
         onToggleOrderBump={toggleOrderBump}
         totalCents={totalCents}
@@ -2770,6 +2956,13 @@ export function PublicCheckout({ slug }) {
               </label>
             </section>
           )}
+          {isPhysical && (
+            <ShippingSelector
+              options={shippingOptions}
+              selectedId={selectedShippingId}
+              onSelect={setSelectedShippingId}
+            />
+          )}
           <OrderBumpBlock
             bumps={orderBumps}
             selectedIds={selectedBumpIds}
@@ -2954,7 +3147,7 @@ export function PublicCheckout({ slug }) {
             )}
             <div className="preview-total">
               <span>Total</span>
-              <strong>{money(product.price_cents)}</strong>
+              <strong>{money(totalCents)}</strong>
             </div>
             <p className="public-guarantee">
               <CheckCircle /> Compra protegida
@@ -3079,6 +3272,57 @@ function OrderBumpBlock({ bumps = [], selectedIds = [], onToggle, settings }) {
   );
 }
 
+function ShippingSelector({
+  options = [],
+  selectedId,
+  onSelect,
+  compact = false,
+}) {
+  if (!options.length) return null;
+  return (
+    <section
+      className={compact ? "checkout-shipping compact" : "checkout-shipping"}
+    >
+      <div className="checkout-shipping-heading">
+        <span>
+          <Truck />
+        </span>
+        <div>
+          <b>Escolha a entrega</b>
+          <small>Prazo e valor calculados no total do pedido</small>
+        </div>
+      </div>
+      <div className="checkout-shipping-options">
+        {options.map((option) => {
+          const selected = selectedId === option.id;
+          return (
+            <label className={selected ? "selected" : ""} key={option.id}>
+              <input
+                type="radio"
+                name="shipping_option"
+                value={option.id}
+                checked={selected}
+                onChange={() => onSelect?.(option.id)}
+                required
+              />
+              <i />
+              <span>
+                <b>{option.name}</b>
+                <small>{option.estimate}</small>
+              </span>
+              <strong>
+                {Number(option.price_cents || 0)
+                  ? money(option.price_cents)
+                  : "Grátis"}
+              </strong>
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ShopperCheckout({
   product,
   images,
@@ -3096,6 +3340,9 @@ function ShopperCheckout({
   setProtectionSelected,
   protectionCents,
   orderBumps,
+  shippingOptions = [],
+  selectedShippingId,
+  onSelectShipping,
   selectedBumpIds,
   onToggleOrderBump,
   totalCents,
@@ -3254,14 +3501,12 @@ function ShopperCheckout({
               <small>Dados obrigatórios</small>
             </div>
             {isPhysical && (
-              <label className="shopper-shipping-card">
-                <input type="radio" defaultChecked name="shipping" />
-                <span>
-                  <b>Entrega padrão</b>
-                  <small>{settings.shopper_shipping_estimate}</small>
-                </span>
-                <strong>Grátis</strong>
-              </label>
+              <ShippingSelector
+                compact
+                options={shippingOptions}
+                selectedId={selectedShippingId}
+                onSelect={onSelectShipping}
+              />
             )}
             <div className="shopper-address">
               <input
@@ -3394,7 +3639,8 @@ function ShopperCheckout({
         )}
         <section className="shopper-total">
           <span>
-            Total ({1 + selectedBumpIds.length} {1 + selectedBumpIds.length === 1 ? "item" : "itens"})
+            Total ({1 + selectedBumpIds.length}{" "}
+            {1 + selectedBumpIds.length === 1 ? "item" : "itens"})
           </span>
           <strong>{money(totalCents)}</strong>
         </section>
@@ -3465,6 +3711,10 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
   const activeOrderBumpProducts = products.filter(
     (product) => product.status === "active",
   );
+  const availableShippingOptions = (settings.shipping_options || []).filter(
+    (option) => option.active !== false,
+  );
+  const selectedShippingOptionIds = settings.checkout_shipping_option_ids || [];
   const toggleOrderBumpProduct = (productId) => {
     const selected = selectedOrderBumpIds.includes(productId);
     if (!selected && selectedOrderBumpIds.length >= 3) return;
@@ -3488,6 +3738,14 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
       current.includes(method)
         ? current.filter((item) => item !== method)
         : [...current, method],
+    );
+  };
+  const toggleShippingOption = (optionId) => {
+    change(
+      "checkout_shipping_option_ids",
+      selectedShippingOptionIds.includes(optionId)
+        ? selectedShippingOptionIds.filter((id) => id !== optionId)
+        : [...selectedShippingOptionIds, optionId],
     );
   };
   const uploadAsset = async (kind, file) => {
@@ -3622,15 +3880,6 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                     value={settings.shopper_header_title}
                     onChange={(e) =>
                       change("shopper_header_title", e.target.value)
-                    }
-                  />
-                </label>
-                <label>
-                  Prazo de entrega
-                  <input
-                    value={settings.shopper_shipping_estimate}
-                    onChange={(e) =>
-                      change("shopper_shipping_estimate", e.target.value)
                     }
                   />
                 </label>
@@ -3788,7 +4037,9 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
               <button
                 type="button"
                 className={settings.order_bump_enabled ? "toggle on" : "toggle"}
-                onClick={() => change("order_bump_enabled", !settings.order_bump_enabled)}
+                onClick={() =>
+                  change("order_bump_enabled", !settings.order_bump_enabled)
+                }
                 aria-label="Ativar order bumps"
               >
                 <i />
@@ -3801,7 +4052,9 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                   <input
                     value={settings.order_bump_title}
                     maxLength="60"
-                    onChange={(event) => change("order_bump_title", event.target.value)}
+                    onChange={(event) =>
+                      change("order_bump_title", event.target.value)
+                    }
                   />
                 </label>
                 <label>
@@ -3821,22 +4074,31 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                   </div>
                   {activeOrderBumpProducts.length ? (
                     activeOrderBumpProducts.map((product) => {
-                      const selected = selectedOrderBumpIds.includes(product.id);
+                      const selected = selectedOrderBumpIds.includes(
+                        product.id,
+                      );
                       const cover = productImages
                         .filter((image) => image.product_id === product.id)
                         .sort(
-                          (a, b) => Number(a.position || 0) - Number(b.position || 0),
+                          (a, b) =>
+                            Number(a.position || 0) - Number(b.position || 0),
                         )[0];
                       return (
                         <button
                           type="button"
                           className={selected ? "selected" : ""}
                           onClick={() => toggleOrderBumpProduct(product.id)}
-                          disabled={!selected && selectedOrderBumpIds.length >= 3}
+                          disabled={
+                            !selected && selectedOrderBumpIds.length >= 3
+                          }
                           key={product.id}
                         >
                           <i>
-                            {cover ? <img src={cover.url} alt="" /> : <Package />}
+                            {cover ? (
+                              <img src={cover.url} alt="" />
+                            ) : (
+                              <Package />
+                            )}
                           </i>
                           <span>
                             <b>{product.name}</b>
@@ -3847,12 +4109,65 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                       );
                     })
                   ) : (
-                    <p>Cadastre e ative produtos para usá-los como order bump.</p>
+                    <p>
+                      Cadastre e ative produtos para usá-los como order bump.
+                    </p>
                   )}
                 </div>
                 <small className="order-bump-help">
-                  Recomendação: use até 3 ofertas complementares para preservar a conversão.
+                  Recomendação: use até 3 ofertas complementares para preservar
+                  a conversão.
                 </small>
+              </div>
+            )}
+          </section>
+          <section className="shipping-editor-section">
+            <div className="shipping-editor-heading">
+              <span>
+                <b>Fretes do checkout</b>
+                <small>
+                  Selecione as opções que o cliente poderá escolher.
+                </small>
+              </span>
+              <Truck />
+            </div>
+            {availableShippingOptions.length ? (
+              <div className="shipping-editor-options">
+                {availableShippingOptions.map((option) => {
+                  const selected = selectedShippingOptionIds.includes(
+                    option.id,
+                  );
+                  return (
+                    <button
+                      type="button"
+                      className={selected ? "selected" : ""}
+                      onClick={() => toggleShippingOption(option.id)}
+                      key={option.id}
+                    >
+                      <i>
+                        <Truck />
+                      </i>
+                      <span>
+                        <b>{option.name}</b>
+                        <small>{option.estimate}</small>
+                      </span>
+                      <strong>
+                        {Number(option.price_cents || 0)
+                          ? money(option.price_cents)
+                          : "Grátis"}
+                      </strong>
+                      <CheckCircle />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="shipping-editor-empty">
+                <Truck />
+                <span>
+                  <b>Nenhum frete cadastrado</b>
+                  <small>Crie opções na página Frete do menu lateral.</small>
+                </span>
               </div>
             )}
           </section>
@@ -3921,6 +4236,21 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
   const [device, setDevice] = useState("desktop");
   const [previewPayment, setPreviewPayment] = useState("pix");
   const [selectedPreviewBumpIds, setSelectedPreviewBumpIds] = useState([]);
+  const previewShippingOptions = (settings.shipping_options || []).filter(
+    (option) =>
+      option.active !== false &&
+      (settings.checkout_shipping_option_ids || []).includes(option.id),
+  );
+  const [selectedPreviewShippingId, setSelectedPreviewShippingId] =
+    useState("");
+  useEffect(() => {
+    if (
+      !previewShippingOptions.some(
+        (option) => option.id === selectedPreviewShippingId,
+      )
+    )
+      setSelectedPreviewShippingId(previewShippingOptions[0]?.id || "");
+  }, [settings.shipping_options, settings.checkout_shipping_option_ids]);
   const enabled = (id) => modules.find((m) => m.id === id)?.enabled;
   const previewMethods =
     settings.payment_methods || defaultCheckout.payment_methods;
@@ -3950,6 +4280,11 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
   const previewBumpTotal = previewBumps
     .filter((bump) => selectedPreviewBumpIds.includes(bump.id))
     .reduce((total, bump) => total + Number(bump.price_cents || 0), 0);
+  const previewShippingTotal = Number(
+    previewShippingOptions.find(
+      (option) => option.id === selectedPreviewShippingId,
+    )?.price_cents || 0,
+  );
   if (settings.template === "shopper")
     return (
       <ShopperPreview
@@ -4039,6 +4374,11 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                   </div>
                 </section>
               )}
+              <ShippingSelector
+                options={previewShippingOptions}
+                selectedId={selectedPreviewShippingId}
+                onSelect={setSelectedPreviewShippingId}
+              />
               <OrderBumpBlock
                 bumps={previewBumps}
                 selectedIds={selectedPreviewBumpIds}
@@ -4110,7 +4450,9 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                 )}
                 <div className="preview-total">
                   <span>Total</span>
-                  <strong>{money(19700 + previewBumpTotal)}</strong>
+                  <strong>
+                    {money(19700 + previewBumpTotal + previewShippingTotal)}
+                  </strong>
                 </div>
                 <p>
                   <CheckCircle /> Garantia de 7 dias
@@ -4124,10 +4466,27 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
     </div>
   );
 }
-function ShopperPreview({ settings, modules, products = [], productImages = [] }) {
+function ShopperPreview({
+  settings,
+  modules,
+  products = [],
+  productImages = [],
+}) {
   const [device, setDevice] = useState("mobile");
   const [protectionSelected, setProtectionSelected] = useState(false);
   const [selectedBumpIds, setSelectedBumpIds] = useState([]);
+  const previewShippingOptions = (settings.shipping_options || []).filter(
+    (option) =>
+      option.active !== false &&
+      (settings.checkout_shipping_option_ids || []).includes(option.id),
+  );
+  const [selectedShippingId, setSelectedShippingId] = useState("");
+  useEffect(() => {
+    if (
+      !previewShippingOptions.some((option) => option.id === selectedShippingId)
+    )
+      setSelectedShippingId(previewShippingOptions[0]?.id || "");
+  }, [settings.shipping_options, settings.checkout_shipping_option_ids]);
   const [payment, setPayment] = useState(
     (settings.payment_methods || defaultCheckout.payment_methods)[0],
   );
@@ -4168,6 +4527,10 @@ function ShopperPreview({ settings, modules, products = [], productImages = [] }
   const bumpTotal = orderBumps
     .filter((bump) => selectedBumpIds.includes(bump.id))
     .reduce((total, bump) => total + Number(bump.price_cents || 0), 0);
+  const shippingTotal = Number(
+    previewShippingOptions.find((option) => option.id === selectedShippingId)
+      ?.price_cents || 0,
+  );
   if (settings.template === "shopper")
     return (
       <div className={`preview-stage preview-${device}`}>
@@ -4211,10 +4574,14 @@ function ShopperPreview({ settings, modules, products = [], productImages = [] }
             setProtectionSelected={setProtectionSelected}
             protectionCents={protectionCents}
             orderBumps={orderBumps}
+            shippingOptions={previewShippingOptions}
+            selectedShippingId={selectedShippingId}
+            onSelectShipping={setSelectedShippingId}
             selectedBumpIds={selectedBumpIds}
             onToggleOrderBump={toggleBump}
             totalCents={
               demoProduct.price_cents +
+              shippingTotal +
               (protectionSelected ? protectionCents : 0) +
               bumpTotal
             }
@@ -4784,7 +5151,10 @@ function TrackingPage({ workspace, onReload }) {
     };
   }, [workspace.id]);
 
-  const persist = async (nextPixels, nextAttributionEnabled = attributionEnabled) => {
+  const persist = async (
+    nextPixels,
+    nextAttributionEnabled = attributionEnabled,
+  ) => {
     setState("Salvando...");
     const settings = {
       ...defaultCheckout,
@@ -4843,8 +5213,7 @@ function TrackingPage({ workspace, onReload }) {
       [platform]: pixels[platform].filter((item) => item.id !== id),
     });
 
-  const toggleAttribution = () =>
-    persist(pixels, !attributionEnabled);
+  const toggleAttribution = () => persist(pixels, !attributionEnabled);
 
   const totalPixels = Object.values(pixels).reduce(
     (total, platformPixels) => total + platformPixels.length,
@@ -4894,7 +5263,9 @@ function TrackingPage({ workspace, onReload }) {
           </p>
         </div>
         <div className="attribution-control-action">
-          <small>{attributionEnabled ? "Ativo neste negócio" : "Recurso opcional"}</small>
+          <small>
+            {attributionEnabled ? "Ativo neste negócio" : "Recurso opcional"}
+          </small>
           <button
             type="button"
             role="switch"
@@ -5003,21 +5374,34 @@ function SubscriptionPlansPreview({ revenue }) {
     {
       name: "Essencial",
       range: "Até R$ 10 mil/mês",
-      description: "Para operações que estão começando a faturar pelo checkout.",
-      features: ["Checkout completo", "Pix, cartão e boleto", "Painel de vendas"],
+      description:
+        "Para operações que estão começando a faturar pelo checkout.",
+      features: [
+        "Checkout completo",
+        "Pix, cartão e boleto",
+        "Painel de vendas",
+      ],
     },
     {
       name: "Crescimento",
       range: "De R$ 10 mil a R$ 50 mil/mês",
       description: "Para operações com volume recorrente e mais controle.",
-      features: ["Tudo do Essencial", "Rastreamento avançado", "Suporte prioritário"],
+      features: [
+        "Tudo do Essencial",
+        "Rastreamento avançado",
+        "Suporte prioritário",
+      ],
       featured: true,
     },
     {
       name: "Escala",
       range: "Acima de R$ 50 mil/mês",
       description: "Condições preparadas para operações de maior volume.",
-      features: ["Tudo do Crescimento", "Condições personalizadas", "Acompanhamento dedicado"],
+      features: [
+        "Tudo do Crescimento",
+        "Condições personalizadas",
+        "Acompanhamento dedicado",
+      ],
     },
   ];
   return (
@@ -5041,35 +5425,35 @@ function SubscriptionPlansPreview({ revenue }) {
           </p>
         </div>
         <div className="subscription-plan-grid">
-        {plans.map((plan, index) => (
-          <article
-            className={`subscription-plan ${plan.featured ? "featured" : ""}`}
-            key={plan.name}
-          >
-            <header>
-              <span>0{index + 1}</span>
-              <small>Em breve</small>
-            </header>
-            {plan.featured && <em>MAIS INDICADO</em>}
-            <h2>{plan.name}</h2>
-            <strong>{plan.range}</strong>
-            <p>{plan.description}</p>
-            <div className="plan-price-placeholder">
-              <b>Valor em definição</b>
-              <small>mensalidade ainda não configurada</small>
-            </div>
-            <ul>
-              {plan.features.map((feature) => (
-                <li key={feature}>
-                  <CheckCircle /> {feature}
-                </li>
-              ))}
-            </ul>
-            <button type="button" disabled>
-              Indisponível no momento
-            </button>
-          </article>
-        ))}
+          {plans.map((plan, index) => (
+            <article
+              className={`subscription-plan ${plan.featured ? "featured" : ""}`}
+              key={plan.name}
+            >
+              <header>
+                <span>0{index + 1}</span>
+                <small>Em breve</small>
+              </header>
+              {plan.featured && <em>MAIS INDICADO</em>}
+              <h2>{plan.name}</h2>
+              <strong>{plan.range}</strong>
+              <p>{plan.description}</p>
+              <div className="plan-price-placeholder">
+                <b>Valor em definição</b>
+                <small>mensalidade ainda não configurada</small>
+              </div>
+              <ul>
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <CheckCircle /> {feature}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" disabled>
+                Indisponível no momento
+              </button>
+            </article>
+          ))}
         </div>
       </section>
     </div>
@@ -5106,16 +5490,21 @@ function CustomersView({ customers = [], orders = [] }) {
           };
         })
         .filter((customer) => customer.orders > 0)
-        .sort(
-          (a, b) => new Date(b.latestOrderAt) - new Date(a.latestOrderAt),
-        ),
+        .sort((a, b) => new Date(b.latestOrderAt) - new Date(a.latestOrderAt)),
     [customers, orders],
   );
   const filteredRows = rows.filter((customer) =>
-    filter === "all" ? true : filter === "paid" ? customer.paid : !customer.paid,
+    filter === "all"
+      ? true
+      : filter === "paid"
+        ? customer.paid
+        : !customer.paid,
   );
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
-  const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+  const visibleRows = filteredRows.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
   useEffect(() => setPage(1), [filter]);
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -5134,7 +5523,11 @@ function CustomersView({ customers = [], orders = [] }) {
             <span>REGISTROS</span>
             <h2>Clientes</h2>
           </div>
-          <div className="customer-filters" role="group" aria-label="Filtrar clientes">
+          <div
+            className="customer-filters"
+            role="group"
+            aria-label="Filtrar clientes"
+          >
             {[
               ["all", "Todos"],
               ["paid", "Pagos"],
@@ -5207,7 +5600,9 @@ function CustomersView({ customers = [], orders = [] }) {
             >
               <CaretLeft />
             </button>
-            <b>{page} / {totalPages}</b>
+            <b>
+              {page} / {totalPages}
+            </b>
             <button
               type="button"
               disabled={page === totalPages}
@@ -5217,6 +5612,235 @@ function CustomersView({ customers = [], orders = [] }) {
               <CaretRight />
             </button>
           </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function ShippingPage({ workspace }) {
+  const [configId, setConfigId] = useState(null);
+  const [settings, setSettings] = useState(defaultCheckout);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    supabase
+      .from("checkout_configs")
+      .select("id,settings")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (data) {
+          setConfigId(data.id);
+          setSettings({ ...defaultCheckout, ...(data.settings || {}) });
+        }
+        setMessage(error ? error.message : "");
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspace.id]);
+
+  const options = settings.shipping_options || [];
+  const updateOption = (id, key, value) =>
+    setSettings((current) => ({
+      ...current,
+      shipping_options: (current.shipping_options || []).map((option) =>
+        option.id === id ? { ...option, [key]: value } : option,
+      ),
+    }));
+  const addOption = () => {
+    if (options.length >= 3) return;
+    setSettings((current) => ({
+      ...current,
+      shipping_options: [
+        ...(current.shipping_options || []),
+        {
+          id: crypto.randomUUID(),
+          name: "Entrega padrão",
+          estimate: "Receba em até 6 dias úteis",
+          price_cents: 0,
+          active: true,
+        },
+      ],
+    }));
+  };
+  const removeOption = (id) =>
+    setSettings((current) => ({
+      ...current,
+      shipping_options: (current.shipping_options || []).filter(
+        (option) => option.id !== id,
+      ),
+      checkout_shipping_option_ids: (
+        current.checkout_shipping_option_ids || []
+      ).filter((optionId) => optionId !== id),
+    }));
+  const save = async () => {
+    setSaving(true);
+    setMessage("");
+    const normalizedSettings = {
+      ...settings,
+      shipping_options: options.map((option) => ({
+        ...option,
+        name: String(option.name || "").trim(),
+        estimate: String(option.estimate || "").trim(),
+        price_cents: Math.max(0, Number(option.price_cents || 0)),
+      })),
+    };
+    if (
+      normalizedSettings.shipping_options.some(
+        (option) => !option.name || !option.estimate,
+      )
+    ) {
+      setMessage("Preencha o nome e o prazo de todas as opções.");
+      setSaving(false);
+      return;
+    }
+    const payload = {
+      workspace_id: workspace.id,
+      name: "Checkout principal",
+      settings: normalizedSettings,
+      updated_at: new Date().toISOString(),
+    };
+    const result = configId
+      ? await supabase
+          .from("checkout_configs")
+          .update(payload)
+          .eq("id", configId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("checkout_configs")
+          .insert({ ...payload, modules: defaultModules })
+          .select("id")
+          .single();
+    if (result.data?.id) setConfigId(result.data.id);
+    if (!result.error) setSettings(normalizedSettings);
+    setMessage(result.error ? result.error.message : "Opções de frete salvas.");
+    setSaving(false);
+  };
+
+  if (loading)
+    return (
+      <div className="shipping-page-loading">Carregando opções de frete...</div>
+    );
+  return (
+    <div className="shipping-page page-enter">
+      <PageTitle
+        kicker="LOGÍSTICA"
+        title="Frete"
+        description="Configure até três formas de entrega para usar nos seus checkouts."
+        action={options.length < 3 ? "Nova opção" : null}
+        onAction={addOption}
+      />
+      <section className="shipping-manager">
+        <header>
+          <div>
+            <span>OPÇÕES DE ENTREGA</span>
+            <h2>Como seus pedidos chegam ao cliente</h2>
+            <p>
+              O valor selecionado será validado no servidor e somado à cobrança.
+            </p>
+          </div>
+          <em>{options.length}/3</em>
+        </header>
+        {options.length ? (
+          <div className="shipping-option-grid">
+            {options.map((option, index) => (
+              <article className="shipping-option-card" key={option.id}>
+                <div className="shipping-option-card-head">
+                  <i>
+                    <Truck />
+                  </i>
+                  <span>
+                    <small>OPÇÃO {String(index + 1).padStart(2, "0")}</small>
+                    <b>{option.name || "Nova entrega"}</b>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeOption(option.id)}
+                    aria-label={`Excluir ${option.name}`}
+                  >
+                    <Trash />
+                  </button>
+                </div>
+                <label>
+                  Forma de envio
+                  <input
+                    value={option.name}
+                    maxLength="48"
+                    placeholder="Ex.: Entrega expressa"
+                    onChange={(event) =>
+                      updateOption(option.id, "name", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  Prazo informado ao cliente
+                  <input
+                    value={option.estimate}
+                    maxLength="80"
+                    placeholder="Ex.: Receba em até 3 dias úteis"
+                    onChange={(event) =>
+                      updateOption(option.id, "estimate", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  Valor do frete
+                  <div className="shipping-price-input">
+                    <span>R$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={Number(option.price_cents || 0) / 100}
+                      onChange={(event) =>
+                        updateOption(
+                          option.id,
+                          "price_cents",
+                          Math.max(
+                            0,
+                            Math.round(Number(event.target.value || 0) * 100),
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+                  <small>Use R$ 0,00 para oferecer frete grátis.</small>
+                </label>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="shipping-empty">
+            <i>
+              <Truck />
+            </i>
+            <h3>Nenhuma opção de frete</h3>
+            <p>
+              Crie a primeira forma de entrega para disponibilizá-la no editor.
+            </p>
+            <Button onClick={addOption}>
+              <Plus /> Criar opção
+            </Button>
+          </div>
+        )}
+        <footer>
+          <span className={message.includes("salvas") ? "success" : ""}>
+            {message ||
+              "As alterações só entram no checkout após serem salvas."}
+          </span>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar fretes"}
+          </Button>
         </footer>
       </section>
     </div>
@@ -5266,6 +5890,7 @@ function DataView({
     );
   if (type === "tracking")
     return <TrackingPage workspace={workspace} onReload={onReload} />;
+  if (type === "shipping") return <ShippingPage workspace={workspace} />;
   if (type === "gateways") return <GatewayView workspace={workspace} />;
   if (type === "clientes")
     return <CustomersView customers={data.customers} orders={data.orders} />;
@@ -5463,55 +6088,55 @@ function ProductRows({ products, productImages, onEdit, onReload }) {
           .filter((image) => image.product_id === product.id)
           .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))[0];
         return (
-        <div className="generic-row" key={product.id}>
-          <span className="product-list-identity">
-            <i className={`product-list-thumb${cover ? " has-image" : ""}`}>
-              {cover ? (
-                <img src={cover.url} alt="" loading="lazy" />
-              ) : (
-                <Package aria-hidden="true" />
-              )}
-            </i>
-            <span>
-              <b>{product.name}</b>
-              <small>/{product.slug}</small>
+          <div className="generic-row" key={product.id}>
+            <span className="product-list-identity">
+              <i className={`product-list-thumb${cover ? " has-image" : ""}`}>
+                {cover ? (
+                  <img src={cover.url} alt="" loading="lazy" />
+                ) : (
+                  <Package aria-hidden="true" />
+                )}
+              </i>
+              <span>
+                <b>{product.name}</b>
+                <small>/{product.slug}</small>
+              </span>
             </span>
-          </span>
-          <span>
-            {product.billing_type === "subscription"
-              ? "Assinatura"
-              : "Pagamento único"}
-          </span>
-          <span>{money(product.price_cents)}</span>
-          <span>{labels[product.status] || product.status}</span>
-          <span className="product-actions">
-            <button
-              type="button"
-              onClick={() => copyLink(product)}
-              aria-label={`Copiar link de ${product.name}`}
-              title="Copiar link"
-            >
-              <Copy />
-            </button>
-            <button
-              type="button"
-              onClick={() => onEdit(product)}
-              aria-label={`Editar ${product.name}`}
-              title="Editar"
-            >
-              <PencilSimple />
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={() => remove(product)}
-              aria-label={`Excluir ${product.name}`}
-              title="Excluir"
-            >
-              <Trash />
-            </button>
-          </span>
-        </div>
+            <span>
+              {product.billing_type === "subscription"
+                ? "Assinatura"
+                : "Pagamento único"}
+            </span>
+            <span>{money(product.price_cents)}</span>
+            <span>{labels[product.status] || product.status}</span>
+            <span className="product-actions">
+              <button
+                type="button"
+                onClick={() => copyLink(product)}
+                aria-label={`Copiar link de ${product.name}`}
+                title="Copiar link"
+              >
+                <Copy />
+              </button>
+              <button
+                type="button"
+                onClick={() => onEdit(product)}
+                aria-label={`Editar ${product.name}`}
+                title="Editar"
+              >
+                <PencilSimple />
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => remove(product)}
+                aria-label={`Excluir ${product.name}`}
+                title="Excluir"
+              >
+                <Trash />
+              </button>
+            </span>
+          </div>
         );
       })}
       {feedback && (

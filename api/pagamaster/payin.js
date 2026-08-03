@@ -18,7 +18,9 @@ function decrypt(value) {
 
 const digits = (value) => String(value || "").replace(/\D/g, "");
 const brlToCents = (value = 0) => {
-  const amount = Number(String(value).trim().replace(/\./g, "").replace(",", "."));
+  const amount = Number(
+    String(value).trim().replace(/\./g, "").replace(",", "."),
+  );
   return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 };
 const attributionFields = [
@@ -86,6 +88,7 @@ export default async function handler(request, response) {
       card,
       protectionSelected = false,
       orderBumpProductIds = [],
+      shippingOptionId,
       attribution,
       checkoutSessionId,
     } = request.body || {};
@@ -104,7 +107,8 @@ export default async function handler(request, response) {
         message: productError.message,
       });
       return response.status(500).json({
-        error: "Não foi possível consultar o produto. Tente novamente em instantes.",
+        error:
+          "Não foi possível consultar o produto. Tente novamente em instantes.",
       });
     }
     if (!product)
@@ -169,6 +173,35 @@ export default async function handler(request, response) {
     const isPhysical = ["physical", "fisico", "físico"].includes(
       String(product.product_type || "").toLowerCase(),
     );
+    const configuredShippingIds = Array.isArray(
+      checkoutSettings.checkout_shipping_option_ids,
+    )
+      ? checkoutSettings.checkout_shipping_option_ids
+      : [];
+    const availableShippingOptions = isPhysical
+      ? (Array.isArray(checkoutSettings.shipping_options)
+          ? checkoutSettings.shipping_options
+          : []
+        )
+          .filter(
+            (option) =>
+              option &&
+              option.active !== false &&
+              configuredShippingIds.includes(option.id),
+          )
+          .slice(0, 3)
+      : [];
+    const shippingOption = availableShippingOptions.find(
+      (option) => option.id === shippingOptionId,
+    );
+    if (availableShippingOptions.length && !shippingOption)
+      return response
+        .status(400)
+        .json({ error: "Selecione uma opção de frete válida." });
+    const shippingCents = Math.max(
+      0,
+      Math.round(Number(shippingOption?.price_cents || 0)),
+    );
     const protectionModule = (checkoutConfig?.modules || []).find(
       (module) => module.id === "shopper_protection",
     );
@@ -181,6 +214,7 @@ export default async function handler(request, response) {
         : 0;
     const expectedAmount =
       Number(product.price_cents) +
+      shippingCents +
       protectionCents +
       bumpProducts.reduce(
         (total, bump) => total + Number(bump.price_cents || 0),
@@ -206,6 +240,19 @@ export default async function handler(request, response) {
               description: "Proteção adicional selecionada pelo cliente",
               quantity: 1,
               unitPrice: protectionCents,
+            },
+          ]
+        : []),
+      ...(shippingOption && shippingCents
+        ? [
+            {
+              title: String(shippingOption.name || "Frete").slice(0, 120),
+              description: String(shippingOption.estimate || "Entrega").slice(
+                0,
+                255,
+              ),
+              quantity: 1,
+              unitPrice: shippingCents,
             },
           ]
         : []),
@@ -305,7 +352,9 @@ export default async function handler(request, response) {
     if (result.amount != null && Number(result.amount) !== expectedAmount)
       riskReasons.push("amount_mismatch");
     const normalizedStatus = String(result.status || "PENDING").toUpperCase();
-    const customerEmail = String(customer.email || "").trim().toLowerCase();
+    const customerEmail = String(customer.email || "")
+      .trim()
+      .toLowerCase();
     let customerRecord = null;
     if (customerEmail) {
       const existingCustomer = await supabase
@@ -367,6 +416,10 @@ export default async function handler(request, response) {
           order_bump_product_ids: bumpProducts.map((bump) => bump.id),
           protection_selected: protectionCents > 0,
           protection_cents: protectionCents,
+          shipping_option_id: shippingOption?.id || null,
+          shipping_name: shippingOption?.name || null,
+          shipping_estimate: shippingOption?.estimate || null,
+          shipping_cents: shippingCents,
           gateway: "pagamaster",
           gateway_transaction_id: result.id,
           reference_id: referenceId,
@@ -394,7 +447,8 @@ export default async function handler(request, response) {
           id: result.id,
           referenceId: result.referenceId || referenceId,
           status: normalizedStatus,
-          amount: result.amount == null ? expectedAmount : Number(result.amount),
+          amount:
+            result.amount == null ? expectedAmount : Number(result.amount),
           paymentMethod: result.paymentMethod || apiMethod,
         },
         approved_at:
