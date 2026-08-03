@@ -1884,7 +1884,7 @@ function StripeAdminTool({ session }) {
   return <section className="stripe-tool">
     <header className="stripe-tool-head"><div className="stripe-brand-mark">S</div><div><span>COBRANÇA DA PLATAFORMA</span><h2>Stripe Billing</h2><p>Infraestrutura preparada para planos recorrentes e controle de inadimplência.</p></div><div className={`stripe-status ${config.connected ? "active" : ""}`}><i />{config.connected ? "Conectada" : "Aguardando configuração"}</div></header>
     {loading ? <div className="resend-form-loading"><i /><i /><i /></div> : <div className="stripe-tool-body">
-      <div className="stripe-notice"><ShieldCheck weight="duotone" /><span><b>Cobranças ainda desativadas</b><small>Conectar a Stripe não inicia nenhum plano. Os preços serão definidos em uma próxima etapa.</small></span></div>
+      <div className="stripe-notice"><ShieldCheck weight="duotone" /><span><b>Cobranças semanais ativas</b><small>Planos usam a parcela fixa semanal e somente pedidos pagos geram a taxa proporcional.</small></span></div>
       <div className="stripe-fields">
         <label><span>Chave publicável</span><input value={form.publishable_key} placeholder="pk_test_ ou pk_live_" onChange={(event) => setForm({ ...form, publishable_key: event.target.value })} /><small>Usada apenas nas telas seguras de pagamento da Stripe.</small></label>
         <label><span>Chave secreta</span><input type="password" value={form.secret_key} placeholder={config.secret_key_hint || "sk_test_ ou sk_live_"} onChange={(event) => setForm({ ...form, secret_key: event.target.value })} /><small>{config.configured ? `Protegida: ${config.secret_key_hint}. Preencha para trocar.` : "Permanece criptografada e somente no servidor."}</small></label>
@@ -6176,11 +6176,14 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
   ];
   const selectedPlan = workspace?.platform_plan || "essential";
   const selectPlan = async (planId) => {
-    if (planId === selectedPlan || savingPlan) return;
+    if (savingPlan) return;
     setSavingPlan(planId); setPlanMessage("");
-    const { error } = await supabase.from("workspaces").update({ platform_plan: planId, billing_anchor_at: new Date().toISOString() }).eq("id", workspace.id);
-    if (error) setPlanMessage(error.message || "Não foi possível selecionar o plano.");
-    else { setPlanMessage("Plano selecionado. O novo ciclo de 7 dias começou agora."); await onReload?.(); }
+    const { data: auth } = await supabase.auth.getSession();
+    const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session?.access_token || ""}` }, body: JSON.stringify({ workspace_id: workspace.id, plan_id: planId }) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) setPlanMessage(payload.error || "Não foi possível ativar o plano.");
+    else if (payload.url) window.location.assign(payload.url);
+    else { setPlanMessage(payload.partner ? "Plano ativo. Esta conta parceira permanece isenta." : "Plano e cobrança semanal atualizados."); await onReload?.(); }
     setSavingPlan("");
   };
   return (
@@ -6229,8 +6232,8 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
                   </li>
                 ))}
               </ul>
-              <button type="button" className={selectedPlan === plan.id ? "selected" : ""} onClick={() => selectPlan(plan.id)} disabled={selectedPlan === plan.id || Boolean(savingPlan)}>
-                {savingPlan === plan.id ? "Selecionando..." : selectedPlan === plan.id ? "Plano atual" : "Selecionar plano"}
+              <button type="button" className={selectedPlan === plan.id ? "selected" : ""} onClick={() => selectPlan(plan.id)} disabled={Boolean(savingPlan)}>
+                {savingPlan === plan.id ? "Abrindo cobrança..." : selectedPlan === plan.id ? "Ativar ou gerenciar" : "Selecionar e ativar"}
               </button>
             </article>
           ))}

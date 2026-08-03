@@ -52,7 +52,7 @@ export default async function handler(request, response) {
     const account = await testStripe({ secret_key: secretKey });
     const config = { secret_key: secretKey, publishable_key: publishableKey, webhook_secret: webhookSecret, mode, ...account };
     const { error } = await client.from("platform_integrations").upsert({
-      provider, display_name: "Stripe", status: "inactive", encrypted_config: encryptIntegrationConfig(config),
+      provider, display_name: "Stripe", status: "active", encrypted_config: encryptIntegrationConfig(config),
       configured_by: user.id, last_tested_at: new Date().toISOString(), last_test_status: "success", updated_at: new Date().toISOString(),
     }, { onConflict: "provider" });
     if (error) throw error;

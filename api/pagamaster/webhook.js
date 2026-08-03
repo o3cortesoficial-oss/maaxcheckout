@@ -5,6 +5,7 @@ import {
   enforceJsonBodyLimit,
   rateLimit,
 } from "../_security.js";
+import { accruePaidOrderFee } from "../_lib/platformFee.js";
 
 function decrypt(value) {
   const key = crypto
@@ -183,7 +184,7 @@ export default async function handler(request, response) {
         .eq("provider_reference", transactionId)
         .eq("type", "charge")
         .maybeSingle();
-      if (!existingTransaction)
+      if (!existingTransaction) {
         await supabase.from("transactions").insert({
           workspace_id: attempt.workspace_id,
           order_id: attempt.order_id,
@@ -195,6 +196,12 @@ export default async function handler(request, response) {
           description: "Venda aprovada e conciliada pela Pagamaster",
           processed_at: now,
         });
+      }
+      await accruePaidOrderFee(supabase, {
+        workspaceId: attempt.workspace_id,
+        orderId: attempt.order_id,
+        amountCents: verifiedAmount,
+      });
     }
 
     return response.status(200).json({ received: true, verified: true });
