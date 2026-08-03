@@ -42,14 +42,21 @@ export default async function handler(request, response) {
         }, { onConflict: "user_id" });
         if (object.metadata?.workspace_id && ["active", "trialing"].includes(status))
           await admin.from("workspaces").update({ platform_plan: object.metadata.plan_id, billing_anchor_at: now }).eq("id", object.metadata.workspace_id);
+        if (["active", "trialing"].includes(status))
+          await admin.from("workspaces").update({ billing_suspended: false }).eq("owner_id", userId);
+        else if (["past_due", "unpaid", "cancelled", "canceled"].includes(status))
+          await admin.from("workspaces").update({ billing_suspended: true }).eq("owner_id", userId);
       }
       if (event.type === "invoice.paid") {
         await admin.from("platform_user_controls").update({ subscription_status: "active", access_status: "active", block_reason: null, updated_at: now }).eq("user_id", userId);
+        await admin.from("workspaces").update({ billing_suspended: false }).eq("owner_id", userId);
       }
       if (["invoice.payment_failed", "invoice.finalization_failed"].includes(event.type)) {
         const { data: control } = await admin.from("platform_user_controls").select("account_type").eq("user_id", userId).maybeSingle();
-        if (control?.account_type !== "partner")
+        if (control?.account_type !== "partner") {
           await admin.from("platform_user_controls").update({ subscription_status: "past_due", access_status: "blocked", block_reason: "Cobrança semanal não paga", updated_at: now }).eq("user_id", userId);
+          await admin.from("workspaces").update({ billing_suspended: true }).eq("owner_id", userId);
+        }
       }
     }
     return response.status(200).json({ received: true });

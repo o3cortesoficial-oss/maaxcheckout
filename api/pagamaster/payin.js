@@ -163,6 +163,15 @@ export default async function handler(request, response) {
       return response.status(404).json({
         error: "Produto indisponível. Atualize o checkout e tente novamente.",
       });
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("billing_suspended")
+      .eq("id", product.workspace_id)
+      .maybeSingle();
+    if (workspace?.billing_suspended)
+      return response.status(423).json({
+        error: "Este checkout está temporariamente indisponível.",
+      });
     const { data: gateway } = await supabase
       .from("payment_gateways")
       .select("*")

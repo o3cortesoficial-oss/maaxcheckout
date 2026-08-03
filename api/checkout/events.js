@@ -20,11 +20,11 @@ const allowedEvents = new Set([
 
 export default async function handler(request, response) {
   applyApiSecurityHeaders(response);
-  if (request.method !== "POST")
+  if (!["GET", "POST"].includes(request.method))
     return response.status(405).json({ error: "Método não permitido." });
   if (
     !requireSameOrigin(request, response) ||
-    !enforceJsonBodyLimit(request, response, 8192) ||
+    (request.method === "POST" && !enforceJsonBodyLimit(request, response, 8192)) ||
     !rateLimit(request, response, {
       scope: "checkout-events",
       limit: 90,
@@ -33,6 +33,20 @@ export default async function handler(request, response) {
   )
     return;
   try {
+    const supabase = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SECRET_KEY,
+      { auth: { persistSession: false } },
+    );
+    if (request.method === "GET") {
+      const productId = String(request.query?.productId || "");
+      if (!/^[0-9a-f-]{36}$/i.test(productId)) return response.status(400).json({ error: "Produto inválido." });
+      const { data: product } = await supabase.from("products").select("id,workspace_id").eq("id", productId).eq("status", "active").maybeSingle();
+      if (!product) return response.status(404).json({ available: false });
+      const { data: workspace } = await supabase.from("workspaces").select("billing_suspended").eq("id", product.workspace_id).maybeSingle();
+      if (workspace?.billing_suspended) return response.status(423).json({ available: false, reason: "billing_suspended" });
+      return response.status(200).json({ available: true });
+    }
     const { productId, sessionId, eventType, paymentMethod, humanVerified = false } =
       request.body || {};
     if (
@@ -51,11 +65,6 @@ export default async function handler(request, response) {
     if (eventType !== "checkout_opened" && !humanVerified)
       return response.status(202).json({ received: false, filtered: true });
 
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.SUPABASE_SECRET_KEY,
-      { auth: { persistSession: false } },
-    );
     const { data: product } = await supabase
       .from("products")
       .select("id, workspace_id")
@@ -64,6 +73,9 @@ export default async function handler(request, response) {
       .maybeSingle();
     if (!product)
       return response.status(404).json({ error: "Produto indisponível." });
+    const { data: workspace } = await supabase.from("workspaces").select("billing_suspended").eq("id", product.workspace_id).maybeSingle();
+    if (workspace?.billing_suspended)
+      return response.status(423).json({ error: "Checkout temporariamente indisponível." });
 
     const { error } = await supabase.from("checkout_events").insert({
       workspace_id: product.workspace_id,

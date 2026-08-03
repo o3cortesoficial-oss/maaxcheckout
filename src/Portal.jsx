@@ -3198,6 +3198,16 @@ export function PublicCheckout({ slug }) {
         }));
         return;
       }
+      const availability = await fetch(`/api/checkout/events?availability=1&productId=${encodeURIComponent(product.id)}`);
+      if (!active) return;
+      if (!availability.ok) {
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: "Este checkout está temporariamente indisponível.",
+        }));
+        return;
+      }
       const [configResult, imageResult] = await Promise.all([
         supabase
           .from("checkout_configs")

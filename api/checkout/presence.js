@@ -53,6 +53,9 @@ export default async function handler(request, response) {
       .maybeSingle();
     if (!product)
       return response.status(404).json({ error: "Produto indisponível." });
+    const { data: workspace } = await supabase.from("workspaces").select("billing_suspended").eq("id", product.workspace_id).maybeSingle();
+    if (workspace?.billing_suspended)
+      return response.status(423).json({ error: "Checkout temporariamente indisponível." });
 
     const now = new Date().toISOString();
     const { error } = await supabase.from("checkout_presence").upsert(
