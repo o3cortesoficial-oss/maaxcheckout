@@ -14,9 +14,13 @@ import {
   Code,
   Copy,
   CreditCard,
+  ChartLineUp,
+  ChatCircleDots,
+  CloudSun,
   Crosshair,
   CurrencyDollar,
   DeviceMobile,
+  GearSix,
   GlobeSimple,
   Handshake,
   Headset,
@@ -35,6 +39,7 @@ import {
   SignOut,
   Sparkle,
   Storefront,
+  TerminalWindow,
   TrendUp,
   Trash,
   Truck,
@@ -114,6 +119,27 @@ function CornerPhone() {
     window.matchMedia("(max-width: 720px)").matches,
   );
   const [screen, setScreen] = useState("home");
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const synchronizeClock = () => setNow(new Date());
+    synchronizeClock();
+    const timer = window.setInterval(synchronizeClock, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentTime = new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
+  const currentWeekday = new Intl.DateTimeFormat("pt-BR", { weekday: "short" })
+    .format(now)
+    .replace(".", "");
+  const currentDay = new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(now);
+  const currentMonth = new Intl.DateTimeFormat("pt-BR", { month: "short" })
+    .format(now)
+    .replace(".", "");
 
   if (minimized)
     return (
@@ -135,8 +161,8 @@ function CornerPhone() {
         <i className="iphone-side iphone-side-right" aria-hidden="true" />
         <div className="iphone-screen">
           <div className="iphone-status">
-            <b>09:41</b>
-            <span><i /><i /><i /></span>
+            <b>{currentTime}</b>
+            <span className="iphone-connectivity"><i /><i /><i /><em /><strong /></span>
           </div>
           <div className="dynamic-island"><i /></div>
           <button
@@ -150,32 +176,78 @@ function CornerPhone() {
 
           {screen === "home" ? (
             <div className="iphone-home">
-              <header>
-                <span>MAAX OS</span>
-                <b>Seu negócio<br />na palma da mão.</b>
-              </header>
-              <div className="iphone-live-card">
-                <span><i /> OPERAÇÃO ONLINE</span>
-                <strong>Pronto para ajudar</strong>
-                <small>Acesse suporte ou gerencie sua loja.</small>
-              </div>
               <div className="iphone-apps">
+                <button type="button" className="iphone-calendar-app" aria-label={`Calendário, ${currentDay} de ${currentMonth}`}>
+                  <i><small>{currentWeekday}</small><b>{currentDay}</b></i>
+                  <span>Calendário</span>
+                </button>
                 <button type="button" onClick={() => setScreen("support")}>
                   <i className="support-app"><Headset weight="fill" /></i>
                   <span>Suporte</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setScreen("store")}
-                >
+                <button type="button" onClick={() => setScreen("store")}>
                   <i className="store-app"><Storefront weight="fill" /></i>
                   <span>Store</span>
                 </button>
+                <button type="button" onClick={() => setScreen("store")}>
+                  <i className="accounts-app"><Megaphone weight="fill" /></i>
+                  <span>Contas</span>
+                </button>
+                <button type="button" onClick={() => setScreen("store")}>
+                  <i className="scripts-app"><TerminalWindow weight="bold" /></i>
+                  <span>Scripts</span>
+                </button>
+                <button type="button">
+                  <i className="orders-app"><Package weight="fill" /></i>
+                  <span>Pedidos</span>
+                </button>
+                <button type="button">
+                  <i className="metrics-app"><ChartLineUp weight="bold" /></i>
+                  <span>Métricas</span>
+                </button>
+                <button type="button">
+                  <i className="status-app"><CloudSun weight="fill" /></i>
+                  <span>Status</span>
+                </button>
+                <button type="button">
+                  <i className="messages-app"><ChatCircleDots weight="fill" /></i>
+                  <span>Mensagens</span>
+                </button>
+                <button type="button">
+                  <i className="settings-app"><GearSix weight="fill" /></i>
+                  <span>Ajustes</span>
+                </button>
+                <button type="button">
+                  <i className="billing-app"><Wallet weight="fill" /></i>
+                  <span>Cobranças</span>
+                </button>
+                <button type="button">
+                  <i className="security-app"><ShieldCheck weight="fill" /></i>
+                  <span>Segurança</span>
+                </button>
+                <button type="button">
+                  <i className="domains-app"><GlobeSimple weight="bold" /></i>
+                  <span>Domínios</span>
+                </button>
+                <button type="button">
+                  <i className="shipping-app"><Truck weight="fill" /></i>
+                  <span>Fretes</span>
+                </button>
+                <button type="button">
+                  <i className="tracking-app"><Crosshair weight="bold" /></i>
+                  <span>Pixels</span>
+                </button>
+                <button type="button">
+                  <i className="links-app"><LinkIcon weight="bold" /></i>
+                  <span>Links</span>
+                </button>
               </div>
+              <div className="iphone-page-dots"><i /><i /><i /></div>
               <div className="iphone-dock">
-                <span><Headset weight="fill" /></span>
-                <span><Storefront weight="fill" /></span>
-                <span><Sparkle weight="fill" /></span>
+                <button type="button" className="support-app" onClick={() => setScreen("support")} aria-label="Suporte"><Headset weight="fill" /></button>
+                <button type="button" className="store-app" onClick={() => setScreen("store")} aria-label="Store"><Storefront weight="fill" /></button>
+                <button type="button" className="accounts-app" onClick={() => setScreen("store")} aria-label="Contas de anúncios"><Megaphone weight="fill" /></button>
+                <button type="button" className="scripts-app" onClick={() => setScreen("store")} aria-label="Scripts"><Code weight="bold" /></button>
               </div>
             </div>
           ) : (
