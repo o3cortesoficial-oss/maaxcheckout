@@ -1956,6 +1956,7 @@ export function RealDashboard({ navigate }) {
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
+    [needsBilling, setNeedsBilling] = useState(false),
     [error, setError] = useState(""),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState(""),
@@ -1996,10 +1997,26 @@ export function RealDashboard({ navigate }) {
       return;
     }
     setSession(currentSession);
+    const billingResponse = await fetch("/api/billing/checkout", {
+      headers: { Authorization: `Bearer ${currentSession.access_token}` },
+    });
+    const billingControl = billingResponse.ok
+      ? await billingResponse.json().catch(() => ({}))
+      : {};
+    const isPlatformAdmin = String(currentSession.user.email || "").toLowerCase() === "saidlabsglobal@gmail.com";
+    const billingReady = isPlatformAdmin || billingControl?.account_type === "partner" || ["active", "trialing"].includes(billingControl?.subscription_status);
     const { data: spaces, error: spaceError } = await supabase
       .from("workspaces")
       .select("*")
       .order("created_at");
+    if (!spaceError && !spaces?.length && !billingReady) {
+      setNeedsBilling(true);
+      setWorkspaces([]);
+      setWorkspace(undefined);
+      setLoading(false);
+      return;
+    }
+    setNeedsBilling(false);
     if (!spaceError && !spaces?.length && !retried) {
       const firstWorkspaceName =
         currentSession.user.user_metadata?.business_name || "Meu negócio";
@@ -2339,6 +2356,23 @@ export function RealDashboard({ navigate }) {
           <i />
           <i />
         </div>
+      </div>
+    );
+  if (needsBilling)
+    return (
+      <div className="billing-onboarding-page">
+        <header>
+          <Mark />
+          <button type="button" onClick={logout}>Sair da conta</button>
+        </header>
+        <main>
+          <div className="billing-onboarding-intro">
+            <span>ÚLTIMA ETAPA</span>
+            <h1>Escolha seu plano para começar.</h1>
+            <p>Confirme um cartão válido. Depois da ativação, seu primeiro negócio será criado e o painel completo será liberado.</p>
+          </div>
+          <SubscriptionPlansPreview revenue={0} workspace={null} onReload={() => load(false, false)} />
+        </main>
       </div>
     );
   const userName =
@@ -6196,12 +6230,12 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
       ],
     },
   ];
-  const selectedPlan = workspace?.platform_plan || "essential";
+  const selectedPlan = workspace?.platform_plan || "";
   const selectPlan = async (planId) => {
     if (savingPlan) return;
     setSavingPlan(planId); setPlanMessage("");
     const { data: auth } = await supabase.auth.getSession();
-    const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session?.access_token || ""}` }, body: JSON.stringify({ workspace_id: workspace.id, plan_id: planId }) });
+    const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session?.access_token || ""}` }, body: JSON.stringify({ workspace_id: workspace?.id || null, plan_id: planId }) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) setPlanMessage(payload.error || "Não foi possível ativar o plano.");
     else if (payload.client_secret && payload.publishable_key) {
@@ -6213,7 +6247,7 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
           onComplete: async () => {
             setPlanMessage("Plano ativado. A cobrança semanal já está configurada.");
             setEmbeddedBilling(null);
-            await onReload?.();
+            window.setTimeout(() => onReload?.(), 1200);
           },
         },
       });
