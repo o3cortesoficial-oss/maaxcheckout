@@ -8592,7 +8592,7 @@ html {
     padding: 7px 9px;
   }
   .dashboard > aside .side-nav {
-    gap: 0;
+    gap: 5px;
   }
   .dashboard > aside .side-nav > span {
     margin: 5px 12px 3px;
@@ -8634,6 +8634,9 @@ html {
 }
 
 @media (max-height: 650px) {
+  .dashboard > aside .side-nav {
+    gap: 3px;
+  }
   .dashboard > aside .side-head {
     min-height: 36px;
     padding-bottom: 5px;
