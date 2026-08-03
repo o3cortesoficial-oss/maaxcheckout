@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowSquareOut,
   Bank,
   Bell,
   Buildings,
@@ -16,10 +17,13 @@ import {
   CurrencyDollar,
   DeviceMobile,
   GlobeSimple,
+  Handshake,
   Headset,
   House,
   Link as LinkIcon,
   List,
+  Lock,
+  LockOpen,
   MagnifyingGlass,
   Megaphone,
   Package,
@@ -1550,17 +1554,7 @@ function AdminConsole({ session, section }) {
       )}
 
       {section === "admin_users" && (
-        <AdminList
-          title={`${adminData.users.length} usuários encontrados`}
-          columns={["Usuário", "E-mail", "Negócio", "Situação", "Último acesso"]}
-          rows={adminData.users.map((user) => [
-            user.name || "Sem nome",
-            user.email,
-            user.business_name || "Não informado",
-            user.confirmed ? "Confirmado" : "Pendente",
-            user.last_sign_in_at ? date(user.last_sign_in_at) : "Nunca acessou",
-          ])}
-        />
+        <AdminUsersPanel users={adminData.users} session={session} onRefresh={loadAdmin} />
       )}
 
       {section === "admin_operations" && (
@@ -1577,8 +1571,56 @@ function AdminConsole({ session, section }) {
       )}
 
       {section === "admin_tools" && (
-        <ResendAdminTool session={session} />
+        <div className="admin-tools-stack"><ResendAdminTool session={session} /><StripeAdminTool session={session} /></div>
       )}
+    </section>
+  );
+}
+
+function AdminUsersPanel({ users, session, onRefresh }) {
+  const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const current = users.find((item) => item.id === selected?.id) || selected;
+  const act = async (action, extra = {}) => {
+    setBusy(action); setError("");
+    const result = await fetch("/api/admin/users", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, user_id: current.id, ...extra }) });
+    const payload = await result.json().catch(() => ({}));
+    if (!result.ok) { setError(payload.error || "Não foi possível atualizar a conta."); setBusy(""); return; }
+    await onRefresh(); setBusy("");
+  };
+  return (
+    <section className="admin-users-panel">
+      <header><div><span>REGISTROS</span><h2>{users.length} {users.length === 1 ? "usuário encontrado" : "usuários encontrados"}</h2></div><small>Clique em uma conta para abrir o controle completo</small></header>
+      <div className="admin-user-list">
+        {users.map((user) => <button type="button" key={user.id} onClick={() => setSelected(user)}>
+          <span className="admin-user-avatar">{(user.name || user.email).slice(0,2).toUpperCase()}</span>
+          <span><b>{user.name || "Sem nome"}</b><small>{user.email}</small></span>
+          <span><b>{user.business_name || "Sem negócio"}</b><small>{user.workspaces?.length || 0} operações</small></span>
+          <span className={`admin-user-badge ${user.account_type}`}>{user.account_type === "partner" ? "Parceira" : user.subscription?.status === "active" ? "Assinante" : "Sem plano"}</span>
+          <span className={`admin-user-access ${user.access_status}`}><i />{user.access_status === "blocked" ? "Bloqueada" : "Ativa"}</span>
+          <CaretRight />
+        </button>)}
+      </div>
+      {current && <div className="admin-user-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
+        <aside className="admin-user-drawer">
+          <header><div><span>CONTROLE DA CONTA</span><h2>{current.name || current.email}</h2><p>{current.email}</p></div><button onClick={() => setSelected(null)} aria-label="Fechar"><X /></button></header>
+          <div className="admin-user-finance">
+            <article><span>Faturamento pago</span><b>{money(current.finance?.paid_cents)}</b><small>{current.finance?.paid_orders || 0} pedidos aprovados</small></article>
+            <article><span>Gerado sem pagar</span><b>{money(current.finance?.generated_unpaid_cents)}</b><small>{current.finance?.unpaid_orders || 0} pedidos pendentes</small></article>
+          </div>
+          <section className="admin-subscription-status"><div><span>ASSINATURA</span><h3>{current.account_type === "partner" ? "Conta parceira" : current.subscription?.plan_name || "Nenhum plano ativo"}</h3><p>{current.account_type === "partner" ? "Isenta de cobranças da plataforma." : current.subscription?.status === "past_due" ? "Pagamento em atraso." : "A cobrança Stripe ainda não foi iniciada."}</p></div><b className={current.subscription?.status || "not_started"}>{current.account_type === "partner" ? "ISENTA" : labels[current.subscription?.status] || "NÃO INICIADA"}</b></section>
+          <section className="admin-user-resources"><header><span>PRODUTOS E LINKS</span><b>{current.workspaces?.reduce((sum, item) => sum + item.products.length + item.payment_links.length, 0) || 0}</b></header>
+            {current.workspaces?.map((workspace) => <div key={workspace.id}><h4>{workspace.name}</h4>{workspace.products.map((product) => <a key={product.id} href={`/checkout/${product.slug}`} target="_blank" rel="noreferrer"><Package /><span><b>{product.name}</b><small>Produto · {labels[product.status] || product.status}</small></span><ArrowSquareOut /></a>)}{workspace.payment_links.map((link) => <a key={link.id} href={`/checkout/${link.slug}`} target="_blank" rel="noreferrer"><LinkIcon /><span><b>{link.title || link.slug}</b><small>Link de pagamento</small></span><ArrowSquareOut /></a>)}</div>)}
+            {!current.workspaces?.some((item) => item.products.length || item.payment_links.length) && <p className="admin-user-empty">Nenhum produto ou link publicado nesta conta.</p>}
+          </section>
+          {error && <div className="resend-message error"><WarningCircle weight="fill" />{error}</div>}
+          <footer className="admin-user-controls">
+            <button className={current.account_type === "partner" ? "active" : ""} onClick={() => act("partner", { enabled: current.account_type !== "partner" })} disabled={Boolean(busy)}><Handshake />{current.account_type === "partner" ? "Remover parceria" : "Definir como parceira"}</button>
+            <button className={current.access_status === "blocked" ? "unblock" : "block"} onClick={() => act(current.access_status === "blocked" ? "unblock" : "block", { reason: "Pendência financeira" })} disabled={Boolean(busy)}>{current.access_status === "blocked" ? <LockOpen /> : <Lock />}{current.access_status === "blocked" ? "Desbloquear conta" : "Bloquear por dívida"}</button>
+          </footer>
+        </aside>
+      </div>}
     </section>
   );
 }
@@ -1662,6 +1704,51 @@ function ResendAdminTool({ session }) {
       )}
     </section>
   );
+}
+
+function StripeAdminTool({ session }) {
+  const [config, setConfig] = useState({ configured: false, connected: false, publishable_key: "", mode: "test" });
+  const [form, setForm] = useState({ secret_key: "", publishable_key: "", webhook_secret: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
+  const headers = { Authorization: `Bearer ${session.access_token}` };
+  const load = async () => {
+    setLoading(true);
+    try {
+      const result = await fetch("/api/admin/stripe", { headers });
+      const payload = await result.json();
+      if (!result.ok) throw new Error(payload.error);
+      setConfig(payload); setForm((current) => ({ ...current, publishable_key: payload.publishable_key || "" }));
+    } catch (error) { setMessage({ type: "error", text: error.message }); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    setSaving(true); setMessage(null);
+    try {
+      const result = await fetch("/api/admin/stripe", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const payload = await result.json().catch(() => ({}));
+      if (!result.ok) throw new Error(payload.error || "Não foi possível conectar a Stripe.");
+      setForm((current) => ({ ...current, secret_key: "", webhook_secret: "" }));
+      setMessage({ type: "success", text: "Conta Stripe validada e credenciais protegidas." }); await load();
+    } catch (error) { setMessage({ type: "error", text: error.message }); }
+    finally { setSaving(false); }
+  };
+  return <section className="stripe-tool">
+    <header className="stripe-tool-head"><div className="stripe-brand-mark">S</div><div><span>COBRANÇA DA PLATAFORMA</span><h2>Stripe Billing</h2><p>Infraestrutura preparada para planos recorrentes e controle de inadimplência.</p></div><div className={`stripe-status ${config.connected ? "active" : ""}`}><i />{config.connected ? "Conectada" : "Aguardando configuração"}</div></header>
+    {loading ? <div className="resend-form-loading"><i /><i /><i /></div> : <div className="stripe-tool-body">
+      <div className="stripe-notice"><ShieldCheck weight="duotone" /><span><b>Cobranças ainda desativadas</b><small>Conectar a Stripe não inicia nenhum plano. Os preços serão definidos em uma próxima etapa.</small></span></div>
+      <div className="stripe-fields">
+        <label><span>Chave publicável</span><input value={form.publishable_key} placeholder="pk_test_ ou pk_live_" onChange={(event) => setForm({ ...form, publishable_key: event.target.value })} /><small>Usada apenas nas telas seguras de pagamento da Stripe.</small></label>
+        <label><span>Chave secreta</span><input type="password" value={form.secret_key} placeholder={config.secret_key_hint || "sk_test_ ou sk_live_"} onChange={(event) => setForm({ ...form, secret_key: event.target.value })} /><small>{config.configured ? `Protegida: ${config.secret_key_hint}. Preencha para trocar.` : "Permanece criptografada e somente no servidor."}</small></label>
+        <label><span>Segredo do webhook</span><input type="password" value={form.webhook_secret} placeholder={config.webhook_secret_hint || "whsec_xxxxxxxxx"} onChange={(event) => setForm({ ...form, webhook_secret: event.target.value })} /><small>Confirma pagamentos, falhas e mudanças de assinatura.</small></label>
+      </div>
+      <aside className="stripe-summary"><span>AMBIENTE</span><b>{config.mode === "live" ? "Produção" : "Teste"}</b><small>{config.business_name || "Conta ainda não identificada"}</small>{config.account_id && <code>{config.account_id}</code>}<div><i /><p>O bloqueio por dívida será atualizado por eventos assinados quando os planos forem ativados.</p></div></aside>
+      {message && <div className={`resend-message ${message.type}`}>{message.type === "success" ? <CheckCircle weight="fill" /> : <WarningCircle weight="fill" />}{message.text}</div>}
+      <footer><a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Abrir chaves da Stripe <ArrowSquareOut /></a><button type="button" onClick={save} disabled={saving}>{saving ? "Validando..." : "Testar e salvar"}</button></footer>
+    </div>}
+  </section>;
 }
 
 function AdminList({ title, columns, rows }) {
