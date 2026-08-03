@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@stripe/react-stripe-js": "^6.8.0",
+    "@stripe/stripe-js": "^9.12.1",
     "@supabase/supabase-js": "^2.111.0",
     "iconsax": "^0.1.1",
     "qrcode": "^1.5.4",

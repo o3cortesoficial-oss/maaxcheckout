@@ -2595,6 +2595,60 @@ a {
   background: #171815;
   color: #a8bb6b;
 }
+.embedded-billing-panel {
+  position: relative;
+  z-index: 2;
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid #3b3d36;
+  border-radius: 22px;
+  background: #f7f8f4;
+  color: #171815;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 22%);
+}
+.embedded-billing-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  border-bottom: 1px solid #e1e3dc;
+  background: #fff;
+}
+.embedded-billing-panel > header small {
+  color: #7a7e72;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: .13em;
+}
+.embedded-billing-panel > header h2 {
+  margin: 5px 0 3px;
+  font-size: clamp(20px, 2.4vw, 30px);
+  letter-spacing: -.045em;
+}
+.embedded-billing-panel > header p {
+  margin: 0;
+  color: #6f736a;
+  font-size: 11px;
+}
+.embedded-billing-panel > header button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe1da;
+  border-radius: 50%;
+  background: #f1f2ee;
+  color: #171815;
+  cursor: pointer;
+}
+.embedded-billing-panel > header button svg { width: 18px; height: 18px; }
+.embedded-billing-checkout {
+  min-height: 480px;
+  padding: 18px;
+  background: #f7f8f4;
+}
 .customer-resource {
   padding-bottom: 0;
 }
@@ -2956,6 +3010,9 @@ a {
   .plans-showcase .subscription-plan.featured:hover {
     transform: none;
   }
+  .embedded-billing-panel { margin-top: 16px; border-radius: 17px; }
+  .embedded-billing-panel > header { align-items: flex-start; padding: 19px; }
+  .embedded-billing-checkout { min-height: 430px; padding: 6px; }
   .customer-head {
     align-items: flex-start;
     flex-direction: column;

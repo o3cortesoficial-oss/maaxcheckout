@@ -51,6 +51,8 @@ import {
 } from "@phosphor-icons/react";
 import { supabase, supabaseConfigured } from "./supabase";
 import QRCode from "qrcode";
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { PLATFORM_PLANS, platformFeeCents, platformPlan, sevenDayCycle } from "./platformPlans";
 
 const money = (cents = 0) =>
@@ -6134,6 +6136,7 @@ function TrackingPage({ workspace, onReload }) {
 function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
   const [savingPlan, setSavingPlan] = useState("");
   const [planMessage, setPlanMessage] = useState("");
+  const [embeddedBilling, setEmbeddedBilling] = useState(null);
   const plans = [
     {
       id: "essential",
@@ -6182,7 +6185,20 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
     const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session?.access_token || ""}` }, body: JSON.stringify({ workspace_id: workspace.id, plan_id: planId }) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) setPlanMessage(payload.error || "Não foi possível ativar o plano.");
-    else if (payload.url) window.location.assign(payload.url);
+    else if (payload.client_secret && payload.publishable_key) {
+      setEmbeddedBilling({
+        planName: payload.plan_name || planId,
+        stripePromise: loadStripe(payload.publishable_key),
+        options: {
+          clientSecret: payload.client_secret,
+          onComplete: async () => {
+            setPlanMessage("Plano ativado. A cobrança semanal já está configurada.");
+            setEmbeddedBilling(null);
+            await onReload?.();
+          },
+        },
+      });
+    }
     else { setPlanMessage(payload.partner ? "Plano ativo. Esta conta parceira permanece isenta." : "Plano e cobrança semanal atualizados."); await onReload?.(); }
     setSavingPlan("");
   };
@@ -6206,7 +6222,7 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
             <small>Finais de semana e feriados não alteram o vencimento.</small>
           </p>
         </div>
-        {planMessage && <div className={`plan-selection-message ${planMessage.includes("selecionado") ? "success" : "error"}`}>{planMessage}</div>}
+        {planMessage && <div className={`plan-selection-message ${/ativ|atualiz|isenta/i.test(planMessage) ? "success" : "error"}`}>{planMessage}</div>}
         <div className="subscription-plan-grid">
           {plans.map((plan, index) => (
             <article
@@ -6233,11 +6249,28 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
                 ))}
               </ul>
               <button type="button" className={selectedPlan === plan.id ? "selected" : ""} onClick={() => selectPlan(plan.id)} disabled={Boolean(savingPlan)}>
-                {savingPlan === plan.id ? "Abrindo cobrança..." : selectedPlan === plan.id ? "Ativar ou gerenciar" : "Selecionar e ativar"}
+                {savingPlan === plan.id ? "Preparando cobrança..." : selectedPlan === plan.id ? "Ativar ou gerenciar" : "Selecionar e ativar"}
               </button>
             </article>
           ))}
         </div>
+        {embeddedBilling && (
+          <div className="embedded-billing-panel" aria-live="polite">
+            <header>
+              <div>
+                <small>ATIVAÇÃO SEGURA</small>
+                <h2>Finalizar plano {embeddedBilling.planName}</h2>
+                <p>Cadastre a forma de pagamento sem sair desta página.</p>
+              </div>
+              <button type="button" onClick={() => setEmbeddedBilling(null)} aria-label="Fechar cobrança"><X /></button>
+            </header>
+            <div className="embedded-billing-checkout">
+              <EmbeddedCheckoutProvider stripe={embeddedBilling.stripePromise} options={embeddedBilling.options}>
+                <EmbeddedCheckout />
+              </EmbeddedCheckoutProvider>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

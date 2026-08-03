@@ -27,7 +27,7 @@ export default async function handler(request, response) {
       await admin.from("workspaces").update({ platform_plan: plan.id, billing_anchor_at: new Date().toISOString() }).eq("id", workspace.id);
       return response.status(200).json({ active: true, partner: true });
     }
-    const { stripe } = await stripeBillingClient(admin);
+    const { stripe, config } = await stripeBillingClient(admin);
     const priceId = await ensureWeeklyPrice(stripe, plan);
     let customerId = control?.stripe_customer_id;
     if (!customerId) {
@@ -41,16 +41,15 @@ export default async function handler(request, response) {
       await admin.from("platform_user_controls").upsert({ user_id: auth.user.id, stripe_customer_id: customerId, stripe_subscription_id: subscription.id, subscription_status: subscription.status, plan_name: plan.name, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       return response.status(200).json({ active: true, updated: true });
     }
-    const origin = String(request.headers.origin || "https://maaxcheckout.vercel.app").replace(/\/$/, "");
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription", customer: customerId, payment_method_collection: "always",
+      mode: "subscription", ui_mode: "embedded", customer: customerId, payment_method_collection: "always",
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { metadata: { maax_user_id: auth.user.id, workspace_id: workspace.id, plan_id: plan.id } },
       metadata: { maax_user_id: auth.user.id, workspace_id: workspace.id, plan_id: plan.id },
-      success_url: `${origin}/dashboard?billing=success`, cancel_url: `${origin}/dashboard?billing=cancelled`,
+      redirect_on_completion: "never",
     });
     await admin.from("platform_user_controls").upsert({ user_id: auth.user.id, stripe_customer_id: customerId, subscription_status: "checkout_pending", plan_name: plan.name, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
-    return response.status(200).json({ url: session.url });
+    return response.status(200).json({ client_secret: session.client_secret, publishable_key: config.publishable_key, plan_name: plan.name });
   } catch (error) {
     return response.status(error.status || 500).json({ error: error.message || "Não foi possível iniciar a assinatura." });
   }
