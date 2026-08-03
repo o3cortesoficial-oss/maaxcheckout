@@ -1,5 +1,10 @@
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import {
+  applyApiSecurityHeaders,
+  enforceJsonBodyLimit,
+  rateLimit,
+} from "../_security.js";
 
 function decrypt(value) {
   const key = crypto
@@ -17,8 +22,18 @@ function decrypt(value) {
 }
 
 export default async function handler(request, response) {
+  applyApiSecurityHeaders(response);
   if (request.method !== "POST")
     return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !enforceJsonBodyLimit(request, response, 32768) ||
+    !rateLimit(request, response, {
+      scope: "pagamaster-webhook",
+      limit: 180,
+      windowMs: 60000,
+    })
+  )
+    return;
 
   const reported = request.body || {};
   const transactionId = String(reported.id || "").trim();
@@ -72,6 +87,8 @@ export default async function handler(request, response) {
     const verifiedStatus = String(verified.status || "").toUpperCase();
     const verifiedAmount = Number(verified.amount);
     const riskReasons = [];
+    if (String(verified.id || "") !== transactionId)
+      riskReasons.push("transaction_id_mismatch");
     if (verified.referenceId !== attempt.reference_id)
       riskReasons.push("reference_mismatch");
     if (verifiedAmount !== Number(attempt.expected_amount_cents))
@@ -83,6 +100,14 @@ export default async function handler(request, response) {
       riskReasons.push("webhook_status_mismatch");
     if (!attempt.order_id && verifiedStatus === "APPROVED")
       riskReasons.push("approved_without_order");
+    const reconciliationSafe = !riskReasons.some((reason) =>
+      [
+        "transaction_id_mismatch",
+        "reference_mismatch",
+        "amount_mismatch",
+        "approved_without_order",
+      ].includes(reason),
+    );
 
     const now = new Date().toISOString();
     await supabase.from("gateway_webhook_events").insert({
@@ -129,7 +154,7 @@ export default async function handler(request, response) {
       })
       .eq("id", attempt.id);
 
-    if (attempt.order_id) {
+    if (attempt.order_id && reconciliationSafe) {
       const orderStatus =
         verifiedStatus === "APPROVED"
           ? "approved"
@@ -150,7 +175,7 @@ export default async function handler(request, response) {
         .eq("id", attempt.order_id);
     }
 
-    if (verifiedStatus === "APPROVED" && attempt.order_id) {
+    if (verifiedStatus === "APPROVED" && attempt.order_id && reconciliationSafe) {
       const { data: existingTransaction } = await supabase
         .from("transactions")
         .select("id")

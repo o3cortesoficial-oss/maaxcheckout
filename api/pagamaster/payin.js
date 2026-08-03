@@ -1,5 +1,12 @@
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import {
+  applyApiSecurityHeaders,
+  cleanString,
+  enforceJsonBodyLimit,
+  rateLimit,
+  requireSameOrigin,
+} from "../_security.js";
 
 function decrypt(value) {
   const key = crypto
@@ -69,8 +76,19 @@ const normalizeAttribution = (attribution) => {
 };
 
 export default async function handler(request, response) {
+  applyApiSecurityHeaders(response);
   if (request.method !== "POST")
     return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !requireSameOrigin(request, response) ||
+    !enforceJsonBodyLimit(request, response, 32768) ||
+    !rateLimit(request, response, {
+      scope: "pagamaster-payin",
+      limit: 20,
+      windowMs: 10 * 60 * 1000,
+    })
+  )
+    return;
   try {
     if (!process.env.SUPABASE_SECRET_KEY)
       throw new Error("SUPABASE_SECRET_KEY is not configured");
@@ -92,6 +110,36 @@ export default async function handler(request, response) {
       attribution,
       checkoutSessionId,
     } = request.body || {};
+    if (
+      (productId && !/^[0-9a-f-]{36}$/i.test(String(productId))) ||
+      (!productId && (!slug || String(slug).length > 160)) ||
+      !["pix", "card", "boleto"].includes(paymentMethod) ||
+      !Array.isArray(orderBumpProductIds) ||
+      orderBumpProductIds.length > 3
+    )
+      return response.status(400).json({ error: "Dados da cobrança inválidos." });
+    const normalizedCustomer = {
+      name: cleanString(customer.name, 120),
+      email: cleanString(customer.email, 254).toLowerCase(),
+      phone: digits(customer.phone).slice(0, 15),
+      document: digits(customer.document).slice(0, 14),
+    };
+    const normalizedAddress = {
+      zipCode: digits(address.zipCode).slice(0, 8),
+      street: cleanString(address.street, 160),
+      number: cleanString(address.number, 20),
+      neighborhood: cleanString(address.neighborhood, 100),
+      city: cleanString(address.city, 100),
+      state: cleanString(address.state, 2).toUpperCase(),
+      complement: cleanString(address.complement, 120),
+    };
+    if (
+      !normalizedCustomer.name ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedCustomer.email) ||
+      normalizedCustomer.document.length !== 11 ||
+      normalizedCustomer.phone.length < 10
+    )
+      return response.status(400).json({ error: "Dados pessoais inválidos." });
     let productQuery = supabase
       .from("products")
       .select("*")
@@ -173,6 +221,19 @@ export default async function handler(request, response) {
     const isPhysical = ["physical", "fisico", "físico"].includes(
       String(product.product_type || "").toLowerCase(),
     );
+    if (
+      normalizedAddress.zipCode.length !== 8 ||
+      !normalizedAddress.street ||
+      !normalizedAddress.number ||
+      !normalizedAddress.neighborhood ||
+      !normalizedAddress.city ||
+      !/^[A-Z]{2}$/.test(normalizedAddress.state)
+    )
+      return response.status(400).json({
+        error: isPhysical
+          ? "Endereço de entrega inválido."
+          : "Endereço de cobrança inválido.",
+      });
     const configuredShippingIds = Array.isArray(
       checkoutSettings.checkout_shipping_option_ids,
     )
@@ -272,20 +333,12 @@ export default async function handler(request, response) {
         .split(",")[0]
         .trim(),
       customer: {
-        name: String(customer.name || "").trim(),
-        document: digits(customer.document),
-        email: String(customer.email || "").trim(),
-        phone: digits(customer.phone),
+        name: normalizedCustomer.name,
+        document: normalizedCustomer.document,
+        email: normalizedCustomer.email,
+        phone: normalizedCustomer.phone,
         address: {
-          street: String(address.street || "").trim(),
-          number: String(address.number || "").trim(),
-          zipCode: String(address.zipCode || "").trim(),
-          city: String(address.city || "").trim(),
-          state: String(address.state || "")
-            .trim()
-            .toUpperCase(),
-          complement: String(address.complement || "").trim(),
-          neighborhood: String(address.neighborhood || "").trim(),
+          ...normalizedAddress,
         },
       },
       items: paymentItems,
@@ -354,9 +407,7 @@ export default async function handler(request, response) {
     if (result.amount != null && Number(result.amount) !== expectedAmount)
       riskReasons.push("amount_mismatch");
     const normalizedStatus = String(result.status || "PENDING").toUpperCase();
-    const customerEmail = String(customer.email || "")
-      .trim()
-      .toLowerCase();
+    const customerEmail = normalizedCustomer.email;
     let customerRecord = null;
     if (customerEmail) {
       const existingCustomer = await supabase
@@ -369,9 +420,9 @@ export default async function handler(request, response) {
         const updatedCustomer = await supabase
           .from("customers")
           .update({
-            name: String(customer.name || "").trim(),
-            document: digits(customer.document) || null,
-            phone: digits(customer.phone) || null,
+            name: normalizedCustomer.name,
+            document: normalizedCustomer.document || null,
+            phone: normalizedCustomer.phone || null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingCustomer.data.id)
@@ -383,10 +434,10 @@ export default async function handler(request, response) {
           .from("customers")
           .insert({
             workspace_id: product.workspace_id,
-            name: String(customer.name || "").trim(),
+            name: normalizedCustomer.name,
             email: customerEmail,
-            document: digits(customer.document) || null,
-            phone: digits(customer.phone) || null,
+            document: normalizedCustomer.document || null,
+            phone: normalizedCustomer.phone || null,
           })
           .select("id")
           .single();
@@ -471,8 +522,12 @@ export default async function handler(request, response) {
       threeDSecureSdkUrl: result.threeDSecureSdkUrl,
     });
   } catch (error) {
-    return response
-      .status(500)
-      .json({ error: error.message || "Não foi possível criar a cobrança." });
+    console.error("Pagamaster payin failed", {
+      name: error.name,
+      message: error.message,
+    });
+    return response.status(500).json({
+      error: "Não foi possível criar a cobrança. Tente novamente em instantes.",
+    });
   }
 }

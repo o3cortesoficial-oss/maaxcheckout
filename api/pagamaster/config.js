@@ -1,5 +1,11 @@
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import {
+  applyApiSecurityHeaders,
+  enforceJsonBodyLimit,
+  rateLimit,
+  requireSameOrigin,
+} from "../_security.js";
 
 const apiUrl = "https://api.pagamaster.com";
 
@@ -86,9 +92,20 @@ function clientFor(request) {
 }
 
 export default async function handler(request, response) {
-  response.setHeader("Cache-Control", "no-store");
+  applyApiSecurityHeaders(response);
   if (!["GET", "POST"].includes(request.method))
     return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !requireSameOrigin(request, response) ||
+    !rateLimit(request, response, {
+      scope: "gateway-config",
+      limit: 30,
+      windowMs: 60000,
+    }) ||
+    (request.method === "POST" &&
+      !enforceJsonBodyLimit(request, response, 16384))
+  )
+    return;
   try {
     const supabase = clientFor(request);
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -98,7 +115,7 @@ export default async function handler(request, response) {
       request.method === "GET"
         ? request.query.workspaceId
         : request.body?.workspaceId;
-    if (!workspaceId)
+    if (!/^[0-9a-f-]{36}$/i.test(String(workspaceId || "")))
       return response.status(400).json({ error: "Workspace não informado." });
     const { data: workspace } = await supabase
       .from("workspaces")
@@ -126,6 +143,8 @@ export default async function handler(request, response) {
     }
 
     const action = request.body?.action;
+    if (!["toggle", "test", "save"].includes(action))
+      return response.status(400).json({ error: "Ação inválida." });
     if (action === "toggle") {
       if (!gateway?.credentials_configured)
         return response
@@ -174,8 +193,15 @@ export default async function handler(request, response) {
       publicKeyHint: publicKey.slice(0, 12) + "…",
     });
   } catch (error) {
+    console.error("Pagamaster configuration failed", {
+      status: error.status || 500,
+      message: error.message,
+    });
     return response.status(error.status || 500).json({
-      error: error.message || "Não foi possível configurar a Pagamaster.",
+      error:
+        error.status && error.status < 500
+          ? error.message
+          : "Não foi possível configurar a Pagamaster.",
     });
   }
 }

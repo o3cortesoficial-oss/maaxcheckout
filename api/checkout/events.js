@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { isLikelyAutomated } from "../_traffic.js";
+import {
+  applyApiSecurityHeaders,
+  enforceJsonBodyLimit,
+  rateLimit,
+  requireSameOrigin,
+} from "../_security.js";
 
 const allowedEvents = new Set([
   "checkout_opened",
@@ -13,16 +19,33 @@ const allowedEvents = new Set([
 ]);
 
 export default async function handler(request, response) {
+  applyApiSecurityHeaders(response);
   if (request.method !== "POST")
     return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !requireSameOrigin(request, response) ||
+    !enforceJsonBodyLimit(request, response, 8192) ||
+    !rateLimit(request, response, {
+      scope: "checkout-events",
+      limit: 90,
+      windowMs: 60000,
+    })
+  )
+    return;
   try {
     const { productId, sessionId, eventType, paymentMethod, humanVerified = false } =
       request.body || {};
     if (
       !allowedEvents.has(eventType) ||
+      !/^[0-9a-f-]{36}$/i.test(String(productId || "")) ||
       !/^[0-9a-f-]{36}$/i.test(String(sessionId || ""))
     )
       return response.status(400).json({ error: "Evento inválido." });
+    if (
+      paymentMethod != null &&
+      !["pix", "card", "boleto"].includes(paymentMethod)
+    )
+      return response.status(400).json({ error: "Pagamento inválido." });
     if (isLikelyAutomated(request))
       return response.status(202).json({ received: false, filtered: true });
     if (eventType !== "checkout_opened" && !humanVerified)

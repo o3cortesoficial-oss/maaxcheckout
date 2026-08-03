@@ -1,14 +1,36 @@
 import { createClient } from "@supabase/supabase-js";
 import { isLikelyAutomated } from "../_traffic.js";
+import {
+  applyApiSecurityHeaders,
+  enforceJsonBodyLimit,
+  rateLimit,
+  requireSameOrigin,
+} from "../_security.js";
 
 export default async function handler(request, response) {
+  applyApiSecurityHeaders(response);
   if (request.method !== "POST")
     return response.status(405).json({ error: "Método não permitido." });
+  if (
+    !requireSameOrigin(request, response) ||
+    !enforceJsonBodyLimit(request, response, 8192) ||
+    !rateLimit(request, response, {
+      scope: "checkout-presence",
+      limit: 120,
+      windowMs: 60000,
+    })
+  )
+    return;
   try {
     const body =
       typeof request.body === "string" ? JSON.parse(request.body) : request.body || {};
     const { productId, sessionId, action = "heartbeat", humanVerified = false } = body;
-    if (!/^[0-9a-f-]{36}$/i.test(String(sessionId || "")))
+    if (
+      !/^[0-9a-f-]{36}$/i.test(String(sessionId || "")) ||
+      !["heartbeat", "leave"].includes(action) ||
+      (action !== "leave" &&
+        !/^[0-9a-f-]{36}$/i.test(String(productId || "")))
+    )
       return response.status(400).json({ error: "Sessão inválida." });
 
     const supabase = createClient(
