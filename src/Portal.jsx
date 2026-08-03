@@ -4612,26 +4612,43 @@ function TrackingPage({ workspace }) {
       [platform]: pixels[platform].filter((item) => item.id !== id),
     });
 
+  const totalPixels = Object.values(pixels).reduce(
+    (total, platformPixels) => total + platformPixels.length,
+    0,
+  );
+
   return (
     <div className="page-enter tracking-page">
       <PageTitle
         kicker="MARKETING"
         title="Rastreamento"
-        description="Gerencie os pixels usados para medir visitas e conversões dos checkouts"
+        description="Conecte seus canais de aquisição e acompanhe conversões reais do checkout."
       />
       <div className="tracking-note">
-        <Crosshair />
-        <div>
-          <b>Múltiplos pixels por plataforma</b>
-          <span>
-            Cadastre todos os IDs necessários. As chaves ficam vinculadas a este
-            workspace.
-          </span>
+        <div className="tracking-note-copy">
+          <span>CENTRAL DE EVENTOS</span>
+          <h2>Dados limpos para decisões melhores.</h2>
+          <p>
+            Organize múltiplos pixels por canal. Cada configuração fica isolada
+            neste negócio e recebe somente vendas confirmadas.
+          </p>
         </div>
-        {state && <small>{state}</small>}
+        <div className="tracking-note-stats">
+          <div>
+            <strong>{totalPixels}</strong>
+            <span>Pixels conectados</span>
+          </div>
+          <div>
+            <strong>Pago</strong>
+            <span>Evento de conversão</span>
+          </div>
+        </div>
+        <div className={`tracking-save-state ${state ? "visible" : ""}`}>
+          <i /> {state || "Sincronizado"}
+        </div>
       </div>
       <div className="tracking-grid">
-        {trackingPlatforms.map((platform) => (
+        {trackingPlatforms.map((platform, index) => (
           <section
             className={`tracking-card tracking-${platform.id}`}
             key={platform.id}
@@ -4647,15 +4664,18 @@ function TrackingPage({ workspace }) {
                   />
                 </span>
                 <div>
+                  <em>0{index + 1} · CANAL</em>
                   <b>{platform.name}</b>
                   <small>{platform.description}</small>
                 </div>
               </div>
-              <em>{pixels[platform.id].length} ativos</em>
+              <div className="tracking-card-count">
+                <i /> {pixels[platform.id].length} ativos
+              </div>
             </header>
             <div className="tracking-add">
               <label>
-                ID do pixel
+                Identificador do pixel
                 <input
                   value={drafts[platform.id]}
                   placeholder={platform.placeholder}
@@ -4671,7 +4691,7 @@ function TrackingPage({ workspace }) {
                 />
               </label>
               <button onClick={() => addPixel(platform.id)}>
-                <Plus /> Adicionar
+                <Plus /> Conectar pixel
               </button>
             </div>
             <div className="tracking-list">
@@ -4692,11 +4712,28 @@ function TrackingPage({ workspace }) {
                   </div>
                 ))
               ) : (
-                <p>Nenhum pixel cadastrado nesta plataforma.</p>
+                <p>
+                  <Crosshair />
+                  <span>
+                    <b>Nenhum pixel conectado</b>
+                    <small>Adicione um identificador para começar.</small>
+                  </span>
+                </p>
               )}
             </div>
           </section>
         ))}
+      </div>
+      <div className="tracking-assurance">
+        <CheckCircle />
+        <div>
+          <b>Conversões protegidas contra eventos falsos</b>
+          <span>
+            Os pixels recebem a conversão somente depois que o gateway confirma
+            o pagamento do pedido.
+          </span>
+        </div>
+        <small>SERVER-SIDE</small>
       </div>
     </div>
   );
