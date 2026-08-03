@@ -8550,3 +8550,116 @@ html {
 @media (max-width: 1180px) { .corner-phone-scene { right: -16px; bottom: -118px; transform: scale(.84); } }
 @media (max-width: 720px) { .corner-phone-scene { right: -54px; bottom: -150px; transform: scale(.61); } .corner-phone-launcher { right: 12px; bottom: 12px; } }
 @media (prefers-reduced-motion: reduce) { .corner-phone-scene, .corner-iphone { animation: none; } }
+
+/* Code-built Maax phone — deterministic on desktop and mobile */
+.corner-phone-scene {
+  right: 22px;
+  bottom: 18px;
+  width: 286px;
+  height: 586px;
+  transform: none;
+  isolation: isolate;
+  contain: layout paint;
+}
+.corner-iphone {
+  position: absolute;
+  inset: 0;
+  width: 276px;
+  height: 574px;
+  padding: 7px;
+  border: 1px solid #54564f;
+  border-radius: 48px;
+  background: linear-gradient(145deg, #6f716b 0%, #252723 17%, #11130f 55%, #4b4d47 100%);
+  box-shadow: 0 32px 54px rgba(24, 27, 20, .24), inset 0 0 0 1px rgba(255,255,255,.16), inset 0 0 0 4px #20221e;
+  animation: corner-phone-float 5.4s ease-in-out infinite;
+}
+.corner-iphone::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 44px;
+  border: 1px solid rgba(255,255,255,.12);
+  pointer-events: none;
+}
+.iphone-screen {
+  border-radius: 40px;
+  background: #f4f5f0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.72), inset 0 0 24px rgba(35,38,28,.035);
+}
+.iphone-side { z-index: -1; width: 4px; background: linear-gradient(#5e6059,#1d1f1b); box-shadow: inset 1px 0 rgba(255,255,255,.18); }
+.iphone-side-left { left: -4px; top: 104px; height: 55px; box-shadow: inset 1px 0 rgba(255,255,255,.18), 0 69px 0 #353731; }
+.iphone-side-right { right: -4px; top: 140px; height: 78px; }
+.iphone-status { height: 43px; padding: 15px 22px 0; font-size: 10px; }
+.dynamic-island { top: 12px; width: 81px; height: 24px; border-radius: 16px; }
+.dynamic-island i { right: 11px; top: 8px; width: 7px; height: 7px; }
+.iphone-minimize { right: 15px; top: 49px; width: 31px; height: 31px; cursor: pointer; }
+.iphone-minimize span { width: 11px; }
+.iphone-home { padding: 14px 18px 18px; }
+.iphone-home > header { padding: 14px 4px 17px; }
+.iphone-home > header span, .iphone-app-view > span { font-size: 8px; letter-spacing: 1.4px; }
+.iphone-home > header b { margin-top: 10px; font-size: 28px; letter-spacing: -1.5px; }
+.iphone-live-card { min-height: 122px; border-radius: 22px; padding: 18px; }
+.iphone-live-card > span { font-size: 7px; letter-spacing: .8px; }
+.iphone-live-card > span i { width: 5px; height: 5px; }
+.iphone-live-card strong { margin: 20px 0 7px; font-size: 16px; }
+.iphone-live-card small { font-size: 9px; }
+.iphone-apps { gap: 16px; padding: 20px 4px 16px; }
+.iphone-apps button { gap: 8px; font-size: 10px; cursor: pointer; transition: transform .25s cubic-bezier(.16,1,.3,1); }
+.iphone-apps button:hover { transform: translateY(-2px); }
+.iphone-apps button:active { transform: scale(.97); }
+.iphone-apps button > i, .iphone-app-icon { width: 61px; height: 61px; border-radius: 18px; }
+.iphone-apps svg { width: 26px; height: 26px; }
+.iphone-dock { height: 61px; border-radius: 21px; }
+.iphone-dock span { width: 33px; height: 33px; border-radius: 10px; }
+.iphone-dock svg { width: 16px; height: 16px; }
+.iphone-home-indicator { width: 81px; height: 4px; bottom: 8px; }
+.iphone-app-view { padding: 43px 24px 24px; }
+.iphone-app-view > button { gap: 4px; font-size: 9px; cursor: pointer; }
+.iphone-app-view > button svg { width: 13px; }
+.iphone-app-view > .iphone-app-icon { margin: 38px 0 18px; display: grid; place-items: center; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 10px 22px rgba(25,27,21,.12); }
+.iphone-app-view > .iphone-app-icon svg { width: 28px; height: 28px; }
+.iphone-app-view > b { margin: 10px 0; font-size: 21px; line-height: 1.08; letter-spacing: -.8px; }
+.iphone-app-view > p { font-size: 9.5px; line-height: 1.55; }
+.iphone-app-status { gap: 6px; margin-top: 27px; padding: 10px 12px; border-radius: 13px; font-size: 8px; }
+.iphone-app-status em { width: 6px; height: 6px; }
+.iphone-store-list { width: auto !important; height: auto !important; margin: 19px 0 0 !important; display: grid !important; gap: 8px; color: #1b1c18 !important; background: transparent !important; box-shadow: none !important; }
+.iphone-store-list article { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 10px; padding: 10px; border: 1px solid #e0e3d9; border-radius: 14px; background: #fff; }
+.iphone-store-list article > i { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; color: #1b1d16; background: #d0fb49; }
+.iphone-store-list article:nth-child(2) > i { color: #f7f8f4; background: #1b1d18; }
+.iphone-store-list article svg { width: 17px; height: 17px; }
+.iphone-store-list article span { min-width: 0; }
+.iphone-store-list article b, .iphone-store-list article small { display: block; }
+.iphone-store-list article b { font-size: 9px; line-height: 1.2; }
+.iphone-store-list article small { margin-top: 3px; color: #7a7e73; font-size: 7px; line-height: 1.2; }
+.iphone-store-list > em { justify-self: start; margin-top: 4px; padding: 6px 8px; border-radius: 8px; color: #686c62; background: #e9ece3; font-size: 6px; font-style: normal; font-weight: 800; letter-spacing: .8px; }
+.corner-phone-launcher { bottom: max(14px, env(safe-area-inset-bottom)); }
+
+@media (max-width: 1180px) and (min-width: 721px) {
+  .corner-phone-scene { right: 14px; bottom: 14px; transform: scale(.88); transform-origin: right bottom; }
+}
+@media (max-width: 720px) {
+  .corner-phone-scene {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    transform: none;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    contain: paint;
+    background: rgba(18, 20, 16, .52);
+    backdrop-filter: blur(7px);
+  }
+  .corner-iphone {
+    position: relative;
+    inset: auto;
+    width: min(276px, calc(100vw - 44px));
+    height: min(574px, calc(100dvh - 52px));
+    max-height: 574px;
+    animation: corner-phone-mobile-enter .45s cubic-bezier(.16,1,.3,1) both;
+  }
+  .iphone-screen { overflow-y: auto; scrollbar-width: none; }
+  .iphone-screen::-webkit-scrollbar { display: none; }
+  .corner-phone-launcher { right: 12px; max-width: calc(100vw - 24px); }
+}
+@keyframes corner-phone-mobile-enter { from { opacity: 0; transform: translate3d(0,24px,0) scale(.96); } }

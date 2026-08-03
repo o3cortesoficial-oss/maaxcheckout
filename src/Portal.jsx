@@ -9,6 +9,7 @@ import {
   CaretLeft,
   CaretRight,
   CheckCircle,
+  Code,
   Copy,
   CreditCard,
   Crosshair,
@@ -20,6 +21,7 @@ import {
   Link as LinkIcon,
   List,
   MagnifyingGlass,
+  Megaphone,
   Package,
   PencilSimple,
   Plus,
@@ -99,7 +101,7 @@ function Button({
   );
 }
 
-function CornerPhone({ onNavigate }) {
+function CornerPhone() {
   const [minimized, setMinimized] = useState(() =>
     window.matchMedia("(max-width: 720px)").matches,
   );
@@ -120,13 +122,9 @@ function CornerPhone({ onNavigate }) {
 
   return (
     <div className="corner-phone-scene" role="complementary" aria-label="Atalhos Maax">
-      <img
-        className="phone-hand-photo"
-        src="/assets/maax-phone-hand.webp"
-        alt=""
-        aria-hidden="true"
-      />
       <div className="corner-iphone">
+        <i className="iphone-side iphone-side-left" aria-hidden="true" />
+        <i className="iphone-side iphone-side-right" aria-hidden="true" />
         <div className="iphone-screen">
           <div className="iphone-status">
             <b>09:41</b>
@@ -160,10 +158,7 @@ function CornerPhone({ onNavigate }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onNavigate("produtos");
-                    setScreen("store");
-                  }}
+                  onClick={() => setScreen("store")}
                 >
                   <i className="store-app"><Storefront weight="fill" /></i>
                   <span>Store</span>
@@ -180,17 +175,29 @@ function CornerPhone({ onNavigate }) {
               <button type="button" onClick={() => setScreen("home")}>
                 <CaretLeft /> Início
               </button>
-              <div className={screen === "support" ? "support-app" : "store-app"}>
+              <div className={`iphone-app-icon ${screen === "support" ? "support-app" : "store-app"}`}>
                 {screen === "support" ? <Headset weight="fill" /> : <Storefront weight="fill" />}
               </div>
-              <span>{screen === "support" ? "SUPORTE MAAX" : "STORE MAAX"}</span>
-              <b>{screen === "support" ? "Como podemos ajudar?" : "Catálogo aberto"}</b>
-              <p>
-                {screen === "support"
-                  ? "Nossa equipe está online. O canal de atendimento será conectado em breve."
-                  : "Você já está na área de produtos do seu negócio."}
-              </p>
-              <i className="iphone-app-status"><em /> Disponível agora</i>
+              <span>{screen === "support" ? "SUPORTE MAAX" : "MAAX STORE"}</span>
+              <b>{screen === "support" ? "Como podemos ajudar?" : "Ativos para sua operação."}</b>
+              {screen === "support" ? (
+                <>
+                  <p>Nossa equipe está online. O canal de atendimento será conectado em breve.</p>
+                  <i className="iphone-app-status"><em /> Disponível agora</i>
+                </>
+              ) : (
+                <div className="iphone-store-list">
+                  <article>
+                    <i><Megaphone weight="fill" /></i>
+                    <span><b>Contas de anúncios</b><small>Estruturas para mídia paga</small></span>
+                  </article>
+                  <article>
+                    <i><Code weight="bold" /></i>
+                    <span><b>Scripts</b><small>Automações para sua operação</small></span>
+                  </article>
+                  <em>LOJA EM PREPARAÇÃO</em>
+                </div>
+              )}
             </div>
           )}
           <div className="iphone-home-indicator" />
@@ -1904,7 +1911,7 @@ export function RealDashboard({ navigate }) {
           )}
         </main>
       </div>
-      <CornerPhone onNavigate={setActive} />
+      <CornerPhone />
       {modal && (
         <CreateModal
           type={modal}
