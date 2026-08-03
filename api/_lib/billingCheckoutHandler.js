@@ -42,7 +42,7 @@ export default async function handler(request, response) {
       return response.status(200).json({ active: true, updated: true });
     }
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription", ui_mode: "embedded", customer: customerId, payment_method_collection: "always",
+      mode: "subscription", ui_mode: "embedded_page", customer: customerId, payment_method_collection: "always",
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: { metadata: { maax_user_id: auth.user.id, workspace_id: workspace.id, plan_id: plan.id } },
       metadata: { maax_user_id: auth.user.id, workspace_id: workspace.id, plan_id: plan.id },
