@@ -6324,26 +6324,35 @@ html {
   scrollbar-width: thin;
   scrollbar-color: #55584f transparent;
 }
-.business-options > button {
+.business-options > div {
   width: 100%;
   min-height: 49px;
-  padding: 7px;
+  padding: 4px;
   border-radius: 9px;
-  display: grid;
-  grid-template-columns: 31px minmax(0,1fr) 16px;
+  display: flex;
   align-items: center;
-  gap: 8px;
   color: #dfe1db;
   text-align: left;
   transition: background .2s ease;
 }
-.business-options > button:hover {
+.business-options > div:hover {
   background: #282a25;
 }
-.business-options > button.selected {
+.business-options > div.selected {
   background: #2b2d27;
 }
-.business-options > button > i {
+.business-option-main {
+  min-width: 0;
+  flex: 1;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: 31px minmax(0,1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-align: left;
+}
+.business-option-main > i {
   width: 31px;
   height: 31px;
   border: 1px solid #41443b;
@@ -6355,8 +6364,15 @@ html {
   font-size: 10px;
   font-style: normal;
   font-weight: 750;
+  overflow: hidden;
 }
-.business-options > button > span {
+.business-option-main > i img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.business-option-main > span {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -6379,6 +6395,21 @@ html {
   color: var(--lime);
   font-size: 14px;
 }
+.business-manage {
+  width: 26px;
+  height: 31px;
+  flex: 0 0 26px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: #8d9087;
+  opacity: 0;
+  transition: opacity .2s ease, background .2s ease, color .2s ease;
+}
+.business-options > div:hover .business-manage,
+.business-manage:focus-visible { opacity: 1; }
+.business-manage:hover { background: #373a33; color: #fff; }
+.business-manage svg { font-size: 13px; }
 .business-create {
   width: 100%;
   height: 38px;
@@ -6433,6 +6464,84 @@ html {
   margin-top: -8px;
   color: #91948b;
   font-size: 8px;
+}
+.business-manage-form { gap: 18px; }
+.business-logo-editor {
+  padding: 14px;
+  border: 1px solid #dfe1da;
+  border-radius: 15px;
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 15px;
+  background: #f8f9f6;
+}
+.business-logo-preview {
+  width: 70px;
+  height: 70px;
+  border-radius: 16px;
+  background: #1b1c18;
+  color: var(--lime);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.business-logo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.business-logo-preview b { font-size: 22px; }
+.business-logo-editor > div:last-child > b { color: #20211e; font-size: 11px; }
+.business-logo-editor p { margin: 5px 0 10px; color: #85887f; font-size: 8px; line-height: 1.45; }
+.business-logo-action {
+  width: fit-content;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid #d8dad3;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #272823;
+  font-size: 8px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease;
+}
+.business-logo-action:hover { border-color: #aeb1a8; }
+.business-logo-action:active { transform: scale(.98); }
+.business-logo-action svg { font-size: 13px; }
+.business-logo-action input { display: none; }
+.business-danger-zone {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e1e2dd;
+}
+.business-danger-zone > div:first-child b { color: #2a201f; font-size: 10px; }
+.business-danger-zone p { margin: 4px 0 12px; max-width: 50ch; color: #89857f; font-size: 8px; line-height: 1.5; }
+.business-danger-zone > button,
+.business-delete-confirm > button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #edc9c5;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #b84035;
+  font-size: 8px;
+  font-weight: 800;
+}
+.business-danger-zone button:disabled { opacity: .42; cursor: not-allowed; }
+.business-danger-zone > small { display: block; margin-top: 8px; color: #98938c; font-size: 7px; }
+.business-delete-confirm { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 10px; }
+.business-delete-confirm label { display: grid; gap: 6px; color: #716d67; font-size: 8px; }
+.business-delete-confirm input { height: 34px; padding: 0 10px; border: 1px solid #d8d8d3; border-radius: 8px; font-size: 16px; }
+.business-delete-confirm > button { background: #b84035; border-color: #b84035; color: #fff; }
+@media (max-width: 560px) {
+  .business-logo-editor { grid-template-columns: 58px 1fr; padding: 12px; }
+  .business-logo-preview { width: 58px; height: 58px; border-radius: 13px; }
+  .business-delete-confirm { grid-template-columns: 1fr; align-items: stretch; }
+  .business-delete-confirm > button { justify-content: center; }
+  .business-manage { opacity: 1; }
 }
 .dashboard > aside .side-nav > span {
   color: #777a72;

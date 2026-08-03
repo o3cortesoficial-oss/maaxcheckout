@@ -4,6 +4,7 @@ import {
   Bank,
   Bell,
   Buildings,
+  Camera,
   CaretDown,
   CaretLeft,
   CaretRight,
@@ -262,7 +263,7 @@ function Field({ label, ...props }) {
   );
 }
 
-function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSelect, onCreate }) {
+function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSelect, onCreate, onManage }) {
   const root = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -302,21 +303,19 @@ function BusinessSwitcher({ workspaces, workspace, open, onToggle, onClose, onSe
           </header>
           <div className="business-options">
             {workspaces.map((item) => (
-              <button
-                type="button"
-                className={item.id === workspace?.id ? "selected" : ""}
-                onClick={() => onSelect(item)}
-                role="option"
-                aria-selected={item.id === workspace?.id}
-                key={item.id}
-              >
-                <i>{item.name.slice(0, 1).toUpperCase()}</i>
-                <span>
-                  <b>{item.name}</b>
-                  <small>{item.id === workspace?.id ? "Operação atual" : "Abrir operação"}</small>
-                </span>
-                {item.id === workspace?.id && <CheckCircle />}
-              </button>
+              <div className={item.id === workspace?.id ? "selected" : ""} role="option" aria-selected={item.id === workspace?.id} key={item.id}>
+                <button type="button" className="business-option-main" onClick={() => onSelect(item)}>
+                  <i>{item.logo_url ? <img src={item.logo_url} alt="" /> : item.name.slice(0, 1).toUpperCase()}</i>
+                  <span>
+                    <b>{item.name}</b>
+                    <small>{item.id === workspace?.id ? "Operação atual" : "Abrir operação"}</small>
+                  </span>
+                  {item.id === workspace?.id && <CheckCircle />}
+                </button>
+                <button type="button" className="business-manage" onClick={() => onManage(item)} aria-label={`Editar ${item.name}`}>
+                  <PencilSimple />
+                </button>
+              </div>
             ))}
           </div>
           <button type="button" className="business-create" onClick={onCreate}>
@@ -376,6 +375,116 @@ function CreateBusinessModal({ onClose, onCreated }) {
           </Button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function ManageBusinessModal({ business, canDelete, onClose, onSaved, onDeleted }) {
+  const [name, setName] = useState(business.name);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(business.logo_url || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+
+  useEffect(() => () => {
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  const chooseLogo = (event) => {
+    const nextFile = event.target.files?.[0];
+    if (!nextFile) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/svg+xml"].includes(nextFile.type)) {
+      setError("Use uma imagem PNG, JPEG, WebP ou SVG.");
+      return;
+    }
+    if (nextFile.size > 2 * 1024 * 1024) {
+      setError("A imagem deve ter no máximo 2 MB.");
+      return;
+    }
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    setFile(nextFile);
+    setPreview(URL.createObjectURL(nextFile));
+    setError("");
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    const cleanName = name.trim();
+    if (cleanName.length < 2) return setError("Use um nome com pelo menos 2 caracteres.");
+    setSaving(true);
+    setError("");
+    let logoUrl = business.logo_url || null;
+    if (file) {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `${business.id}/business-logo-${Date.now()}.${extension}`;
+      const upload = await supabase.storage.from("checkout-assets").upload(path, file, { cacheControl: "3600", upsert: true });
+      if (upload.error) {
+        setSaving(false);
+        return setError(`Não foi possível enviar a imagem: ${upload.error.message}`);
+      }
+      logoUrl = supabase.storage.from("checkout-assets").getPublicUrl(path).data.publicUrl;
+    }
+    const { data, error: saveError } = await supabase
+      .from("workspaces")
+      .update({ name: cleanName, logo_url: logoUrl, updated_at: new Date().toISOString() })
+      .eq("id", business.id)
+      .select()
+      .single();
+    setSaving(false);
+    if (saveError) return setError(saveError.message);
+    onSaved(data);
+  };
+
+  const remove = async () => {
+    if (confirmation !== business.name) return;
+    setSaving(true);
+    setError("");
+    const { error: deleteError } = await supabase.rpc("delete_business_workspace", { p_workspace_id: business.id });
+    setSaving(false);
+    if (deleteError) return setError(deleteError.message);
+    onDeleted(business.id);
+  };
+
+  return (
+    <Modal title="Configurar negócio" onClose={onClose}>
+      <form className="data-form business-manage-form" onSubmit={save}>
+        <div className="business-logo-editor">
+          <div className="business-logo-preview">
+            {preview ? <img src={preview} alt="Prévia da marca" /> : <b>{name.slice(0, 1).toUpperCase()}</b>}
+          </div>
+          <div>
+            <b>Imagem do negócio</b>
+            <p>PNG, JPEG, WebP ou SVG. Quadrada, 512 × 512 px e até 2 MB.</p>
+            <label className="business-logo-action">
+              <Camera /> {preview ? "Trocar imagem" : "Adicionar imagem"}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={chooseLogo} />
+            </label>
+          </div>
+        </div>
+        <Field label="Nome do negócio" value={name} onChange={(event) => setName(event.target.value)} minLength="2" maxLength="60" required />
+        {error && <div className="form-error">{error}</div>}
+        <div className="modal-actions">
+          <Button secondary onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</Button>
+        </div>
+      </form>
+      <section className="business-danger-zone">
+        <div>
+          <b>Excluir este negócio</b>
+          <p>Produtos, pedidos, clientes, gateways e configurações desta operação serão excluídos.</p>
+        </div>
+        {!confirmDelete ? (
+          <button type="button" disabled={!canDelete} onClick={() => setConfirmDelete(true)}><Trash /> Excluir negócio</button>
+        ) : (
+          <div className="business-delete-confirm">
+            <label>Digite <b>{business.name}</b> para confirmar<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
+            <button type="button" disabled={saving || confirmation !== business.name} onClick={remove}>Excluir definitivamente</button>
+          </div>
+        )}
+        {!canDelete && <small>Crie outro negócio antes de excluir o único existente.</small>}
+      </section>
     </Modal>
   );
 }
@@ -1037,6 +1146,7 @@ export function RealDashboard({ navigate }) {
     [modal, setModal] = useState(""),
     [businessMenu, setBusinessMenu] = useState(false),
     [businessModal, setBusinessModal] = useState(false),
+    [managedBusiness, setManagedBusiness] = useState(null),
     [searchQuery, setSearchQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false);
   const workspaceIdRef = useRef(null);
@@ -1345,6 +1455,17 @@ export function RealDashboard({ navigate }) {
     setActive("home");
     await load(false, false, newWorkspace.id);
   };
+  const businessSaved = async (updatedWorkspace) => {
+    setManagedBusiness(null);
+    await load(false, false, updatedWorkspace.id);
+  };
+  const businessDeleted = async (deletedId) => {
+    setManagedBusiness(null);
+    const remaining = workspaces.find((item) => item.id !== deletedId);
+    workspaceIdRef.current = remaining?.id || null;
+    if (remaining) window.localStorage.setItem("maax_active_workspace", remaining.id);
+    await load(false, false, remaining?.id || null);
+  };
   if (loading)
     return (
       <div className="app-loading">
@@ -1373,6 +1494,10 @@ export function RealDashboard({ navigate }) {
             onToggle={() => setBusinessMenu((current) => !current)}
             onClose={() => setBusinessMenu(false)}
             onSelect={switchWorkspace}
+            onManage={(item) => {
+              setBusinessMenu(false);
+              setManagedBusiness(item);
+            }}
             onCreate={() => {
               setBusinessMenu(false);
               setBusinessModal(true);
@@ -1535,6 +1660,15 @@ export function RealDashboard({ navigate }) {
         <CreateBusinessModal
           onClose={() => setBusinessModal(false)}
           onCreated={businessCreated}
+        />
+      )}
+      {managedBusiness && (
+        <ManageBusinessModal
+          business={managedBusiness}
+          canDelete={workspaces.length > 1}
+          onClose={() => setManagedBusiness(null)}
+          onSaved={businessSaved}
+          onDeleted={businessDeleted}
         />
       )}
     </div>
