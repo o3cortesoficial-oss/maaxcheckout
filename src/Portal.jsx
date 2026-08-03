@@ -201,10 +201,11 @@ export function RealLogin({ navigate }) {
 
 const nav = [
   ["home", "Início", House],
+  ["vendas", "Pedidos", Receipt],
   ["produtos", "Produtos", Package],
+  ["checkout", "Checkout", CreditCard],
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
-  ["checkout", "Checkout", CreditCard],
   ["shipping", "Frete", Truck],
   ["tracking", "Rastreamento", Crosshair],
   ["clientes", "Clientes", Users],
@@ -5937,7 +5938,7 @@ function DataView({
   const config = {
     vendas: [
       "OPERAÇÃO",
-      "Vendas",
+      "Pedidos",
       "Pagamentos e pedidos registrados no checkout",
       null,
     ],
