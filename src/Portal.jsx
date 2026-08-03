@@ -137,7 +137,7 @@ function CornerPhone() {
             onClick={() => setMinimized(true)}
             aria-label="Minimizar atalhos"
           >
-            <span />
+            <X weight="bold" />
           </button>
 
           {screen === "home" ? (
