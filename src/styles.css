@@ -8740,6 +8740,8 @@ html {
 }
 .admin-mode-toggle:hover { transform: translateY(-1px); border-color: #4a4e43; }
 .admin-mode-toggle:active { transform: scale(.98); }
+.admin-mode-toggle:focus { outline: none; }
+.admin-mode-toggle:focus-visible { outline: 2px solid #c9ff32; outline-offset: 2px; }
 .admin-mode-toggle > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #30332c; color: #c9ff32; }
 .admin-mode-toggle > span svg { width: 17px; height: 17px; }
 .admin-mode-toggle > div { min-width: 0; display: grid; gap: 3px; }
