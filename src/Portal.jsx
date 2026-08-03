@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   ArrowSquareOut,
@@ -1581,7 +1582,26 @@ function AdminUsersPanel({ users, session, onRefresh }) {
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
   const current = users.find((item) => item.id === selected?.id) || selected;
+  const filteredUsers = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase("pt-BR");
+    if (!normalized) return users;
+    return users.filter((user) => `${user.name || ""} ${user.email || ""}`.toLocaleLowerCase("pt-BR").includes(normalized));
+  }, [users, query]);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const pagedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => { setPage(1); }, [query]);
+  useEffect(() => {
+    if (!selected) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => event.key === "Escape" && setSelected(null);
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", closeOnEscape); };
+  }, [selected]);
   const act = async (action, extra = {}) => {
     setBusy(action); setError("");
     const result = await fetch("/api/admin/users", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, user_id: current.id, ...extra }) });
@@ -1591,9 +1611,9 @@ function AdminUsersPanel({ users, session, onRefresh }) {
   };
   return (
     <section className="admin-users-panel">
-      <header><div><span>REGISTROS</span><h2>{users.length} {users.length === 1 ? "usuário encontrado" : "usuários encontrados"}</h2></div><small>Clique em uma conta para abrir o controle completo</small></header>
+      <header><div><span>REGISTROS</span><h2>{filteredUsers.length} {filteredUsers.length === 1 ? "usuário encontrado" : "usuários encontrados"}</h2></div><label className="admin-user-search"><MagnifyingGlass /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuários" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Limpar busca"><X /></button>}</label></header>
       <div className="admin-user-list">
-        {users.map((user) => <button type="button" key={user.id} onClick={() => setSelected(user)}>
+        {pagedUsers.map((user) => <button type="button" key={user.id} onClick={() => setSelected(user)}>
           <span className="admin-user-avatar">{(user.name || user.email).slice(0,2).toUpperCase()}</span>
           <span><b>{user.name || "Sem nome"}</b><small>{user.email}</small></span>
           <span><b>{user.business_name || "Sem negócio"}</b><small>{user.workspaces?.length || 0} operações</small></span>
@@ -1601,8 +1621,10 @@ function AdminUsersPanel({ users, session, onRefresh }) {
           <span className={`admin-user-access ${user.access_status}`}><i />{user.access_status === "blocked" ? "Bloqueada" : "Ativa"}</span>
           <CaretRight />
         </button>)}
+        {!pagedUsers.length && <div className="admin-user-no-results"><MagnifyingGlass /><b>Nenhuma conta encontrada</b><small>Tente pesquisar outro nome ou endereço de e-mail.</small></div>}
       </div>
-      {current && <div className="admin-user-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
+      <footer className="admin-user-pagination"><span>Mostrando {filteredUsers.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filteredUsers.length)} de {filteredUsers.length}</span><div><button type="button" disabled={page === 1} onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}><CaretLeft /> Anterior</button><b>{page} de {totalPages}</b><button type="button" disabled={page === totalPages} onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}>Próxima <CaretRight /></button></div></footer>
+      {current && createPortal(<div className="admin-user-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
         <aside className="admin-user-drawer">
           <header><div><span>CONTROLE DA CONTA</span><h2>{current.name || current.email}</h2><p>{current.email}</p></div><button onClick={() => setSelected(null)} aria-label="Fechar"><X /></button></header>
           <div className="admin-user-finance">
@@ -1620,7 +1642,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
             <button className={current.access_status === "blocked" ? "unblock" : "block"} onClick={() => act(current.access_status === "blocked" ? "unblock" : "block", { reason: "Pendência financeira" })} disabled={Boolean(busy)}>{current.access_status === "blocked" ? <LockOpen /> : <Lock />}{current.access_status === "blocked" ? "Desbloquear conta" : "Bloquear por dívida"}</button>
           </footer>
         </aside>
-      </div>}
+      </div>, document.body)}
     </section>
   );
 }

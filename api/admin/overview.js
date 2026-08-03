@@ -111,7 +111,7 @@ export default async function handler(request, response) {
         (item) => item.status === "active",
       ).length,
     },
-    users: users.slice(0, 100).map((user) => {
+    users: users.map((user) => {
       const userWorkspaces = workspacesByOwner.get(user.id) || [];
       const workspaceIds = new Set(userWorkspaces.map((item) => item.id));
       const userOrders = orders.filter((item) => workspaceIds.has(item.workspace_id));
