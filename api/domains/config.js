@@ -9,6 +9,8 @@ import {
 const platformHosts = new Set([
   "maaxcheckout.vercel.app",
   "www.maaxcheckout.vercel.app",
+  "maaxcheckout.lat",
+  "www.maaxcheckout.lat",
 ]);
 
 function normalizeDomain(value) {

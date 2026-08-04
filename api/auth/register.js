@@ -16,7 +16,7 @@ const appOrigin = () => {
     process.env.PUBLIC_APP_URL ||
       process.env.VITE_PUBLIC_APP_URL ||
       process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-      "https://maaxcheckout.vercel.app",
+      "https://maaxcheckout.lat",
   ).trim();
   const withProtocol = /^https?:\/\//i.test(configured)
     ? configured
@@ -24,10 +24,10 @@ const appOrigin = () => {
   try {
     const url = new URL(withProtocol);
     if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname))
-      return "https://maaxcheckout.vercel.app";
+      return "https://maaxcheckout.lat";
     return url.origin;
   } catch {
-    return "https://maaxcheckout.vercel.app";
+    return "https://maaxcheckout.lat";
   }
 };
 

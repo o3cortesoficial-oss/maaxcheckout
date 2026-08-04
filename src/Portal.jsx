@@ -56,6 +56,8 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe
 import { loadStripe } from "@stripe/stripe-js";
 import { PLATFORM_PLANS, platformFeeCents, platformPlan, sevenDayCycle } from "./platformPlans";
 
+const PUBLIC_APP_ORIGIN = "https://maaxcheckout.lat";
+
 const money = (cents = 0) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     Number(cents) / 100,
@@ -1825,7 +1827,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
             <button type="button" onClick={() => act("commercial", { plan_name: commercial.plan_name, custom_fixed_cents: Math.round(Number(commercial.fixed_reais.replace(",", ".")) * 100), custom_rate_percent: Number(commercial.rate.replace(",", ".")) })} disabled={Boolean(busy)}>Salvar condições</button>
           </section>
           {(current.account_type === "partner" || current.referred_by) && <section className="admin-referral-card">
-            {current.account_type === "partner" && <><span>LINK DE CONVITE</span><div><code>{`${location.origin}/login?mode=signup&ref=${current.partner_code || ""}`}</code><button type="button" onClick={() => navigator.clipboard.writeText(`${location.origin}/login?mode=signup&ref=${current.partner_code || ""}`)} aria-label="Copiar link"><Copy /></button></div><small>Ganhos registrados: <b>{money(current.partner_earnings)}</b></small></>}
+            {current.account_type === "partner" && <><span>LINK DE CONVITE</span><div><code>{`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`}</code><button type="button" onClick={() => navigator.clipboard.writeText(`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`)} aria-label="Copiar link"><Copy /></button></div><small>Ganhos registrados: <b>{money(current.partner_earnings)}</b></small></>}
             {current.referred_by && <><span>ORIGEM DO CADASTRO</span><h4>{current.referred_by.email || "Parceiro identificado"}</h4><small>Código {current.referred_by.partner_code}</small></>}
           </section>}
           <section className="admin-user-resources"><header><span>PRODUTOS E LINKS</span><b>{current.workspaces?.reduce((sum, item) => sum + item.products.length + item.payment_links.length, 0) || 0}</b></header>
@@ -2954,7 +2956,7 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
   const attributionEnabled =
     data.checkout_configs?.[0]?.settings?.campaign_attribution_enabled === true;
   const inviteUrl = partnerInfo?.partner_code
-    ? `${window.location.origin}/login?mode=signup&ref=${partnerInfo.partner_code}`
+    ? `${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${partnerInfo.partner_code}`
     : "";
   const copyInvite = async () => {
     if (!inviteUrl) return;
@@ -3293,6 +3295,8 @@ export function PublicCheckout({ slug }) {
       const platformHost =
         currentHost === "localhost" ||
         currentHost === "127.0.0.1" ||
+        currentHost === "maaxcheckout.lat" ||
+        currentHost === "www.maaxcheckout.lat" ||
         currentHost.endsWith(".vercel.app");
       const configuredHost = String(
         checkoutSettings.custom_domain?.hostname || "",
@@ -6711,7 +6715,7 @@ function DomainPage({ workspace }) {
           <p>
             O domínio personalizado funciona apenas nas páginas públicas de
             checkout. O painel administrativo continua seguro em
-            maaxcheckout.vercel.app.
+            maaxcheckout.lat.
           </p>
           <div className="domain-boundaries">
             <span><CheckCircle /> Checkout público personalizado</span>
@@ -7312,7 +7316,7 @@ function DataView({
             checkoutOrigin={
               data.checkout_configs?.[0]?.settings?.custom_domain?.verified
                 ? `https://${data.checkout_configs[0].settings.custom_domain.hostname}`
-                : location.origin
+                : PUBLIC_APP_ORIGIN
             }
             onEdit={(product) => onNavigate(`product_edit:${product.id}`)}
             onReload={onReload}
@@ -7329,7 +7333,7 @@ function DataView({
 function ProductRows({
   products,
   productImages,
-  checkoutOrigin = location.origin,
+  checkoutOrigin = PUBLIC_APP_ORIGIN,
   onEdit,
   onReload,
 }) {
