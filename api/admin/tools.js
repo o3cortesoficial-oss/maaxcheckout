@@ -6,6 +6,7 @@ import {
   enforceJsonBodyLimit,
   rateLimit,
   requireSameOrigin,
+  safeServerError,
 } from "../_security.js";
 import {
   decryptIntegrationConfig,
@@ -135,8 +136,7 @@ export default async function handler(request, response) {
     if (error) throw error;
     return response.status(200).json({ saved: true, api_key_hint: maskKey(apiKey) });
   } catch (error) {
-    return response.status(error.status || 500).json({
-      error: error.status ? error.message : (error.message || "Não foi possível configurar a Resend."),
-    });
+    console.error("Admin tool configuration failed", { name: error?.name, message: error?.message });
+    return safeServerError(response, error, "Não foi possível configurar a ferramenta.");
   }
 }

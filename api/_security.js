@@ -26,12 +26,20 @@ export function applyApiSecurityHeaders(response) {
   response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   response.setHeader("X-Frame-Options", "DENY");
   response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  response.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  response.setHeader("Vary", "Origin, Sec-Fetch-Site");
 }
 
 export function requireSameOrigin(request, response) {
   const origin = String(request.headers.origin || "").trim();
   const referer = String(request.headers.referer || "").trim();
   const host = requestHost(request);
+  const fetchSite = String(request.headers["sec-fetch-site"] || "").toLowerCase();
+  if (fetchSite && !["same-origin", "same-site", "none"].includes(fetchSite)) {
+    response.status(403).json({ error: "Origem da requisição não autorizada." });
+    return false;
+  }
   const valid = [origin, referer].some((value) => {
     if (!value || !host) return false;
     try {
@@ -43,6 +51,28 @@ export function requireSameOrigin(request, response) {
   if (valid) return true;
   response.status(403).json({ error: "Origem da requisição não autorizada." });
   return false;
+}
+
+export async function readLimitedBody(request, maxBytes = 32768) {
+  if (Buffer.isBuffer(request.body)) {
+    if (request.body.length > maxBytes) throw Object.assign(new Error("Payload too large"), { status: 413 });
+    return request.body;
+  }
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.length;
+    if (total > maxBytes) throw Object.assign(new Error("Payload too large"), { status: 413 });
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
+}
+
+export function safeServerError(response, error, fallback) {
+  const status = Number(error?.status || 500);
+  const publicMessage = status >= 400 && status < 500 ? error.message : fallback;
+  return response.status(status).json({ error: publicMessage });
 }
 
 export function enforceJsonBodyLimit(request, response, maxBytes = 32768) {

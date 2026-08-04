@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { applyApiSecurityHeaders, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
+import { applyApiSecurityHeaders, enforceJsonBodyLimit, rateLimit, requireSameOrigin, safeServerError } from "../_security.js";
 
 export default async function handler(request, response) {
   applyApiSecurityHeaders(response);
@@ -22,6 +22,7 @@ export default async function handler(request, response) {
     if (deletion.error) throw deletion.error;
     return response.status(200).json({ ok: true });
   } catch (error) {
-    return response.status(500).json({ error: error.message || "Não foi possível excluir a conta." });
+    console.error("Account deletion failed", { name: error?.name, message: error?.message });
+    return safeServerError(response, error, "Não foi possível excluir a conta.");
   }
 }

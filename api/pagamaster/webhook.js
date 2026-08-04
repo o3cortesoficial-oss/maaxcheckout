@@ -3,19 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import {
   applyApiSecurityHeaders,
   enforceJsonBodyLimit,
+  readLimitedBody,
   rateLimit,
 } from "../_security.js";
 import { accruePaidOrderFee } from "../_lib/platformFee.js";
 import stripeWebhookHandler from "../_lib/stripeWebhookHandler.js";
 
 export const config = { api: { bodyParser: false } };
-
-async function readRawBody(request) {
-  if (Buffer.isBuffer(request.body)) return request.body;
-  const chunks = [];
-  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  return Buffer.concat(chunks);
-}
 
 function decrypt(value) {
   const key = crypto
@@ -49,10 +43,10 @@ export default async function handler(request, response) {
 
   let reported;
   try {
-    const payload = await readRawBody(request);
+    const payload = await readLimitedBody(request, 32768);
     reported = JSON.parse(payload.toString("utf8") || "{}");
-  } catch {
-    return response.status(400).json({ error: "Evento inválido." });
+  } catch (error) {
+    return response.status(error?.status === 413 ? 413 : 400).json({ error: error?.status === 413 ? "Evento muito grande." : "Evento inválido." });
   }
   const transactionId = String(reported.id || "").trim();
   if (!/^payin_[a-z0-9_-]+$/i.test(transactionId))
@@ -97,7 +91,7 @@ export default async function handler(request, response) {
     );
     const verificationResponse = await fetch(
       `https://api.pagamaster.com/payin/${encodeURIComponent(transactionId)}`,
-      { headers: { Authorization: `Basic ${credentials}` } },
+      { headers: { Authorization: `Basic ${credentials}` }, signal: AbortSignal.timeout(12000) },
     );
     const verified = await verificationResponse.json().catch(() => ({}));
     if (!verificationResponse.ok) throw new Error("Payin verification failed");
@@ -202,7 +196,7 @@ export default async function handler(request, response) {
         .eq("type", "charge")
         .maybeSingle();
       if (!existingTransaction) {
-        await supabase.from("transactions").insert({
+        const { error: transactionError } = await supabase.from("transactions").insert({
           workspace_id: attempt.workspace_id,
           order_id: attempt.order_id,
           type: "charge",
@@ -213,6 +207,7 @@ export default async function handler(request, response) {
           description: "Venda aprovada e conciliada pela Pagamaster",
           processed_at: now,
         });
+        if (transactionError && transactionError.code !== "23505") throw transactionError;
       }
       await accruePaidOrderFee(supabase, {
         workspaceId: attempt.workspace_id,

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
-import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
+import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin, safeServerError } from "../_security.js";
 import { ensureWeeklyPrice, stripeBillingClient } from "./stripeBilling.js";
 
 const plans = {
@@ -84,6 +84,7 @@ export default async function handler(request, response) {
     await admin.from("platform_user_controls").upsert({ user_id: auth.user.id, stripe_customer_id: customerId, subscription_status: "checkout_pending", plan_name: plan.name, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     return response.status(200).json({ client_secret: session.client_secret, publishable_key: config.publishable_key, plan_name: plan.name });
   } catch (error) {
-    return response.status(error.status || 500).json({ error: error.message || "Não foi possível iniciar a assinatura." });
+    console.error("Billing checkout failed", { name: error?.name, message: error?.message });
+    return safeServerError(response, error, "Não foi possível iniciar a assinatura.");
   }
 }

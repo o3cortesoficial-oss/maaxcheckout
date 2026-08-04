@@ -7,6 +7,7 @@ import {
   enforceJsonBodyLimit,
   rateLimit,
   requireSameOrigin,
+  safeServerError,
 } from "../_security.js";
 
 const adminEmail = () =>
@@ -88,6 +89,7 @@ export default async function handler(request, response) {
     }
     return response.status(200).json({ ok: true });
   } catch (error) {
-    return response.status(error.status || 500).json({ error: error.message || "Não foi possível atualizar a conta." });
+    console.error("Admin user update failed", { name: error?.name, message: error?.message });
+    return safeServerError(response, error, "Não foi possível atualizar a conta.");
   }
 }

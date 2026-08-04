@@ -390,6 +390,7 @@ export default async function handler(request, response) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     });
     const result = await pagamasterResponse.json().catch(() => ({}));
     if (!pagamasterResponse.ok) {

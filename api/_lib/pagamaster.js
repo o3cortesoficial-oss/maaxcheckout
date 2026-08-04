@@ -14,6 +14,7 @@ export async function pagamasterRequest(path, options = {}) {
   ).toString("base64");
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    signal: options.signal || AbortSignal.timeout(15000),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Basic ${credentials}`,

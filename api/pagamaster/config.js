@@ -47,6 +47,7 @@ async function testConnection(publicKey, secretKey) {
       Authorization: `Basic ${credentials}`,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(12000),
   });
   if (result.status === 401) {
     result = await fetch(`${apiUrl}/balances`, {
@@ -55,6 +56,7 @@ async function testConnection(publicKey, secretKey) {
         "x-api-secret": secretKey,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(12000),
     });
   }
   const payload = await result.json().catch(() => ({}));

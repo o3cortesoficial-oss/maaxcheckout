@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin } from "../_security.js";
+import { applyApiSecurityHeaders, cleanString, enforceJsonBodyLimit, rateLimit, requireSameOrigin, safeServerError } from "../_security.js";
 import { decryptIntegrationConfig, encryptIntegrationConfig } from "../_integrationSecrets.js";
 import billingCheckoutHandler from "../_lib/billingCheckoutHandler.js";
 
@@ -60,6 +60,7 @@ export default async function handler(request, response) {
     if (error) throw error;
     return response.status(200).json({ saved: true, mode, ...account, secret_key_hint: mask(secretKey), webhook_secret_hint: mask(webhookSecret) });
   } catch (error) {
-    return response.status(error.status || 500).json({ error: error.message || "Não foi possível configurar a Stripe." });
+    console.error("Admin Stripe configuration failed", { name: error?.name, message: error?.message });
+    return safeServerError(response, error, "Não foi possível configurar a Stripe.");
   }
 }

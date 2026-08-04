@@ -59,6 +59,35 @@ import { getLanguage, setLanguage } from "./i18n";
 
 const PUBLIC_APP_ORIGIN = "https://maaxcheckout.lat";
 
+async function validatedImageFile(file, { allowSvg = false, maxBytes = 5 * 1024 * 1024 } = {}) {
+  if (!(file instanceof File) || file.size <= 0 || file.size > maxBytes)
+    throw new Error(`A imagem deve ter no máximo ${Math.round(maxBytes / 1024 / 1024)} MB.`);
+  const allowed = new Set(["image/png", "image/jpeg", "image/webp", ...(allowSvg ? ["image/svg+xml"] : [])]);
+  if (!allowed.has(file.type)) throw new Error(allowSvg ? "Use PNG, JPEG, WebP ou SVG." : "Use PNG, JPEG ou WebP.");
+  if (file.type === "image/svg+xml") {
+    const source = await file.text();
+    if (/<!doctype|<!entity/i.test(source)) throw new Error("Este SVG contém recursos não permitidos.");
+    const documentNode = new DOMParser().parseFromString(source, "image/svg+xml");
+    if (documentNode.querySelector("parsererror") || documentNode.documentElement.tagName.toLowerCase() !== "svg")
+      throw new Error("O arquivo SVG é inválido.");
+    documentNode.querySelectorAll("script,foreignObject,iframe,object,embed,link,meta,audio,video").forEach((node) => node.remove());
+    documentNode.querySelectorAll("*").forEach((node) => [...node.attributes].forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.trim();
+      if (name.startsWith("on") || ((name === "href" || name.endsWith(":href") || name === "src") && !value.startsWith("#") && !value.startsWith("data:image/")) || (name === "style" && /url\s*\(|expression\s*\(|@import/i.test(value))) node.removeAttribute(attribute.name);
+    }));
+    const sanitized = new XMLSerializer().serializeToString(documentNode.documentElement);
+    return new File([sanitized], "asset.svg", { type: "image/svg+xml", lastModified: Date.now() });
+  }
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const png = bytes.length >= 8 && [137,80,78,71,13,10,26,10].every((value, index) => bytes[index] === value);
+  const jpeg = bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  const webp = bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  if ((file.type === "image/png" && !png) || (file.type === "image/jpeg" && !jpeg) || (file.type === "image/webp" && !webp))
+    throw new Error("O conteúdo do arquivo não corresponde ao formato da imagem.");
+  return file;
+}
+
 function LanguageSelector() {
   const [open, setOpen] = useState(false);
   const language = getLanguage();
@@ -309,9 +338,11 @@ function CornerPhone({ orders = [], session }) {
   };
   const changePassword = async (event) => {
     event.preventDefault();
-    if (newPassword.length < 8) return setAccountNotice("Use uma senha com pelo menos 8 caracteres.");
+    if (newPassword.length < 8 || newPassword.length > 72 || !/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/\d/.test(newPassword))
+      return setAccountNotice("Use de 8 a 72 caracteres, com maiúscula, minúscula e número.");
     setAccountBusy(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (!error) await supabase.auth.signOut({ scope: "others" });
     setAccountBusy(false);
     setAccountNotice(error ? error.message : "Senha atualizada com segurança.");
     if (!error) setNewPassword("");
@@ -319,9 +350,12 @@ function CornerPhone({ orders = [], session }) {
   const uploadProfilePhoto = async (file) => {
     if (!file || !session?.user?.id) return;
     setAccountBusy(true);
-    const extension = (file.name.split(".").pop() || "png").toLowerCase();
+    let safeFile;
+    try { safeFile = await validatedImageFile(file, { maxBytes: 2 * 1024 * 1024 }); }
+    catch (error) { setAccountNotice(error.message); setAccountBusy(false); return; }
+    const extension = safeFile.type === "image/png" ? "png" : safeFile.type === "image/webp" ? "webp" : "jpg";
     const path = `profiles/${session.user.id}/avatar-${Date.now()}.${extension}`;
-    const upload = await supabase.storage.from("checkout-assets").upload(path, file, { cacheControl: "3600", upsert: true });
+    const upload = await supabase.storage.from("checkout-assets").upload(path, safeFile, { cacheControl: "3600", upsert: true, contentType: safeFile.type });
     if (upload.error) {
       setAccountNotice(upload.error.message);
     } else {
@@ -4808,24 +4842,16 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
   };
   const uploadAsset = async (kind, file) => {
     if (!file) return;
-    const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
     const maxSize = kind === "logo" ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
-    if (!allowed.includes(file.type)) {
-      setSaveState("Use PNG, JPEG ou SVG");
-      return;
-    }
-    if (file.size > maxSize) {
-      setSaveState(
-        kind === "logo" ? "Logo deve ter até 2 MB" : "Banner deve ter até 5 MB",
-      );
-      return;
-    }
+    let safeFile;
+    try { safeFile = await validatedImageFile(file, { allowSvg: true, maxBytes: maxSize }); }
+    catch (error) { setSaveState(error.message); return; }
     setUploading(kind);
-    const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+    const extension = safeFile.type === "image/svg+xml" ? "svg" : safeFile.type === "image/png" ? "png" : safeFile.type === "image/webp" ? "webp" : "jpg";
     const path = `${workspace.id}/${kind}-${Date.now()}.${extension}`;
     const { error } = await supabase.storage
       .from("checkout-assets")
-      .upload(path, file, { cacheControl: "3600", upsert: true });
+      .upload(path, safeFile, { cacheControl: "3600", upsert: true, contentType: safeFile.type });
     if (error) {
       setSaveState(`Erro no upload: ${error.message}`);
       setUploading("");
@@ -5789,12 +5815,9 @@ function ProductEditor({
   );
   const set = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
-  const addImages = (files) => {
-    const incoming = Array.from(files || []).filter(
-      (file) =>
-        ["image/png", "image/jpeg", "image/webp"].includes(file.type) &&
-        file.size <= 5 * 1024 * 1024,
-    );
+  const addImages = async (files) => {
+    const checked = await Promise.all(Array.from(files || []).map((file) => validatedImageFile(file).catch(() => null)));
+    const incoming = checked.filter(Boolean);
     setImages((current) =>
       [...current, ...incoming].slice(0, Math.max(0, 10 - savedImages.length)),
     );
@@ -5857,11 +5880,11 @@ function ProductEditor({
     const uploaded = [];
     for (let index = 0; index < images.length; index += 1) {
       const file = images[index];
-      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
       const path = `${workspace.id}/${savedProduct.id}/${savedImages.length + index}-${Date.now()}.${extension}`;
       const { error: uploadError } = await supabase.storage
         .from("product-images")
-        .upload(path, file, { cacheControl: "3600" });
+        .upload(path, file, { cacheControl: "3600", contentType: file.type });
       if (uploadError) continue;
       const { data } = supabase.storage
         .from("product-images")

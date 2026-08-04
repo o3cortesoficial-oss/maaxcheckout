@@ -1,13 +1,7 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { applyApiSecurityHeaders, rateLimit } from "../_security.js";
+import { applyApiSecurityHeaders, readLimitedBody, rateLimit } from "../_security.js";
 import { invoiceSubscriptionId, stripeBillingClient } from "./stripeBilling.js";
-
-async function rawBody(request) {
-  const chunks = [];
-  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  return Buffer.concat(chunks);
-}
 
 export default async function handler(request, response) {
   applyApiSecurityHeaders(response);
@@ -18,7 +12,7 @@ export default async function handler(request, response) {
     const { stripe, config: saved } = await stripeBillingClient(admin);
     const secret = process.env.STRIPE_WEBHOOK_SECRET || saved.webhook_secret;
     if (!secret) throw new Error("Segredo do webhook não configurado.");
-    const payload = await rawBody(request);
+    const payload = await readLimitedBody(request, 32768);
     const signature = request.headers["stripe-signature"];
     const event = stripe.webhooks.constructEvent(payload, signature, secret);
     const object = event.data.object;
@@ -75,6 +69,7 @@ export default async function handler(request, response) {
     }
     return response.status(200).json({ received: true });
   } catch (error) {
+    if (error?.status === 413) return response.status(413).json({ error: "Evento muito grande." });
     if (error instanceof Stripe.errors.StripeSignatureVerificationError) return response.status(400).json({ error: "Assinatura inválida." });
     console.error("Stripe webhook failed", error);
     return response.status(500).json({ error: "Falha ao processar evento Stripe." });

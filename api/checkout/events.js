@@ -23,6 +23,7 @@ export default async function handler(request, response) {
   if (!["GET", "POST"].includes(request.method))
     return response.status(405).json({ error: "Método não permitido." });
   if (request.method === "GET" && request.query?.maax_route === "locale") {
+    if (!rateLimit(request, response, { scope: "locale", limit: 60, windowMs: 60_000 })) return;
     const rawCountry = request.headers["x-vercel-ip-country"] || request.headers["cf-ipcountry"] || "";
     const country = String(Array.isArray(rawCountry) ? rawCountry[0] : rawCountry).trim().toUpperCase();
     return response.status(200).json({
