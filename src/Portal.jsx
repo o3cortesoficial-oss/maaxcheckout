@@ -1307,6 +1307,8 @@ function GatewayView({ workspace }) {
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [busy, setBusy] = useState("");
   const [editingKeys, setEditingKeys] = useState(false);
+  const [gatewaySearch, setGatewaySearch] = useState("");
+  const gatewayVisible = "pagamaster".includes(gatewaySearch.trim().toLowerCase());
 
   const request = async (options = {}) => {
     const { data } = await supabase.auth.getSession();
@@ -1417,8 +1419,23 @@ function GatewayView({ workspace }) {
         title="Gateways"
         description="Configure e controle os provedores que processam seus checkouts"
       />
+      <div className="gateway-search">
+        <MagnifyingGlass />
+        <input
+          type="search"
+          value={gatewaySearch}
+          placeholder="Buscar gateway pelo nome..."
+          aria-label="Buscar gateway pelo nome"
+          onChange={(event) => setGatewaySearch(event.target.value)}
+        />
+        {gatewaySearch && (
+          <button type="button" onClick={() => setGatewaySearch("")} aria-label="Limpar busca">
+            <X />
+          </button>
+        )}
+      </div>
       <section className="gateway-catalog" aria-label="Gateways disponíveis">
-        <article className="gateway-provider-card">
+        {gatewayVisible ? <article className="gateway-provider-card">
           <header>
             <img src="/pagamaster-logo.png" alt="Pagamaster" />
             <div>
@@ -1543,7 +1560,14 @@ function GatewayView({ workspace }) {
               <i />
             </label>
           </footer>
-        </article>
+        </article> : (
+          <div className="gateway-search-empty">
+            <MagnifyingGlass />
+            <b>Nenhum gateway encontrado</b>
+            <small>Confira o nome pesquisado ou limpe a busca.</small>
+            <button type="button" onClick={() => setGatewaySearch("")}>Limpar busca</button>
+          </div>
+        )}
       </section>
     </div>
   );

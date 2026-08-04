@@ -3351,9 +3351,55 @@ a {
 .gateway-page {
   max-width: 1180px;
 }
+.gateway-search {
+  position: relative;
+  width: min(100%, 620px);
+  height: 45px;
+  margin: -2px 0 17px;
+  display: flex;
+  align-items: center;
+}
+.gateway-search > svg {
+  position: absolute;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: #777b71;
+  pointer-events: none;
+}
+.gateway-search input {
+  width: 100%;
+  height: 100%;
+  padding: 0 43px;
+  border: 1px solid #d9dbd4;
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+  color: #1b1d18;
+  font: inherit;
+  font-size: 10px;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.gateway-search input:focus {
+  border-color: #8eaa32;
+  box-shadow: 0 0 0 3px rgba(142,170,50,.1);
+}
+.gateway-search input::-webkit-search-cancel-button { display: none; }
+.gateway-search button {
+  position: absolute;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f0f2ec;
+  color: #62675d;
+}
+.gateway-search button svg { width: 13px; height: 13px; }
 .gateway-catalog {
   display: grid;
-  grid-template-columns: minmax(0, 680px) 1fr;
+  grid-template-columns: minmax(0, 620px) 1fr;
   gap: 18px;
 }
 .gateway-provider-card {
@@ -3364,18 +3410,18 @@ a {
   box-shadow: 0 16px 35px rgba(24, 26, 19, 0.045);
 }
 .gateway-provider-card > header {
-  min-height: 96px;
+  min-height: 84px;
   display: grid;
-  grid-template-columns: 62px minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 19px 22px;
+  gap: 13px;
+  padding: 15px 18px;
   border-top: 4px solid #ef342f;
   background: #fff8f7;
 }
 .gateway-provider-card > header img {
-  width: 58px;
-  height: 58px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   display: block;
 }
@@ -3384,7 +3430,7 @@ a {
   gap: 4px;
 }
 .gateway-provider-card > header strong {
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: -0.45px;
 }
 .gateway-provider-card > header span {
@@ -3408,11 +3454,11 @@ a {
   background: #e8f5ec;
 }
 .gateway-provider-body {
-  padding: 22px;
+  padding: 18px;
 }
 .gateway-provider-body > p {
   max-width: 520px;
-  margin: 0 0 18px;
+  margin: 0 0 14px;
   color: #6f736a;
   font-size: 10px;
   line-height: 1.7;
@@ -3435,9 +3481,9 @@ a {
   color: #6f851f;
 }
 .gateway-provider-card > footer {
-  min-height: 66px;
+  min-height: 58px;
   border-top: 1px solid #ecece8;
-  padding: 12px 22px;
+  padding: 10px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3476,7 +3522,7 @@ a {
 }
 .gateway-key-grid input {
   width: 100%;
-  height: 44px;
+  height: 41px;
   border: 1px solid #dedfd9;
   border-radius: 9px;
   background: #fafbf8;
@@ -3496,12 +3542,29 @@ a {
 }
 .gateway-config-actions .btn,
 .gateway-test {
-  height: 40px;
+  height: 37px;
   border-radius: 10px;
   padding: 0 15px;
   font-size: 9px;
   font-weight: 800;
 }
+.gateway-search-empty {
+  min-height: 230px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 28px;
+  border: 1px dashed #d5d8cf;
+  border-radius: 18px;
+  background: #fafbf8;
+  color: #767b70;
+  text-align: center;
+}
+.gateway-search-empty > svg { width: 25px; height: 25px; margin-bottom: 5px; color: #8ba22e; }
+.gateway-search-empty b { color: #252821; font-size: 12px; }
+.gateway-search-empty small { font-size: 8px; }
+.gateway-search-empty button { min-height: 32px; margin-top: 6px; padding: 0 12px; border-radius: 9px; background: #e9ede2; color: #4f554a; font-size: 8px; font-weight: 800; }
 .gateway-test {
   background: #f0f1ed;
   color: #30322d;
