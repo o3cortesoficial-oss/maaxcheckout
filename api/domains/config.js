@@ -34,6 +34,12 @@ function normalizeDomain(value) {
   return raw;
 }
 
+function isCheckoutSubdomain(hostname) {
+  const labels = String(hostname || "").split(".").filter(Boolean);
+  const apexLabelCount = hostname.endsWith(".com.br") ? 3 : 2;
+  return labels.length > apexLabelCount;
+}
+
 function supabaseFor(request) {
   const token = String(request.headers.authorization || "").replace(
     /^Bearer\s+/i,
@@ -215,13 +221,16 @@ export default async function handler(request, response) {
           ...saved,
           verified: Boolean(remote.verified),
           dns: dnsGuide(saved.hostname, remote.verification, configuration),
+          requires_subdomain: !isCheckoutSubdomain(saved.hostname),
           checked_at: new Date().toISOString(),
         };
         await saveDomainSettings(supabase, workspaceId, domain);
         return response.status(200).json({ domain });
       } catch (error) {
         if (error.code === "VERCEL_DOMAIN_INTEGRATION_MISSING") throw error;
-        return response.status(200).json({ domain: saved });
+        return response.status(200).json({
+          domain: { ...saved, requires_subdomain: !isCheckoutSubdomain(saved.hostname) },
+        });
       }
     }
 
@@ -242,6 +251,11 @@ export default async function handler(request, response) {
     const hostname = normalizeDomain(request.body?.domain || saved?.hostname);
     if (!hostname)
       return response.status(400).json({ error: "Informe um domínio válido." });
+    if (!isCheckoutSubdomain(hostname))
+      return response.status(400).json({
+        error: "Use um subdomínio completo, por exemplo checkout.sualoja.com. Domínios raiz não são aceitos.",
+        code: "CHECKOUT_SUBDOMAIN_REQUIRED",
+      });
     if (action === "add") {
       if (!process.env.SUPABASE_SECRET_KEY)
         throw Object.assign(new Error("Configuração segura indisponível."), {
@@ -272,6 +286,7 @@ export default async function handler(request, response) {
         hostname,
         verified: Boolean(remote.verified),
         dns: dnsGuide(hostname, remote.verification, configuration),
+        requires_subdomain: false,
         created_at: new Date().toISOString(),
         checked_at: new Date().toISOString(),
       };
@@ -289,6 +304,7 @@ export default async function handler(request, response) {
         hostname,
         verified: Boolean(remote.verified),
         dns: dnsGuide(hostname, remote.verification, configuration),
+        requires_subdomain: false,
         checked_at: new Date().toISOString(),
       };
       await saveDomainSettings(supabase, workspaceId, domain);

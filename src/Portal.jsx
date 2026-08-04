@@ -6715,6 +6715,12 @@ function DomainPage({ workspace }) {
       const result = await request();
       setDomain(result.domain || null);
       setDraft(result.domain?.hostname || "");
+      if (result.domain?.requires_subdomain) {
+        setFeedback({
+          type: "warning",
+          message: "Esta configuração antiga usa o domínio raiz. Remova-a e cadastre um subdomínio, como checkout.seudominio.com.",
+        });
+      }
     } catch (error) {
       setFeedback({ type: "error", message: error.message });
     } finally {
@@ -6827,12 +6833,12 @@ function DomainPage({ workspace }) {
           <div>
             <GlobeSimple />
             <span>
-              <b>{domain?.verified ? domain.hostname : "checkout.sualoja.com"}</b>
+              <b>{domain?.verified && !domain?.requires_subdomain ? domain.hostname : "checkout.sualoja.com"}</b>
               <small>/checkout/seu-produto</small>
             </span>
           </div>
-          <em className={domain?.verified ? "verified" : ""}>
-            <i /> {domain?.verified ? "Conectado" : "Aguardando conexão"}
+          <em className={domain?.verified && !domain?.requires_subdomain ? "verified" : ""}>
+            <i /> {domain?.verified && !domain?.requires_subdomain ? "Conectado" : "Aguardando conexão"}
           </em>
         </div>
       </section>
@@ -6845,8 +6851,8 @@ function DomainPage({ workspace }) {
               <h2>Conectar domínio</h2>
             </div>
             {domain && (
-              <em className={domain.verified ? "verified" : "pending"}>
-                {domain.verified ? "Ativo" : "DNS pendente"}
+              <em className={domain.verified && !domain.requires_subdomain ? "verified" : "pending"}>
+                {domain.requires_subdomain ? "Reconfiguração necessária" : domain.verified ? "Ativo" : "DNS pendente"}
               </em>
             )}
           </header>
@@ -6855,7 +6861,7 @@ function DomainPage({ workspace }) {
           ) : (
             <>
               <label className="domain-input-label">
-                Domínio ou subdomínio
+                Subdomínio do checkout
                 <div>
                   <GlobeSimple />
                   <input
@@ -6868,8 +6874,8 @@ function DomainPage({ workspace }) {
                   />
                 </div>
                 <small>
-                  Recomendado: use um subdomínio como checkout.sualoja.com para
-                  configurar um único CNAME. Domínios raiz usam registros A.
+                  Use um endereço como checkout.sualoja.com. A Maax aceita
+                  somente subdomínios e sempre fornece um único CNAME.
                 </small>
               </label>
               {!domain ? (
@@ -6879,7 +6885,7 @@ function DomainPage({ workspace }) {
                 </Button>
               ) : (
                 <div className="domain-actions">
-                  <Button onClick={verify} disabled={Boolean(busy)}>
+                  <Button onClick={verify} disabled={Boolean(busy) || domain.requires_subdomain}>
                     {busy === "verify" ? "Testando..." : "Testar conexão"}
                   </Button>
                   <Button secondary onClick={() => setRemoveConfirm(true)} disabled={Boolean(busy)}>
@@ -6893,7 +6899,7 @@ function DomainPage({ workspace }) {
                   {feedback.message}
                 </div>
               )}
-              {domain && dns && (
+              {domain && dns && !domain.requires_subdomain && (
                 <div className="dns-record">
                   <div className="dns-record-title">
                     <span>
@@ -6901,9 +6907,7 @@ function DomainPage({ workspace }) {
                       <small>
                         {dns.ownershipRequired
                           ? "Validação de propriedade solicitada pela Vercel"
-                          : dns.hostnameType === "apex"
-                            ? "Domínio raiz: use somente o registro A em @"
-                            : "Subdomínio: use somente o registro CNAME indicado"}
+                          : "Subdomínio: adicione somente o CNAME indicado"}
                       </small>
                     </span>
                     <em>{dns.type}</em>
@@ -6936,7 +6940,7 @@ function DomainPage({ workspace }) {
           <ol>
             <li>
               <i>01</i>
-              <span><b>Na Maax</b><small>Digite o domínio acima e clique em “Adicionar domínio”.</small></span>
+              <span><b>Na Maax</b><small>Digite o subdomínio completo, como checkout.sualoja.com, e clique em “Adicionar domínio”.</small></span>
             </li>
             <li>
               <i>02</i>
