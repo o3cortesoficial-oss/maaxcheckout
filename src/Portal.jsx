@@ -82,7 +82,7 @@ function LanguageSelector() {
 }
 
 const money = (cents = 0) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+  new Intl.NumberFormat(getLanguage(), { style: "currency", currency: "BRL" }).format(
     Number(cents) / 100,
   );
 const brlToCents = (value = 0) => {
@@ -92,7 +92,7 @@ const brlToCents = (value = 0) => {
 };
 const date = (v) =>
   v
-    ? new Intl.DateTimeFormat("pt-BR", {
+    ? new Intl.DateTimeFormat(getLanguage(), {
         dateStyle: "short",
         timeStyle: "short",
       }).format(new Date(v))
@@ -228,7 +228,7 @@ function CornerPhone({ orders = [], session }) {
   const [now, setNow] = useState(() => new Date());
   const [supportText, setSupportText] = useState("");
   const [supportMessages, setSupportMessages] = useState([
-    { from: "maax", text: "Olá. Sou o suporte inteligente da Maax. Me conte o que você precisa configurar.", sentAt: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) },
+    { from: "maax", text: "Olá. Sou o suporte inteligente da Maax. Me conte o que você precisa configurar.", sentAt: new Intl.DateTimeFormat(getLanguage(), { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) },
   ]);
   const [supportTopic, setSupportTopic] = useState("");
   const [supportTyping, setSupportTyping] = useState(false);
@@ -260,16 +260,16 @@ function CornerPhone({ orders = [], session }) {
     });
   }, [supportMessages, supportTyping]);
 
-  const currentTime = new Intl.DateTimeFormat("pt-BR", {
+  const currentTime = new Intl.DateTimeFormat(getLanguage(), {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(now);
-  const currentWeekday = new Intl.DateTimeFormat("pt-BR", { weekday: "short" })
+  const currentWeekday = new Intl.DateTimeFormat(getLanguage(), { weekday: "short" })
     .format(now)
     .replace(".", "");
-  const currentDay = new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(now);
-  const currentMonth = new Intl.DateTimeFormat("pt-BR", { month: "short" })
+  const currentDay = new Intl.DateTimeFormat(getLanguage(), { day: "2-digit" }).format(now);
+  const currentMonth = new Intl.DateTimeFormat(getLanguage(), { month: "short" })
     .format(now)
     .replace(".", "");
   const paidRevenue = orders
@@ -289,7 +289,7 @@ function CornerPhone({ orders = [], session }) {
     setSupportTyping(true);
     const naturalDelay = Math.min(2600, Math.max(900, 650 + response.text.length * 9));
     supportTimerRef.current = window.setTimeout(() => {
-      setSupportMessages((messages) => [...messages, { from: "maax", text: response.text, sentAt: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) }]);
+      setSupportMessages((messages) => [...messages, { from: "maax", text: response.text, sentAt: new Intl.DateTimeFormat(getLanguage(), { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) }]);
       setSupportTopic(response.topic);
       setSupportTyping(false);
     }, naturalDelay);
@@ -2816,7 +2816,7 @@ function BillingCycleCard({ workspace, orders = [], onOpen }) {
     .filter((order) => order.status === "approved" && new Date(order.paid_at || order.created_at) >= cycle.start && new Date(order.paid_at || order.created_at) < cycle.end)
     .reduce((sum, order) => sum + Number(order.total_cents || 0), 0);
   const fee = platformFeeCents(plan.id, paidVolume);
-  const dueDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(cycle.end).replace(".", "");
+  const dueDate = new Intl.DateTimeFormat(getLanguage(), { day: "2-digit", month: "short" }).format(cycle.end).replace(".", "");
   return <button type="button" className="billing-cycle-card" onClick={onOpen}>
     <header><span><CreditCard weight="duotone" /></span><div><small>PLANO ATUAL</small><b>{plan.name}</b></div><CaretRight /></header>
     <div className="billing-cycle-progress"><i /></div>
@@ -2910,7 +2910,7 @@ function CheckoutLiveFeed({ counters = [], presence = [] }) {
       <div className="live-counter-grid" aria-live="polite">
         {stages.map(([label, total]) => (
           <div className="live-counter" key={label}>
-            <strong>{new Intl.NumberFormat("pt-BR").format(total)}</strong>
+            <strong>{new Intl.NumberFormat(getLanguage()).format(total)}</strong>
             <span>{label}</span>
           </div>
         ))}
@@ -3124,7 +3124,7 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
     return timestamp >= start && timestamp <= end;
   }), [data.orders, salesPeriod]);
   const periodRevenue = paidInPeriod.reduce((sum, order) => sum + Number(order.total_cents || 0), 0);
-  const shortDate = (value) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${value}T12:00:00`));
+  const shortDate = (value) => new Intl.DateTimeFormat(getLanguage(), { day: "2-digit", month: "short" }).format(new Date(`${value}T12:00:00`));
   const periodLabel = salesPeriod.start === salesPeriod.end ? shortDate(salesPeriod.start) : `${shortDate(salesPeriod.start)} – ${shortDate(salesPeriod.end)}`;
   return (
     <div className="page-enter">
