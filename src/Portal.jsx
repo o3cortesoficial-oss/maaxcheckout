@@ -648,6 +648,19 @@ function Modal({ title, children, onClose }) {
     </div>
   );
 }
+function ConfirmDialog({ open, title, description, confirmLabel = "Confirmar", tone = "danger", busy = false, onConfirm, onClose }) {
+  if (!open) return null;
+  return createPortal(
+    <div className="maax-confirm-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
+      <section className="maax-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="maax-confirm-title">
+        <header><span className={`maax-confirm-icon ${tone}`}>{tone === "danger" ? <Trash/> : <WarningCircle/>}</span><button type="button" onClick={onClose} disabled={busy} aria-label="Fechar"><X/></button></header>
+        <div><span>CONFIRMAÇÃO</span><h2 id="maax-confirm-title">{title}</h2><p>{description}</p></div>
+        <footer><button type="button" className="secondary" onClick={onClose} disabled={busy}>Cancelar</button><button type="button" className={tone} onClick={onConfirm} disabled={busy}>{busy ? "Processando..." : confirmLabel}</button></footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
 function Field({ label, ...props }) {
   return (
     <label className="data-field">
@@ -6568,6 +6581,7 @@ function DomainPage({ workspace }) {
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [copied, setCopied] = useState("");
+  const [removeConfirm, setRemoveConfirm] = useState(false);
 
   const request = async (options = {}) => {
     const { data } = await supabase.auth.getSession();
@@ -6660,7 +6674,6 @@ function DomainPage({ workspace }) {
     }
   };
   const remove = async () => {
-    if (!window.confirm("Remover este domínio dos checkouts públicos?")) return;
     setBusy("remove");
     try {
       await request({
@@ -6669,6 +6682,7 @@ function DomainPage({ workspace }) {
       });
       setDomain(null);
       setDraft("");
+      setRemoveConfirm(false);
       setFeedback({ type: "success", message: "Domínio removido." });
     } catch (error) {
       setFeedback({ type: "error", message: error.message });
@@ -6764,7 +6778,7 @@ function DomainPage({ workspace }) {
                   <Button onClick={verify} disabled={Boolean(busy)}>
                     {busy === "verify" ? "Testando..." : "Testar conexão"}
                   </Button>
-                  <Button secondary onClick={remove} disabled={Boolean(busy)}>
+                  <Button secondary onClick={() => setRemoveConfirm(true)} disabled={Boolean(busy)}>
                     <Trash /> Remover domínio
                   </Button>
                 </div>
@@ -6839,6 +6853,7 @@ function DomainPage({ workspace }) {
           </div>
         </aside>
       </div>
+      <ConfirmDialog open={removeConfirm} title="Remover domínio?" description="O endereço personalizado deixará de abrir seus checkouts públicos. Você poderá configurá-lo novamente depois." confirmLabel="Remover domínio" busy={busy === "remove"} onClose={() => setRemoveConfirm(false)} onConfirm={remove}/>
     </div>
   );
 }
@@ -7319,6 +7334,7 @@ function ProductRows({
   onReload,
 }) {
   const [feedback, setFeedback] = useState("");
+  const [productToDelete, setProductToDelete] = useState(null);
   const copyLink = async (product) => {
     const url = `${checkoutOrigin}/checkout/${product.slug}`;
     await navigator.clipboard.writeText(url);
@@ -7326,12 +7342,6 @@ function ProductRows({
     setTimeout(() => setFeedback(""), 2500);
   };
   const remove = async (product) => {
-    if (
-      !confirm(
-        `Excluir o produto “${product.name}”? Esta ação não pode ser desfeita.`,
-      )
-    )
-      return;
     const { error: imageError } = await supabase
       .from("product_images")
       .delete()
@@ -7342,6 +7352,7 @@ function ProductRows({
       .delete()
       .eq("id", product.id);
     if (error) return setFeedback(error.message);
+    setProductToDelete(null);
     await onReload();
     setFeedback("Produto excluído.");
   };
@@ -7400,7 +7411,7 @@ function ProductRows({
               <button
                 type="button"
                 className="danger"
-                onClick={() => remove(product)}
+                onClick={() => setProductToDelete(product)}
                 aria-label={`Excluir ${product.name}`}
                 title="Excluir"
               >
@@ -7415,6 +7426,7 @@ function ProductRows({
           {feedback}
         </div>
       )}
+      <ConfirmDialog open={Boolean(productToDelete)} title="Excluir produto?" description={productToDelete ? `“${productToDelete.name}” e suas imagens serão removidos definitivamente.` : ""} confirmLabel="Excluir produto" onClose={() => setProductToDelete(null)} onConfirm={() => productToDelete && remove(productToDelete)}/>
     </div>
   );
 }
