@@ -25,6 +25,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/locale",
+      "destination": "/api/checkout/events?maax_route=locale"
+    },
+    {
       "source": "/api/billing/checkout",
       "destination": "/api/admin/stripe?maax_route=billing_checkout"
     },

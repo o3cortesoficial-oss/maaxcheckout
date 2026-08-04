@@ -22,6 +22,14 @@ export default async function handler(request, response) {
   applyApiSecurityHeaders(response);
   if (!["GET", "POST"].includes(request.method))
     return response.status(405).json({ error: "Método não permitido." });
+  if (request.method === "GET" && request.query?.maax_route === "locale") {
+    const rawCountry = request.headers["x-vercel-ip-country"] || request.headers["cf-ipcountry"] || "";
+    const country = String(Array.isArray(rawCountry) ? rawCountry[0] : rawCountry).trim().toUpperCase();
+    return response.status(200).json({
+      country: /^[A-Z]{2}$/.test(country) ? country : null,
+      locale: country === "BR" ? "pt-BR" : country ? "en" : null,
+    });
+  }
   if (
     !requireSameOrigin(request, response) ||
     (request.method === "POST" && !enforceJsonBodyLimit(request, response, 8192)) ||
