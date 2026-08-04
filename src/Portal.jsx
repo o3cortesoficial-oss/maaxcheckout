@@ -6,6 +6,7 @@ import {
   Bank,
   Bell,
   Buildings,
+  CalendarBlank,
   Camera,
   CaretDown,
   CaretLeft,
@@ -2934,6 +2935,9 @@ function CampaignAttributionPanel({ orders = [] }) {
 
 function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
   const [inviteCopied, setInviteCopied] = useState(false);
+  const todayKey = new Date().toLocaleDateString("en-CA");
+  const [salesPeriod, setSalesPeriod] = useState({ start: todayKey, end: todayKey });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const attributionEnabled =
     data.checkout_configs?.[0]?.settings?.campaign_attribution_enabled === true;
   const inviteUrl = partnerInfo?.partner_code
@@ -2945,6 +2949,16 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
     setInviteCopied(true);
     window.setTimeout(() => setInviteCopied(false), 1800);
   };
+  const paidInPeriod = useMemo(() => data.orders.filter((order) => {
+    if (order.status !== "approved") return false;
+    const timestamp = new Date(order.paid_at || order.created_at).getTime();
+    const start = new Date(`${salesPeriod.start}T00:00:00`).getTime();
+    const end = new Date(`${salesPeriod.end}T23:59:59.999`).getTime();
+    return timestamp >= start && timestamp <= end;
+  }), [data.orders, salesPeriod]);
+  const periodRevenue = paidInPeriod.reduce((sum, order) => sum + Number(order.total_cents || 0), 0);
+  const shortDate = (value) => new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${value}T12:00:00`));
+  const periodLabel = salesPeriod.start === salesPeriod.end ? shortDate(salesPeriod.start) : `${shortDate(salesPeriod.start)} – ${shortDate(salesPeriod.end)}`;
   return (
     <div className="page-enter">
       <PageTitle
@@ -2952,17 +2966,15 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
         title={`Olá, ${workspace?.name}.`}
         description="Resumo atualizado do seu checkout."
       />
-      {partnerInfo && inviteUrl && <section className="partner-home-card">
-        <div className="partner-home-status"><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é sua.</b><p>Compartilhe seu link exclusivo e acompanhe seus ganhos pela Maax.</p></span></div>
-        <div className="partner-home-invite"><span>LINK DE CONVITE</span><div><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados: <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>
-      </section>}
       <section className="balance">
         <div className="balance-copy">
-          <span>Volume processado</span>
-          <strong>{money(metrics.revenue)}</strong>
+          <div className="balance-period-head"><span>Pagamentos aprovados</span><button type="button" onClick={() => setCalendarOpen((value) => !value)}><CalendarBlank/>{periodLabel}<CaretDown/></button></div>
+          {calendarOpen && <div className="balance-calendar"><header><span>PERÍODO PERSONALIZADO</span><button type="button" onClick={() => setCalendarOpen(false)} aria-label="Fechar calendário"><X/></button></header><div><label>Data inicial<input type="date" value={salesPeriod.start} max={salesPeriod.end} onChange={(event) => setSalesPeriod((value) => ({ ...value, start: event.target.value }))}/></label><label>Data final<input type="date" value={salesPeriod.end} min={salesPeriod.start} onChange={(event) => setSalesPeriod((value) => ({ ...value, end: event.target.value }))}/></label></div><button type="button" onClick={() => setCalendarOpen(false)}>Aplicar período</button></div>}
+          <strong>{money(periodRevenue)}</strong>
           <p>
-            <CheckCircle /> Total de pagamentos aprovados
+            <CheckCircle /> {paidInPeriod.length} {paidInPeriod.length === 1 ? "pedido pago" : "pedidos pagos"} no período
           </p>
+          {partnerInfo && inviteUrl && <div className="partner-balance-invite"><div><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é sua</b></span></div><div className="partner-link-row"><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>}
         </div>
         <CheckoutLiveFeed
           counters={data.checkout_event_counters}
