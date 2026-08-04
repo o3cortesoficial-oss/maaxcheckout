@@ -6453,6 +6453,18 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
   const [savingPlan, setSavingPlan] = useState("");
   const [planMessage, setPlanMessage] = useState("");
   const [embeddedBilling, setEmbeddedBilling] = useState(null);
+  const [subscription, setSubscription] = useState(null);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [subscriptionBusy, setSubscriptionBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(async ({ data: auth }) => {
+      const response = await fetch("/api/billing/checkout", { headers: { Authorization: `Bearer ${auth.session?.access_token || ""}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (active && response.ok) setSubscription(payload);
+    });
+    return () => { active = false; };
+  }, [workspace?.id]);
   const plans = [
     {
       id: "essential",
@@ -6494,6 +6506,22 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
     },
   ];
   const selectedPlan = workspace?.platform_plan || "";
+  const hasActiveSubscription = ["active", "trialing"].includes(subscription?.subscription_status) && subscription?.account_type !== "partner";
+  const periodEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
+  const remainingDays = periodEnd && !Number.isNaN(periodEnd.getTime()) ? Math.max(0, Math.ceil((periodEnd.getTime() - Date.now()) / 86400000)) : null;
+  const changeCancellation = async (action) => {
+    if (subscriptionBusy) return;
+    setSubscriptionBusy(true); setPlanMessage("");
+    const { data: auth } = await supabase.auth.getSession();
+    const response = await fetch("/api/billing/checkout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.session?.access_token || ""}` }, body: JSON.stringify({ action }) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) setPlanMessage(payload.error || "Não foi possível alterar o cancelamento.");
+    else {
+      setSubscription((current) => ({ ...current, ...payload }));
+      setPlanMessage(action === "schedule_cancel" ? "Cancelamento agendado para o fim do ciclo atual." : "Cancelamento desfeito. Sua assinatura continuará ativa.");
+    }
+    setCancelConfirm(false); setSubscriptionBusy(false);
+  };
   const selectPlan = async (planId) => {
     if (savingPlan) return;
     setSavingPlan(planId); setPlanMessage("");
@@ -6515,7 +6543,7 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
         },
       });
     }
-    else { setPlanMessage(payload.partner ? "Plano ativo. Esta conta parceira permanece isenta." : "Plano e cobrança semanal atualizados."); await onReload?.(); }
+    else { setPlanMessage(payload.partner ? "Plano ativo. Esta conta parceira permanece isenta." : "Plano e cobrança semanal atualizados."); setSubscription((current) => current ? { ...current, cancel_at_period_end: false, subscription_status: "active" } : current); await onReload?.(); }
     setSavingPlan("");
   };
   return (
@@ -6538,7 +6566,30 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
             <small>Finais de semana e feriados não alteram o vencimento.</small>
           </p>
         </div>
-        {planMessage && <div className={`plan-selection-message ${/ativ|atualiz|isenta/i.test(planMessage) ? "success" : "error"}`}>{planMessage}</div>}
+        {hasActiveSubscription && (
+          <div className={`subscription-cancel-card ${subscription?.cancel_at_period_end ? "scheduled" : ""}`}>
+            <div>
+              <small>{subscription?.cancel_at_period_end ? "CANCELAMENTO AGENDADO" : "ASSINATURA ATIVA"}</small>
+              <h3>{subscription?.cancel_at_period_end ? "Seu plano termina ao fim deste ciclo." : "Você controla a renovação do seu plano."}</h3>
+              <p>
+                {subscription?.cancel_at_period_end
+                  ? remainingDays == null
+                    ? "O acesso permanece ativo até o fechamento do ciclo. As taxas percentuais acumuladas serão cobradas no encerramento."
+                    : `O acesso permanece ativo por mais ${remainingDays} ${remainingDays === 1 ? "dia" : "dias"}. As taxas percentuais acumuladas serão cobradas no fechamento.`
+                  : "Ao cancelar, o plano permanece disponível até completar os 7 dias e as taxas percentuais acumuladas entram na cobrança final."}
+              </p>
+            </div>
+            <div className="subscription-cancel-meta">
+              <span><small>Fim do ciclo</small><b>{periodEnd && !Number.isNaN(periodEnd.getTime()) ? periodEnd.toLocaleDateString(getLanguage() === "en" ? "en-US" : "pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "Em até 7 dias"}</b></span>
+              {subscription?.cancel_at_period_end ? (
+                <button type="button" onClick={() => changeCancellation("resume_subscription")} disabled={subscriptionBusy}>{subscriptionBusy ? "Processando..." : "Manter assinatura"}</button>
+              ) : (
+                <button type="button" className="cancel" onClick={() => setCancelConfirm(true)} disabled={subscriptionBusy}>Cancelar assinatura</button>
+              )}
+            </div>
+          </div>
+        )}
+        {planMessage && <div className={`plan-selection-message ${/ativ|atualiz|isenta|agendado|desfeito/i.test(planMessage) ? "success" : "error"}`}>{planMessage}</div>}
         <div className="subscription-plan-grid">
           {plans.map((plan, index) => (
             <article
@@ -6588,6 +6639,15 @@ function SubscriptionPlansPreview({ revenue, workspace, onReload }) {
           </div>
         )}
       </section>
+      <ConfirmDialog
+        open={cancelConfirm}
+        title="Cancelar ao fim do ciclo?"
+        description="Sua assinatura continuará ativa até completar os 7 dias. No encerramento, a cobrança final incluirá as taxas percentuais acumuladas no período e depois o plano será cancelado."
+        confirmLabel="Agendar cancelamento"
+        busy={subscriptionBusy}
+        onClose={() => setCancelConfirm(false)}
+        onConfirm={() => changeCancellation("schedule_cancel")}
+      />
     </div>
   );
 }

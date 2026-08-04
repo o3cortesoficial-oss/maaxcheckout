@@ -20,6 +20,19 @@ export default async function handler(request, response) {
     if (authError || !auth.user) return response.status(401).json({ error: "Sessão inválida." });
     const { data: control } = await admin.from("platform_user_controls").select("*").eq("user_id", auth.user.id).maybeSingle();
     if (request.method === "GET") {
+      let cancellation = { cancel_at_period_end: false, current_period_end: control?.current_period_end || null };
+      if (control?.stripe_subscription_id && ["active", "trialing", "past_due"].includes(control?.subscription_status)) {
+        try {
+          const { stripe } = await stripeBillingClient(admin);
+          const subscription = await stripe.subscriptions.retrieve(control.stripe_subscription_id);
+          cancellation = {
+            cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+            current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : cancellation.current_period_end,
+          };
+        } catch (error) {
+          console.error("Subscription status refresh failed", { name: error?.name, message: error?.message });
+        }
+      }
       let partnerCode = control?.partner_code || null;
       let partnerEarningsCents = 0;
       if (control?.account_type === "partner") {
@@ -35,8 +48,25 @@ export default async function handler(request, response) {
         subscription_status: control?.subscription_status || "not_started",
         plan_name: control?.plan_name || null,
         access_status: control?.access_status || "active",
+        ...cancellation,
         partner_code: partnerCode,
         partner_earnings_cents: partnerEarningsCents,
+      });
+    }
+    const action = cleanString(request.body?.action, 30);
+    if (["schedule_cancel", "resume_subscription"].includes(action)) {
+      if (control?.account_type === "partner") return response.status(409).json({ error: "Contas parceiras não possuem cobrança para cancelar." });
+      if (!control?.stripe_subscription_id || !["active", "trialing"].includes(control?.subscription_status))
+        return response.status(409).json({ error: "Nenhuma assinatura ativa foi encontrada." });
+      const { stripe } = await stripeBillingClient(admin);
+      const subscription = await stripe.subscriptions.retrieve(control.stripe_subscription_id);
+      if (!["active", "trialing"].includes(subscription.status))
+        return response.status(409).json({ error: "Esta assinatura não pode ser alterada no estado atual." });
+      const scheduled = action === "schedule_cancel";
+      const updated = await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: scheduled });
+      return response.status(200).json({
+        cancel_at_period_end: Boolean(updated.cancel_at_period_end),
+        current_period_end: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
       });
     }
     const workspaceId = cleanString(request.body?.workspace_id, 40);
@@ -68,7 +98,7 @@ export default async function handler(request, response) {
     if (control?.stripe_subscription_id && ["active", "trialing", "past_due"].includes(control.subscription_status)) {
       const subscription = await stripe.subscriptions.retrieve(control.stripe_subscription_id);
       const subscriptionMetadata = { maax_user_id: auth.user.id, plan_id: plan.id, ...(workspace ? { workspace_id: workspace.id } : {}) };
-      await stripe.subscriptions.update(subscription.id, { items: [{ id: subscription.items.data[0].id, price: priceId }], proration_behavior: "none", metadata: subscriptionMetadata });
+      await stripe.subscriptions.update(subscription.id, { items: [{ id: subscription.items.data[0].id, price: priceId }], proration_behavior: "none", cancel_at_period_end: false, metadata: subscriptionMetadata });
       if (workspace) await admin.from("workspaces").update({ platform_plan: plan.id, billing_anchor_at: new Date().toISOString() }).eq("id", workspace.id);
       await admin.from("platform_user_controls").upsert({ user_id: auth.user.id, stripe_customer_id: customerId, stripe_subscription_id: subscription.id, subscription_status: subscription.status, plan_name: plan.name, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       return response.status(200).json({ active: true, updated: true });

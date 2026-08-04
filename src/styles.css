@@ -2511,6 +2511,37 @@ a {
 .plan-selection-message { margin: 16px 0 0; padding: 11px 14px; border-radius: 11px; font-size: 10px; font-weight: 650; }
 .plan-selection-message.success { background: #eff6dc; color: #53671c; }
 .plan-selection-message.error { background: #fff0ee; color: #a43a31; }
+.subscription-cancel-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  margin: 0 0 24px;
+  padding: 22px 24px;
+  border: 1px solid #3e4038;
+  border-radius: 17px;
+  background: linear-gradient(110deg, rgb(40 42 36 / 96%), rgb(29 30 27 / 96%));
+  color: #f5f6f1;
+}
+.subscription-cancel-card.scheduled { border-color: #88712d; background: linear-gradient(110deg, #302c20, #20211d); }
+.subscription-cancel-card > div:first-child { max-width: 700px; }
+.subscription-cancel-card > div > small { color: var(--lime); font-size: 8px; font-weight: 750; letter-spacing: .12em; }
+.subscription-cancel-card h3 { margin: 7px 0 6px; font-size: 18px; letter-spacing: -.03em; }
+.subscription-cancel-card p { margin: 0; color: #a5a89f; font-size: 10px; line-height: 1.55; }
+.subscription-cancel-meta { display: flex; align-items: center; gap: 18px; }
+.subscription-cancel-meta span { display: grid; gap: 4px; min-width: 92px; }
+.subscription-cancel-meta span small { color: #85887f; font-size: 8px; }
+.subscription-cancel-meta span b { font-size: 11px; }
+.subscription-cancel-meta button { min-height: 40px; padding: 0 16px; border: 1px solid var(--lime); border-radius: 11px; background: var(--lime); color: #171815; font-size: 9px; font-weight: 750; }
+.subscription-cancel-meta button.cancel { border-color: #5b5d54; background: transparent; color: #d9dbd4; }
+.subscription-cancel-meta button.cancel:hover { border-color: #e0695f; color: #ff8b81; }
+@media (max-width: 760px) {
+  .subscription-cancel-card { grid-template-columns: 1fr; gap: 18px; padding: 19px; }
+  .subscription-cancel-meta { justify-content: space-between; }
+  .subscription-cancel-meta button { flex: 1; }
+}
 .plans-showcase .subscription-plan.featured:hover {
   transform: translateY(-12px);
 }
