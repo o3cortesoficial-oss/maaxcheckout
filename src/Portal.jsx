@@ -2974,7 +2974,7 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
           <p>
             <CheckCircle /> {paidInPeriod.length} {paidInPeriod.length === 1 ? "pedido pago" : "pedidos pagos"} no período
           </p>
-          {partnerInfo && inviteUrl && <div className="partner-balance-invite"><div><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é sua</b></span></div><div className="partner-link-row"><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>}
+          {partnerInfo && inviteUrl && <div className="partner-balance-invite"><div><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é seu!</b></span></div><div className="partner-link-row"><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>}
         </div>
         <CheckoutLiveFeed
           counters={data.checkout_event_counters}
