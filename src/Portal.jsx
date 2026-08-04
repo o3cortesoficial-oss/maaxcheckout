@@ -6868,7 +6868,8 @@ function DomainPage({ workspace }) {
                   />
                 </div>
                 <small>
-                  Recomendado: use um subdomínio como checkout.sualoja.com.
+                  Recomendado: use um subdomínio como checkout.sualoja.com para
+                  configurar um único CNAME. Domínios raiz usam registros A.
                 </small>
               </label>
               {!domain ? (
@@ -6907,11 +6908,11 @@ function DomainPage({ workspace }) {
                     </span>
                     <em>{dns.type}</em>
                   </div>
-                  {[["Nome / Host", dns.name, "name"], ["Valor / Destino", dns.value, "value"]].map(
+                  {[["Nome / Host", dns.name, "name"], ...(dns.values || [dns.value]).map((value, index, values) => [values.length > 1 ? `Valor / Destino ${index + 1}` : "Valor / Destino", value, `value-${index}`])].map(
                     ([label, value, key]) => (
                       <div className="dns-value" key={key}>
                         <span><small>{label}</small><b>{value}</b></span>
-                        <button onClick={() => copyValue(key, value)}>
+                        <button type="button" onClick={() => copyValue(key, value)}>
                           {copied === key ? <CheckCircle /> : <Copy />}
                           {copied === key ? "Copiado" : "Copiar"}
                         </button>

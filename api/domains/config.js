@@ -87,13 +87,24 @@ async function vercelRequest(path, options = {}) {
   return payload;
 }
 
-function preferredDnsValue(configuration, key, fallback) {
+function flattenDnsValues(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.flatMap(flattenDnsValues);
+  if (typeof value === "object")
+    return flattenDnsValues(value.value || value.cname || value.ip);
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function preferredDnsValues(configuration, key, fallback) {
   const recommended = configuration?.[key];
-  if (Array.isArray(recommended)) {
-    const first = [...recommended].sort((a, b) => Number(a.rank || 0) - Number(b.rank || 0))[0];
-    return first?.value || first?.cname || first?.ip || fallback;
-  }
-  return recommended?.value || recommended || fallback;
+  const ranked = Array.isArray(recommended)
+    ? [...recommended].sort((a, b) => Number(a?.rank || 0) - Number(b?.rank || 0))
+    : recommended;
+  const values = flattenDnsValues(ranked);
+  return values.length ? [...new Set(values)] : [fallback];
 }
 
 function dnsGuide(domain, verification = [], configuration = null) {
@@ -104,21 +115,25 @@ function dnsGuide(domain, verification = [], configuration = null) {
     ? verification.find((item) => item.type === "TXT")
     : null;
   const recordType = looksLikeSubdomain ? "CNAME" : "A";
+  const values = ownership
+    ? [ownership.value]
+    : looksLikeSubdomain
+      ? preferredDnsValues(configuration, "recommendedCNAME", "cname.vercel-dns-0.com")
+      : preferredDnsValues(configuration, "recommendedIPv4", "76.76.21.21");
   return {
     type: ownership?.type || recordType,
     name: ownership?.domain || (looksLikeSubdomain ? labels.slice(0, -apexLabelCount).join(".") : "@"),
-    value:
-      ownership?.value ||
-      (looksLikeSubdomain
-        ? preferredDnsValue(configuration, "recommendedCNAME", "cname.vercel-dns-0.com")
-        : preferredDnsValue(configuration, "recommendedIPv4", "76.76.21.21")),
+    value: values[0],
+    values,
     ownershipRequired: Boolean(ownership),
     hostnameType: looksLikeSubdomain ? "subdomain" : "apex",
     explanation: ownership
       ? "Adicione primeiro este TXT para confirmar que o domínio pertence a você. Depois teste novamente para receber o registro de apontamento."
       : looksLikeSubdomain
         ? "Subdomínios usam CNAME. Não adicione um registro A no mesmo host."
-        : "Domínios raiz usam A com host @. Não adicione CNAME no domínio raiz.",
+        : values.length > 1
+          ? `A Vercel solicitou ${values.length} registros A. Crie uma linha separada para cada IP, sempre com o host @.`
+          : "Domínios raiz usam A com host @. Não adicione CNAME no domínio raiz.",
   };
 }
 
