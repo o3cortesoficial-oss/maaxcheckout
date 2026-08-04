@@ -35,13 +35,20 @@ export default async function handler(request, response) {
       }
       let partnerCode = control?.partner_code || null;
       let partnerEarningsCents = 0;
+      let partnerCycle = null;
       if (control?.account_type === "partner") {
         if (!partnerCode) {
           partnerCode = crypto.randomBytes(6).toString("hex").toUpperCase();
           await admin.from("platform_user_controls").update({ partner_code: partnerCode, updated_at: new Date().toISOString() }).eq("user_id", auth.user.id);
         }
-        const { data: commissions } = await admin.from("partner_commissions").select("commission_cents").eq("partner_user_id", auth.user.id).neq("status", "cancelled");
+        const { data: commissions } = await admin.from("partner_commissions").select("commission_cents,created_at").eq("partner_user_id", auth.user.id).eq("status", "pending").order("created_at");
         partnerEarningsCents = (commissions || []).reduce((sum, item) => sum + Number(item.commission_cents || 0), 0);
+        if (commissions?.length) {
+          const cycleStart = new Date(commissions[0].created_at);
+          const cycleEnd = new Date(cycleStart.getTime() + 7 * 86400000);
+          const closedAmount = commissions.filter((item) => new Date(item.created_at) < cycleEnd).reduce((sum, item) => sum + Number(item.commission_cents || 0), 0);
+          partnerCycle = { start: cycleStart.toISOString(), end: cycleEnd.toISOString(), closed: Date.now() >= cycleEnd.getTime(), closed_amount_cents: Date.now() >= cycleEnd.getTime() ? closedAmount : 0 };
+        }
       }
       return response.status(200).json({
         account_type: control?.account_type || "standard",
@@ -51,6 +58,7 @@ export default async function handler(request, response) {
         ...cancellation,
         partner_code: partnerCode,
         partner_earnings_cents: partnerEarningsCents,
+        partner_cycle: partnerCycle,
       });
     }
     const action = cleanString(request.body?.action, 30);

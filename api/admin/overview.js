@@ -144,6 +144,13 @@ export default async function handler(request, response) {
       const control = controls.get(user.id) || {};
       const userSubscriptions = subscriptions.filter((item) => workspaceIds.has(item.workspace_id));
       const currentSubscription = userSubscriptions.find((item) => ["active", "trialing", "past_due"].includes(item.status)) || userSubscriptions[0];
+      const partnerCommissions = commissions.filter((item) => item.partner_user_id === user.id);
+      const pendingCommissions = partnerCommissions.filter((item) => item.status === "pending").sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      const cycleStart = pendingCommissions[0]?.created_at ? new Date(pendingCommissions[0].created_at) : null;
+      const cycleEnd = cycleStart ? new Date(cycleStart.getTime() + 7 * 86400000) : null;
+      const cycleClosed = Boolean(cycleEnd && Date.now() >= cycleEnd.getTime());
+      const closedCommissions = cycleClosed ? pendingCommissions.filter((item) => new Date(item.created_at) < cycleEnd) : [];
+      const paidCommissions = partnerCommissions.filter((item) => item.status === "paid");
       return {
         id: user.id,
         email: user.email,
@@ -161,7 +168,15 @@ export default async function handler(request, response) {
           email: usersById.get(control.referred_by_user_id)?.email || "",
           partner_code: controls.get(control.referred_by_user_id)?.partner_code || "",
         } : null,
-        partner_earnings: commissions.filter((item) => item.partner_user_id === user.id).reduce((sum, item) => sum + Number(item.commission_cents || 0), 0),
+        partner_earnings: pendingCommissions.reduce((sum, item) => sum + Number(item.commission_cents || 0), 0),
+        partner_payout: {
+          cycle_start: cycleStart?.toISOString() || null,
+          cycle_end: cycleEnd?.toISOString() || null,
+          cycle_closed: cycleClosed,
+          closed_amount_cents: closedCommissions.reduce((sum, item) => sum + Number(item.commission_cents || 0), 0),
+          closed_commissions: closedCommissions.length,
+          paid_total_cents: paidCommissions.reduce((sum, item) => sum + Number(item.commission_cents || 0), 0),
+        },
         access_status: control.access_status || (user.banned_until && new Date(user.banned_until) > new Date() ? "blocked" : "active"),
         block_reason: control.block_reason || "",
         subscription: {

@@ -35,7 +35,7 @@ export default async function handler(request, response) {
     const { client, actor } = await adminClient(request);
     const userId = cleanString(request.body?.user_id, 40);
     const action = cleanString(request.body?.action, 24);
-    if (!/^[0-9a-f-]{36}$/i.test(userId) || !["partner", "block", "unblock", "commercial"].includes(action))
+    if (!/^[0-9a-f-]{36}$/i.test(userId) || !["partner", "partner_payout", "block", "unblock", "commercial"].includes(action))
       return response.status(400).json({ error: "Ação ou usuário inválido." });
     if (userId === actor.id && action === "block")
       return response.status(409).json({ error: "A conta administradora principal não pode bloquear a si própria." });
@@ -47,6 +47,24 @@ export default async function handler(request, response) {
         const { data: existing } = await client.from("platform_user_controls").select("partner_code").eq("user_id", userId).maybeSingle();
         update.partner_code = existing?.partner_code || crypto.randomBytes(6).toString("hex").toUpperCase();
       }
+    }
+    if (action === "partner_payout") {
+      const { data: control } = await client.from("platform_user_controls").select("account_type").eq("user_id", userId).maybeSingle();
+      if (control?.account_type !== "partner")
+        return response.status(409).json({ error: "Esta conta não está configurada como parceira." });
+      const { data: pending, error: pendingError } = await client.from("partner_commissions").select("id,commission_cents,created_at").eq("partner_user_id", userId).eq("status", "pending").order("created_at");
+      if (pendingError) throw pendingError;
+      if (!pending?.length) return response.status(409).json({ error: "Nenhuma comissão pendente foi encontrada." });
+      const cycleStart = new Date(pending[0].created_at);
+      const cycleEnd = new Date(cycleStart.getTime() + 7 * 86400000);
+      if (Date.now() < cycleEnd.getTime()) return response.status(409).json({ error: "O ciclo de 7 dias ainda não foi concluído." });
+      const cycleItems = pending.filter((item) => new Date(item.created_at) < cycleEnd);
+      const cycleIds = cycleItems.map((item) => item.id);
+      const amountCents = cycleItems.reduce((sum, item) => sum + Number(item.commission_cents || 0), 0);
+      if (!cycleIds.length || amountCents <= 0) return response.status(409).json({ error: "Nenhum valor fechado está disponível para pagamento." });
+      const { error: payoutError } = await client.from("partner_commissions").update({ status: "paid" }).in("id", cycleIds).eq("status", "pending");
+      if (payoutError) throw payoutError;
+      return response.status(200).json({ ok: true, payout: { amount_cents: amountCents, commission_count: cycleIds.length, cycle_start: cycleStart.toISOString(), cycle_end: cycleEnd.toISOString(), paid_by: actor.id } });
     }
     if (action === "commercial") {
       const plan = cleanString(request.body?.plan_name, 20).toLowerCase();

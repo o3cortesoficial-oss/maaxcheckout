@@ -1946,6 +1946,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [commercial, setCommercial] = useState({ plan_name: "essential", fixed_reais: "0,00", rate: "2,5" });
+  const [payoutConfirm, setPayoutConfirm] = useState(false);
   const pageSize = 50;
   const current = users.find((item) => item.id === selected?.id) || selected;
   useEffect(() => {
@@ -1963,6 +1964,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const pagedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize);
   useEffect(() => { setPage(1); }, [query]);
+  useEffect(() => { setPayoutConfirm(false); }, [current?.id]);
   useEffect(() => {
     if (!selected) return undefined;
     const previousOverflow = document.body.style.overflow;
@@ -1976,7 +1978,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
     const result = await fetch("/api/admin/users", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, user_id: current.id, ...extra }) });
     const payload = await result.json().catch(() => ({}));
     if (!result.ok) { setError(payload.error || "Não foi possível atualizar a conta."); setBusy(""); return; }
-    await onRefresh(); setBusy("");
+    await onRefresh(); setPayoutConfirm(false); setBusy("");
   };
   return (
     <section className="admin-users-panel">
@@ -2011,7 +2013,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
             <button type="button" onClick={() => act("commercial", { plan_name: commercial.plan_name, custom_fixed_cents: Math.round(Number(commercial.fixed_reais.replace(",", ".")) * 100), custom_rate_percent: Number(commercial.rate.replace(",", ".")) })} disabled={Boolean(busy)}>Salvar condições</button>
           </section>
           {(current.account_type === "partner" || current.referred_by) && <section className="admin-referral-card">
-            {current.account_type === "partner" && <><span>LINK DE CONVITE</span><div><code>{`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`}</code><button type="button" onClick={() => navigator.clipboard.writeText(`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`)} aria-label="Copiar link"><Copy /></button></div><small>Ganhos registrados: <b>{money(current.partner_earnings)}</b></small></>}
+            {current.account_type === "partner" && <><span>REPASSE DA PARCERIA</span><div><code>{`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`}</code><button type="button" onClick={() => navigator.clipboard.writeText(`${PUBLIC_APP_ORIGIN}/login?mode=signup&ref=${current.partner_code || ""}`)} aria-label="Copiar link"><Copy /></button></div><div className="admin-partner-payout"><div><small>Saldo pendente</small><b>{money(current.partner_earnings)}</b></div><div><small>Fechamento atual</small><b>{current.partner_payout?.cycle_end ? date(current.partner_payout.cycle_end) : "Sem movimento"}</b></div><div><small>Já repassado</small><b>{money(current.partner_payout?.paid_total_cents)}</b></div></div>{current.partner_payout?.cycle_closed && current.partner_payout?.closed_amount_cents > 0 ? <div className="admin-payout-ready"><span><CheckCircle weight="fill"/><small>Ciclo fechado</small><b>{money(current.partner_payout.closed_amount_cents)}</b></span>{payoutConfirm ? <div><button type="button" className="cancel" onClick={() => setPayoutConfirm(false)}>Voltar</button><button type="button" className="confirm" onClick={() => act("partner_payout")} disabled={Boolean(busy)}>{busy === "partner_payout" ? "Registrando..." : "Confirmar pagamento"}</button></div> : <button type="button" className="mark-paid" onClick={() => setPayoutConfirm(true)}>Marcar como pago</button>}</div> : <small className="admin-payout-wait">{current.partner_payout?.cycle_end ? `O próximo ciclo fecha em ${date(current.partner_payout.cycle_end)}.` : "O ciclo começa quando a primeira comissão for gerada."}</small>}</>}
             {current.referred_by && <><span>ORIGEM DO CADASTRO</span><h4>{current.referred_by.email || "Parceiro identificado"}</h4><small>Código {current.referred_by.partner_code}</small></>}
           </section>}
           <section className="admin-user-resources"><header><span>PRODUTOS E LINKS</span><b>{current.workspaces?.reduce((sum, item) => sum + item.products.length + item.payment_links.length, 0) || 0}</b></header>
@@ -3215,7 +3217,7 @@ function HomeView({ metrics, data, workspace, partnerInfo, onNavigate }) {
           <p>
             <CheckCircle /> {paidInPeriod.length} {paidInPeriod.length === 1 ? "pedido pago" : "pedidos pagos"} no período
           </p>
-          {partnerInfo && inviteUrl && <div className="partner-balance-invite"><div><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é seu!</b></span></div><div className="partner-link-row"><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Ganhos registrados <b>{money(partnerInfo.partner_earnings_cents)}</b></small></div>}
+          {partnerInfo && inviteUrl && <div className="partner-balance-invite"><div><Handshake/><span><small>CONTA PARCEIRA</small><b>Metade dos ganhos é seu!</b></span></div><div className="partner-link-row"><code>{inviteUrl}</code><button type="button" onClick={copyInvite} aria-label="Copiar link de convite">{inviteCopied ? <CheckCircle weight="fill"/> : <Copy/>}</button></div><small>Saldo pendente <b>{money(partnerInfo.partner_earnings_cents)}</b>{partnerInfo.partner_cycle?.end && <em>Fecha em {date(partnerInfo.partner_cycle.end)}</em>}</small></div>}
         </div>
         <CheckoutLiveFeed
           counters={data.checkout_event_counters}
