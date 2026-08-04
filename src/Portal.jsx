@@ -4682,7 +4682,34 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
     const { data } = supabase.storage
       .from("checkout-assets")
       .getPublicUrl(path);
+    const previousUrl = settings[`${kind}_url`];
     change(`${kind}_url`, data.publicUrl);
+    if (previousUrl && previousUrl !== data.publicUrl) {
+      const marker = "/storage/v1/object/public/checkout-assets/";
+      const previousPath = previousUrl.includes(marker)
+        ? decodeURIComponent(previousUrl.split(marker)[1].split("?")[0])
+        : "";
+      if (previousPath) await supabase.storage.from("checkout-assets").remove([previousPath]);
+    }
+    setUploading("");
+  };
+  const removeAsset = async (kind) => {
+    const currentUrl = settings[`${kind}_url`];
+    if (!currentUrl) return;
+    setUploading(kind);
+    const marker = "/storage/v1/object/public/checkout-assets/";
+    const path = currentUrl.includes(marker)
+      ? decodeURIComponent(currentUrl.split(marker)[1].split("?")[0])
+      : "";
+    if (path) {
+      const { error } = await supabase.storage.from("checkout-assets").remove([path]);
+      if (error) {
+        setSaveState(`Erro ao remover: ${error.message}`);
+        setUploading("");
+        return;
+      }
+    }
+    change(`${kind}_url`, "");
     setUploading("");
   };
   const toggle = (id) =>
@@ -4820,24 +4847,9 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
             </label>
             <div className="asset-upload">
               <div className="asset-upload-head">
-                <b>Logo do checkout</b>
-                {settings.logo_url && (
-                  <button onClick={() => change("logo_url", "")}>
-                    Remover
-                  </button>
-                )}
+                <span><b>Logo do checkout</b><small>{settings.logo_url ? "Imagem adicionada" : "Nenhuma imagem"}</small></span>
               </div>
-              <label className="upload-drop">
-                <Package />
-                <span>
-                  {uploading === "logo" ? "Enviando..." : "Enviar logo"}
-                </span>
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
-                  onChange={(e) => uploadAsset("logo", e.target.files?.[0])}
-                />
-              </label>
+              {settings.logo_url ? <div className="asset-media-card logo"><div className="asset-media-preview"><img src={settings.logo_url} alt="Logo enviada"/></div><div className="asset-media-info"><span><CheckCircle weight="fill"/> Pronta para uso</span><b>Logo da marca</b><small>PNG, JPEG ou SVG</small></div><div className="asset-media-actions"><label title="Substituir logo"><PencilSimple/><span>Substituir</span><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={uploading === "logo"} onChange={(e) => uploadAsset("logo", e.target.files?.[0])}/></label><button type="button" onClick={() => removeAsset("logo")} disabled={uploading === "logo"} title="Excluir logo"><Trash/><span>Excluir</span></button></div></div> : <label className={`upload-drop${uploading === "logo" ? " uploading" : ""}`}><span className="upload-drop-icon"><Camera/></span><span><b>{uploading === "logo" ? "Enviando logo..." : "Adicionar logo"}</b><small>Clique para escolher uma imagem</small></span><Plus/><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" onChange={(e) => uploadAsset("logo", e.target.files?.[0])}/></label>}
               <small>
                 Recomendado: <b>600 × 200 px</b> (proporção 3:1), PNG ou SVG com
                 fundo transparente. Máximo de 2 MB.
@@ -4845,24 +4857,9 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
             </div>
             <div className="asset-upload">
               <div className="asset-upload-head">
-                <b>Banner do checkout</b>
-                {settings.banner_url && (
-                  <button onClick={() => change("banner_url", "")}>
-                    Remover
-                  </button>
-                )}
+                <span><b>Banner do checkout</b><small>{settings.banner_url ? "Imagem adicionada" : "Nenhuma imagem"}</small></span>
               </div>
-              <label className="upload-drop">
-                <Package />
-                <span>
-                  {uploading === "banner" ? "Enviando..." : "Enviar banner"}
-                </span>
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
-                  onChange={(e) => uploadAsset("banner", e.target.files?.[0])}
-                />
-              </label>
+              {settings.banner_url ? <div className="asset-media-card banner"><div className="asset-media-preview"><img src={settings.banner_url} alt="Banner enviado"/></div><div className="asset-media-info"><span><CheckCircle weight="fill"/> Pronto para uso</span><b>Banner principal</b><small>Imagem exibida no topo</small></div><div className="asset-media-actions"><label title="Substituir banner"><PencilSimple/><span>Substituir</span><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={uploading === "banner"} onChange={(e) => uploadAsset("banner", e.target.files?.[0])}/></label><button type="button" onClick={() => removeAsset("banner")} disabled={uploading === "banner"} title="Excluir banner"><Trash/><span>Excluir</span></button></div></div> : <label className={`upload-drop${uploading === "banner" ? " uploading" : ""}`}><span className="upload-drop-icon"><Camera/></span><span><b>{uploading === "banner" ? "Enviando banner..." : "Adicionar banner"}</b><small>Clique para escolher uma imagem</small></span><Plus/><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" onChange={(e) => uploadAsset("banner", e.target.files?.[0])}/></label>}
               <small>
                 Recomendado: <b>1600 × 500 px</b>. Mantenha textos e elementos
                 importantes nos 70% centrais. Máximo de 5 MB.
