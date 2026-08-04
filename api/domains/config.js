@@ -100,7 +100,7 @@ function flattenDnsValues(value) {
     return flattenDnsValues(value.value || value.cname || value.ip);
   return String(value)
     .split(",")
-    .map((item) => item.trim())
+    .map((item) => item.trim().replace(/\.$/, ""))
     .filter(Boolean);
 }
 
@@ -108,9 +108,12 @@ function preferredDnsValues(configuration, key, fallback) {
   const recommended = configuration?.[key];
   const ranked = Array.isArray(recommended)
     ? [...recommended].sort((a, b) => Number(a?.rank || 0) - Number(b?.rank || 0))
-    : recommended;
-  const values = flattenDnsValues(ranked);
-  return values.length ? [...new Set(values)] : [fallback];
+    : [recommended];
+  for (const candidate of ranked) {
+    const [value] = flattenDnsValues(candidate);
+    if (value) return [value];
+  }
+  return [fallback];
 }
 
 function dnsGuide(domain, verification = [], configuration = null) {
@@ -137,9 +140,7 @@ function dnsGuide(domain, verification = [], configuration = null) {
       ? "Adicione primeiro este TXT para confirmar que o domínio pertence a você. Depois teste novamente para receber o registro de apontamento."
       : looksLikeSubdomain
         ? "Subdomínios usam CNAME. Não adicione um registro A no mesmo host."
-        : values.length > 1
-          ? `A Vercel solicitou ${values.length} registros A. Crie uma linha separada para cada IP, sempre com o host @.`
-          : "Domínios raiz usam A com host @. Não adicione CNAME no domínio raiz.",
+        : "Domínios raiz usam A com host @. Não adicione CNAME no domínio raiz.",
   };
 }
 
