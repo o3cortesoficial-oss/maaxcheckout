@@ -199,9 +199,8 @@ function resolveSupportAnswer(question, previousTopic = "") {
 }
 
 function CornerPhone({ orders = [], session }) {
-  const [minimized, setMinimized] = useState(() =>
-    window.matchMedia("(max-width: 720px)").matches,
-  );
+  const [minimized, setMinimized] = useState(true);
+  const [phoneClosing, setPhoneClosing] = useState(false);
   const [screen, setScreen] = useState("home");
   const [now, setNow] = useState(() => new Date());
   const [supportText, setSupportText] = useState("");
@@ -211,6 +210,7 @@ function CornerPhone({ orders = [], session }) {
   const [supportTopic, setSupportTopic] = useState("");
   const [supportTyping, setSupportTyping] = useState(false);
   const supportTimerRef = useRef(null);
+  const phoneTimerRef = useRef(null);
   const supportMessagesRef = useRef(null);
   const [campaignSpend, setCampaignSpend] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -225,7 +225,10 @@ function CornerPhone({ orders = [], session }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => () => window.clearTimeout(supportTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(supportTimerRef.current);
+    window.clearTimeout(phoneTimerRef.current);
+  }, []);
 
   useEffect(() => {
     supportMessagesRef.current?.scrollTo({
@@ -267,6 +270,19 @@ function CornerPhone({ orders = [], session }) {
       setSupportTopic(response.topic);
       setSupportTyping(false);
     }, naturalDelay);
+  };
+  const openPhone = () => {
+    window.clearTimeout(phoneTimerRef.current);
+    setPhoneClosing(false);
+    setMinimized(false);
+  };
+  const closePhone = () => {
+    if (phoneClosing) return;
+    setPhoneClosing(true);
+    phoneTimerRef.current = window.setTimeout(() => {
+      setMinimized(true);
+      setPhoneClosing(false);
+    }, 420);
   };
   const changePassword = async (event) => {
     event.preventDefault();
@@ -315,7 +331,7 @@ function CornerPhone({ orders = [], session }) {
       <button
         type="button"
         className="corner-phone-launcher"
-        onClick={() => setMinimized(false)}
+        onClick={openPhone}
         aria-label="Abrir atalhos Maax"
       >
         <DeviceMobile weight="fill" />
@@ -324,7 +340,7 @@ function CornerPhone({ orders = [], session }) {
     );
 
   return (
-    <div className="corner-phone-scene" role="complementary" aria-label="Atalhos Maax">
+    <div className={`corner-phone-scene phone-opening${phoneClosing ? " phone-closing" : ""}`} role="complementary" aria-label="Atalhos Maax">
       <div className="corner-iphone">
         <i className="iphone-side iphone-side-left" aria-hidden="true" />
         <i className="iphone-side iphone-side-right" aria-hidden="true" />
@@ -337,7 +353,7 @@ function CornerPhone({ orders = [], session }) {
           <button
             type="button"
             className="iphone-minimize"
-            onClick={() => setMinimized(true)}
+            onClick={closePhone}
             aria-label="Minimizar atalhos"
           >
             <X weight="bold" />
