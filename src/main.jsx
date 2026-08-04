@@ -5,9 +5,10 @@ import {
   ArrowRight, ArrowUpRight, Bank, Bell, ChartLineUp, Check, CheckCircle,
   Clock, Copy, CreditCard, CurrencyDollar, Eye, EyeSlash, House, Link as LinkIcon,
   List, LockKey, MagnifyingGlass, Package, Plus, Receipt, ShieldCheck, SignOut,
-  Sparkle, TrendUp, Users, Wallet, X
+  Cookie, FileText, Sparkle, TrendUp, Users, Wallet, X
 } from '@phosphor-icons/react';
 import './styles.css';
+import './legal.css';
 import { PublicCheckout, RealDashboard, RealLogin } from './Portal';
 
 const PLATFORM_HOSTS = new Set([
@@ -73,9 +74,76 @@ function HomePage() {
 
       <section className="section reference-strategy" id="como"><div className="section-heading"><div><span className="eyebrow">Estratégia</span><h2>Veja como a Maax<br/>funciona.</h2></div><p>Crie o produto, personalize o checkout e acompanhe todo o caminho da venda — da campanha de origem à confirmação e à auditoria do valor recebido.</p></div><div className="strategy-screen"><div className="strategy-logo"><span>M</span><b>Maax</b><button aria-label="Reproduzir demonstração"><ArrowRight/></button></div><div className="strategy-steps"><span>01 Produto</span><span>02 Checkout</span><span>03 Rastreamento</span><span>04 Auditoria</span></div></div></section>
 
-      <section className="section cta reference-cta"><div><span className="eyebrow dark">Sua operação começa aqui</span><h2>Venda com clareza.<br/>Cresça com controle.</h2><Btn onClick={()=>go('/login')}>Entrar na Maax <ArrowRight/></Btn></div><div className="cta-rings"/><Logo light/><footer><span>© 2026 Maax Checkout</span><span>Termos & Privacidade</span></footer></section>
+      <section className="section cta reference-cta"><div><span className="eyebrow dark">Sua operação começa aqui</span><h2>Venda com clareza.<br/>Cresça com controle.</h2><Btn onClick={()=>go('/login')}>Entrar na Maax <ArrowRight/></Btn></div><div className="cta-rings"/><Logo light/><footer><span>© 2026 Maax Checkout</span><nav><button onClick={()=>go('/termos')}>Termos</button><button onClick={()=>go('/privacidade')}>Privacidade</button><button onClick={()=>go('/cookies')}>Cookies</button></nav></footer></section>
     </main>
   </div>
+}
+
+const LEGAL_PAGES = {
+  termos: {
+    label: 'Termos de Uso',
+    icon: FileText,
+    intro: 'As regras para criar, administrar e operar uma conta na Maax Checkout com clareza e responsabilidade.',
+    sections: [
+      ['aceite', 'Aceite dos Termos', ['Ao criar uma conta, contratar um plano ou utilizar qualquer recurso da Maax Checkout, você declara ter lido e aceitado estes Termos de Uso e a Política de Privacidade.', 'Se estiver usando a plataforma em nome de uma empresa, você declara possuir poderes para representá-la. Caso não concorde com estas condições, não utilize os serviços.']],
+      ['plataforma', 'O papel da Maax', ['A Maax fornece tecnologia para criação de produtos, checkouts, links de pagamento, rastreamento, auditoria e gestão da operação digital. A Maax não é banco, instituição financeira, adquirente ou custodiante dos valores das vendas.', 'O processamento financeiro é realizado pelos provedores escolhidos e configurados pelo usuário. Disponibilidade, prazos, estornos, chargebacks e regras de liquidação também dependem desses provedores.']],
+      ['conta', 'Conta e segurança', ['O usuário deve fornecer dados verdadeiros, manter suas credenciais protegidas e comunicar imediatamente qualquer acesso não autorizado. Cada negócio criado possui configurações, produtos e integrações próprias.', 'A conta é pessoal e não deve ser compartilhada fora das permissões disponibilizadas pela plataforma. Atividades realizadas com credenciais válidas serão atribuídas ao titular até a comunicação de comprometimento.']],
+      ['uso', 'Uso permitido', ['Você é responsável pelos produtos, ofertas, promessas, preços, tributos, entregas, reembolsos e atendimento aos seus compradores. Somente produtos e serviços lícitos podem ser comercializados.', 'São proibidos fraude, phishing, lavagem de dinheiro, violação de propriedade intelectual, coleta indevida de dados, tentativa de contornar controles de segurança ou qualquer uso que prejudique a Maax, seus usuários ou terceiros.']],
+      ['planos', 'Planos, taxas e cobranças', ['Os recursos disponíveis, valores fixos, taxas variáveis e ciclos de cobrança seguem o plano exibido no momento da contratação. O usuário deve manter um meio de pagamento válido.', 'A inadimplência pode limitar edições, suspender a conta e tornar os checkouts indisponíveis até a regularização. Valores já devidos permanecem exigíveis após cancelamento.']],
+      ['dados', 'Dados, rastreamento e integrações', ['O usuário é responsável por informar seus clientes sobre a coleta de dados no checkout e por configurar pixels, domínios e integrações de acordo com a lei.', 'Recursos de atribuição e auditoria auxiliam a análise da operação, mas não constituem garantia de detecção de toda divergência, fraude ou evento externo.']],
+      ['disponibilidade', 'Disponibilidade e alterações', ['Trabalhamos para manter a plataforma segura e disponível, mas manutenções, falhas de terceiros, eventos de rede ou caso fortuito podem causar interrupções. Recursos podem evoluir, ser substituídos ou descontinuados.', 'Alterações relevantes nestes Termos serão comunicadas pelos canais da plataforma. O uso continuado após a vigência da nova versão representa aceitação.']],
+      ['responsabilidade', 'Responsabilidade e encerramento', ['Na extensão permitida por lei, a Maax não responde por atos do vendedor, indisponibilidade de integrações externas, decisões comerciais baseadas em estimativas ou danos indiretos.', 'A conta pode ser suspensa ou encerrada por violação destes Termos, risco de segurança, determinação legal ou inadimplência. O titular pode solicitar o encerramento pela área de configurações, observadas obrigações pendentes.']],
+      ['lei', 'Lei aplicável e contato', ['Estes Termos são regidos pelas leis da República Federativa do Brasil. Dúvidas, solicitações ou notificações podem ser enviadas pela Central de Suporte dentro da plataforma.']]
+    ]
+  },
+  privacidade: {
+    label: 'Política de Privacidade',
+    icon: ShieldCheck,
+    intro: 'Como a Maax trata dados pessoais, protege informações e respeita os direitos previstos na LGPD.',
+    sections: [
+      ['papel', 'Quem trata os dados', ['A Maax Checkout controla os dados necessários para cadastro, acesso, segurança, suporte e cobrança da plataforma. Nos dados inseridos pelos vendedores sobre seus compradores, o vendedor normalmente atua como controlador e a Maax como operadora, conforme as instruções recebidas.', 'Cada vendedor deve manter sua própria política de privacidade e informar adequadamente seus clientes.']],
+      ['coleta', 'Dados que coletamos', ['Podemos tratar dados cadastrais e de contato; dados do negócio; produtos e configurações; dados de suporte; identificadores de dispositivo, IP e registros de segurança; eventos de uso e atribuição; e metadados de pedidos, pagamentos e status.', 'Dados completos de cartão devem ser coletados e processados pelo provedor de pagamento habilitado. A Maax não solicita que senhas ou chaves secretas sejam enviadas por mensagens de suporte.']],
+      ['finalidades', 'Por que usamos os dados', ['Usamos os dados para prestar e melhorar os serviços, autenticar acessos, prevenir fraude e abuso, manter logs, oferecer suporte, calcular cobranças, cumprir obrigações legais e comunicar informações essenciais sobre a conta.', 'O tratamento se apoia, conforme o caso, na execução do contrato, cumprimento de obrigação legal, exercício regular de direitos, legítimo interesse e consentimento.']],
+      ['compartilhamento', 'Compartilhamento', ['Compartilhamos apenas o necessário com fornecedores de infraestrutura, autenticação, comunicação, suporte, segurança e cobrança; com provedores configurados pelo próprio usuário; e com autoridades quando houver obrigação legal.', 'Não vendemos dados pessoais. Integrações e pixels ativados pelo vendedor podem realizar tratamentos próprios, sujeitos às políticas de cada terceiro.']],
+      ['seguranca', 'Segurança e retenção', ['Aplicamos controles técnicos e organizacionais proporcionais ao risco, incluindo proteção de credenciais, controle de acesso, registros de auditoria e transmissão segura. Nenhum sistema, entretanto, elimina integralmente todos os riscos.', 'Os dados são mantidos pelo tempo necessário às finalidades informadas, ao cumprimento de obrigações legais, à prevenção de fraude e ao exercício de direitos. Depois, são eliminados ou anonimizados quando aplicável.']],
+      ['transferencia', 'Transferências internacionais', ['Alguns fornecedores podem armazenar ou processar dados fora do Brasil. Nesses casos, adotamos medidas contratuais e de segurança compatíveis com a LGPD e buscamos fornecedores com padrões adequados de proteção.']],
+      ['direitos', 'Seus direitos', ['O titular pode solicitar confirmação de tratamento, acesso, correção, anonimização, bloqueio, eliminação, portabilidade, informações sobre compartilhamento, revisão de decisões automatizadas e revogação do consentimento, quando aplicável.', 'Para proteger o titular, poderemos confirmar sua identidade antes de atender a solicitação. Pedidos relativos a uma compra devem ser direcionados primeiro ao vendedor responsável pelo checkout.']],
+      ['contato', 'Contato e atualizações', ['Solicitações de privacidade podem ser feitas pela Central de Suporte dentro da plataforma. Esta Política pode ser atualizada para refletir mudanças legais, operacionais ou tecnológicas; a versão vigente estará sempre nesta página.']]
+    ]
+  },
+  cookies: {
+    label: 'Política de Cookies',
+    icon: Cookie,
+    intro: 'Uma explicação direta sobre os cookies e tecnologias semelhantes usados na plataforma e nos checkouts.',
+    sections: [
+      ['conceito', 'O que são cookies', ['Cookies são pequenos arquivos armazenados no navegador. Tecnologias semelhantes, como armazenamento local e identificadores de sessão, também podem ser usadas para manter a conta conectada, lembrar preferências e medir eventos.']],
+      ['necessarios', 'Cookies necessários', ['São essenciais para autenticação, segurança, prevenção de abuso, balanceamento, continuidade da sessão e funcionamento do checkout. Sem eles, partes importantes do serviço podem não funcionar corretamente.']],
+      ['preferencias', 'Preferências e desempenho', ['Podemos guardar escolhas de interface, negócio ativo e configurações de exibição. Dados de desempenho ajudam a diagnosticar erros e melhorar estabilidade, velocidade e experiência de uso.']],
+      ['medicao', 'Medição e atribuição', ['Quando habilitados, identificadores de campanha e eventos de conversão ajudam a indicar a origem de uma visita ou venda. O vendedor pode configurar pixels de terceiros em seu checkout e deve obter consentimento quando exigido.', 'Esses terceiros podem definir seus próprios cookies e tratar dados segundo suas políticas. A Maax mostra ferramentas de configuração, mas a escolha e a base legal da ativação pertencem ao vendedor.']],
+      ['controle', 'Como controlar', ['Você pode bloquear ou apagar cookies nas configurações do navegador. O bloqueio de cookies necessários pode encerrar sessões, impedir login ou comprometer etapas do checkout.', 'Quando um painel de preferências estiver disponível, ele poderá ser usado para revisar categorias opcionais sem afetar os cookies estritamente necessários.']],
+      ['duracao', 'Duração e contato', ['Cookies de sessão expiram ao encerrar a navegação; outros permanecem pelo prazo necessário à finalidade ou até serem removidos. Prazos podem variar conforme o navegador e o fornecedor integrado.', 'Dúvidas podem ser enviadas pela Central de Suporte dentro da plataforma. Atualizações desta Política serão publicadas nesta página.']]
+    ]
+  }
+};
+
+function PolicyPage({kind}) {
+  const page = LEGAL_PAGES[kind];
+  const PageIcon = page.icon;
+  useEffect(() => {
+    const previous = document.title;
+    document.title = `${page.label} | Maax Checkout`;
+    return () => { document.title = previous; };
+  }, [page.label]);
+  return <div className="policy-page">
+    <header className="policy-topbar"><Logo/><button onClick={()=>go('/')}><ArrowRight/> Voltar para o início</button></header>
+    <section className="policy-hero"><div className="policy-rings"/><div className="policy-hero-copy"><span><PageIcon/> DOCUMENTOS LEGAIS</span><h1>{page.label}<i>.</i></h1><p>{page.intro}</p><small>Última atualização: 4 de agosto de 2026</small></div></section>
+    <nav className="policy-switcher" aria-label="Documentos legais">{Object.entries(LEGAL_PAGES).map(([key,item])=><button key={key} className={key===kind?'active':''} onClick={()=>go(`/${key}`)}>{item.label}</button>)}</nav>
+    <div className="policy-layout">
+      <aside><span>NESTA PÁGINA</span>{page.sections.map(([id,title],index)=><a key={id} href={`#${id}`}><b>{String(index+1).padStart(2,'0')}</b>{title}</a>)}</aside>
+      <main>{page.sections.map(([id,title,paragraphs],index)=><section id={id} key={id}><span>{String(index+1).padStart(2,'0')}</span><div><h2>{title}</h2>{paragraphs.map((paragraph,i)=><p key={i}>{paragraph}</p>)}</div></section>)}</main>
+    </div>
+    <footer className="policy-footer"><div><Logo light/><p>Checkout, rastreamento e controle para operações digitais.</p></div><nav><button onClick={()=>go('/termos')}>Termos</button><button onClick={()=>go('/privacidade')}>Privacidade</button><button onClick={()=>go('/cookies')}>Cookies</button></nav><span>© 2026 Maax Checkout</span></footer>
+  </div>;
 }
 
 function LoginPage() {
@@ -115,5 +183,18 @@ function Dashboard() {
  return <div className="dashboard"><aside className={menu?'open':''}><div className="side-head"><Logo/><button onClick={()=>setMenu(false)}><X/></button></div><nav className="side-nav"><span>VISÃO GERAL</span><a className="active"><House/> Início</a><a><ChartLineUp/> Vendas <b>12</b></a><a><Package/> Produtos</a><a><LinkIcon/> Links de pagamento</a><span>FINANCEIRO</span><a><Wallet/> Saldo e saques</a><a><Receipt/> Extrato</a><span>GESTÃO</span><a><Users/> Clientes</a><a><CreditCard/> Assinaturas</a></nav><div className="side-help"><Sparkle/><b>Central de ajuda</b><small>Tire dúvidas ou fale com a gente.</small><button>Acessar suporte</button></div><button className="logout" onClick={()=>go('/')}><SignOut/> Sair da conta</button></aside><div className="dash-main"><header><button className="mobile-menu" onClick={()=>setMenu(true)}><List/></button><div className="search"><MagnifyingGlass/><input placeholder="Buscar vendas, clientes..."/><kbd>⌘ K</kbd></div><div className="header-actions"><button className="notify"><Bell/><i/></button><div className="user"><span>SM</span><div><b>{username}</b><small>Administrador</small></div></div></div></header><main className="dash-content"><div className="dash-title"><div><span>DOMINGO, 02 DE AGOSTO</span><h1>Olá, {username}. <i/></h1><p>Aqui está o que aconteceu com seu negócio hoje.</p></div><div><Btn variant="outline"><ArrowUpRight/> Ver minha loja</Btn><Btn><Plus/> Nova venda</Btn></div></div><section className="balance"><div className="balance-copy"><span>Saldo disponível <Eye size={16}/></span><strong>R$ 24.816<small>,42</small></strong><p><TrendUp/> 18,4% <span>comparado ao período anterior</span></p></div><div className="balance-actions"><Btn>Solicitar saque <ArrowRight/></Btn><small>Próximo recebimento</small><b>R$ 3.842,19 <span>em 03 ago.</span></b></div><div className="balance-art"><div/><div/></div></section><div className="metrics"><article><span>Vendas no período <CurrencyDollar/></span><b>R$ 18.429,70</b><p className="up">+12,8% <small>vs. período anterior</small></p></article><article><span>Pedidos aprovados <CheckCircle/></span><b>142</b><p className="up">+8,2% <small>vs. período anterior</small></p></article><article><span>Ticket médio <Receipt/></span><b>R$ 129,78</b><p className="down">−2,1% <small>vs. período anterior</small></p></article><article><span>Taxa de conversão <TrendUp/></span><b>47,6%</b><p className="up">+4,3% <small>vs. período anterior</small></p></article></div><div className="dash-grid"><section className="chart-panel"><div className="panel-title"><div><span>DESEMPENHO</span><h2>Visão de vendas</h2></div><div className="range">{['Hoje','7 dias','30 dias'].map(r=><button className={range===r?'active':''} onClick={()=>setRange(r)} key={r}>{r}</button>)}</div></div><div className="chart-summary"><b>R$ 18.429,70</b><span><i/> Faturamento</span></div><div className="chart"><div className="y-axis"><span>6k</span><span>4k</span><span>2k</span><span>0</span></div><svg viewBox="0 0 740 220" preserveAspectRatio="none"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#cfff38" stopOpacity=".25"/><stop offset="1" stopColor="#cfff38" stopOpacity="0"/></linearGradient></defs><path className="area" d="M0,180 C70,170 95,90 165,125 S270,155 330,85 S425,140 480,95 S580,40 630,65 S700,70 740,24 L740,220 L0,220Z"/><path className="line" d="M0,180 C70,170 95,90 165,125 S270,155 330,85 S425,140 480,95 S580,40 630,65 S700,70 740,24"/></svg><div className="x-axis"><span>27 jul.</span><span>28 jul.</span><span>29 jul.</span><span>30 jul.</span><span>31 jul.</span><span>01 ago.</span><span>02 ago.</span></div></div></section><section className="quick"><span>ACESSO RÁPIDO</span><h2>Seu link principal</h2><div className="product-icon"><Package/></div><b>Clube Criadores</b><small>R$ 297,00 • Pagamento único</small><div className="copy-link"><span>pay.maax.com/clube-criadores</span><button onClick={copy}>{copied?<Check/>:<Copy/>}</button></div><div className="quick-stats"><div><span>VISITAS</span><b>1.284</b></div><div><span>CONVERSÃO</span><b>52,1%</b></div></div><button className="edit-link">Editar página de checkout <ArrowUpRight/></button></section></div><section className="sales-table"><div className="panel-title"><div><span>ATIVIDADE RECENTE</span><h2>Últimas vendas</h2></div><button>Ver todas <ArrowRight/></button></div><div className="table"><div className="tr th"><span>Pedido</span><span>Produto / Cliente</span><span>Valor</span><span>Status</span><span>Horário</span></div>{sales.map(s=><div className="tr" key={s[0]}><span>{s[0]}</span><span><i>{s[2].split(' ').map(x=>x[0]).join('')}</i><b>{s[1]}</b><small>{s[2]}</small></span><span><b>{s[3]}</b></span><span><em className={s[4]==='Pendente'?'pending':''}>{s[4]}</em></span><span>{s[5]}</span></div>)}</div></section></main></div></div>
 }
 
-function App(){const [path,setPath]=useState(location.pathname);useEffect(()=>{const f=()=>setPath(location.pathname);addEventListener('popstate',f);return()=>removeEventListener('popstate',f)},[]);useEffect(()=>{const blockContextMenu=(event)=>event.preventDefault();document.addEventListener('contextmenu',blockContextMenu);return()=>document.removeEventListener('contextmenu',blockContextMenu)},[]);const checkoutMatch=path.match(/^\/checkout\/([^/]+)\/?$/);if(!isPlatformHostname&&!checkoutMatch)return null;return checkoutMatch?<PublicCheckout slug={decodeURIComponent(checkoutMatch[1])}/>:path==='/login'?<RealLogin navigate={go}/>:path==='/dashboard'?<RealDashboard navigate={go}/>:<HomePage/>}
+function App(){
+  const [path,setPath]=useState(location.pathname);
+  useEffect(()=>{const f=()=>setPath(location.pathname);addEventListener('popstate',f);return()=>removeEventListener('popstate',f)},[]);
+  useEffect(()=>{const blockContextMenu=(event)=>event.preventDefault();document.addEventListener('contextmenu',blockContextMenu);return()=>document.removeEventListener('contextmenu',blockContextMenu)},[]);
+  const checkoutMatch=path.match(/^\/checkout\/([^/]+)\/?$/);
+  if(!isPlatformHostname&&!checkoutMatch)return null;
+  if(checkoutMatch)return <PublicCheckout slug={decodeURIComponent(checkoutMatch[1])}/>;
+  if(path==='/login')return <RealLogin navigate={go}/>;
+  if(path==='/dashboard')return <RealDashboard navigate={go}/>;
+  if(path==='/termos')return <PolicyPage kind="termos"/>;
+  if(path==='/privacidade')return <PolicyPage kind="privacidade"/>;
+  if(path==='/cookies')return <PolicyPage kind="cookies"/>;
+  return <HomePage/>;
+}
 createRoot(document.getElementById('root')).render(<App/>);
