@@ -55,8 +55,31 @@ import QRCode from "qrcode";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { PLATFORM_PLANS, platformFeeCents, platformPlan, sevenDayCycle } from "./platformPlans";
+import { getLanguage, setLanguage } from "./i18n";
 
 const PUBLIC_APP_ORIGIN = "https://maaxcheckout.lat";
+
+function LanguageSelector() {
+  const [open, setOpen] = useState(false);
+  const language = getLanguage();
+  const rootRef = useRef(null);
+  useEffect(() => {
+    const close = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  return <div className={`language-selector ${open ? "open" : ""}`} ref={rootRef}>
+    <button type="button" className="language-trigger" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Idioma">
+      <GlobeSimple /><span><small>IDIOMA</small><b>{language === "pt-BR" ? "PT-BR" : "EN"}</b></span><CaretDown />
+    </button>
+    {open && <div className="language-menu" role="menu">
+      <span>IDIOMA DA PLATAFORMA</span>
+      <button type="button" className={language === "pt-BR" ? "active" : ""} onClick={() => setLanguage("pt-BR")}><i>BR</i><span><b>Português (Brasil)</b><small>Brasil</small></span><CheckCircle weight={language === "pt-BR" ? "fill" : "regular"}/></button>
+      <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}><i>EN</i><span><b>English</b><small>International</small></span><CheckCircle weight={language === "en" ? "fill" : "regular"}/></button>
+      <p>A seleção manual fica salva neste dispositivo.</p>
+    </div>}
+  </div>;
+}
 
 const money = (cents = 0) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -2618,9 +2641,12 @@ export function RealDashboard({ navigate }) {
           ))}
         </nav>
         {adminMode ? <div className="side-help admin-help"><Sparkle /><b>Acesso exclusivo</b><small>Visão protegida de toda a plataforma.</small></div> : needsBilling ? <div className="side-help billing-required-help"><Lock /><b>Assinatura necessária</b><small>Ative um plano para liberar o painel.</small></div> : <BillingCycleCard workspace={workspace} orders={data.orders} onOpen={() => { setActive("assinaturas"); setMenu(false); }} />}
-        <button className="logout" onClick={logout}>
-          <SignOut /> Sair da conta
-        </button>
+        <div className="sidebar-footer-actions">
+          <LanguageSelector />
+          <button className="logout" onClick={logout}>
+            <SignOut /> Sair da conta
+          </button>
+        </div>
       </aside>
       <div className="dash-main">
         <header>

@@ -9,6 +9,8 @@ import {
 } from '@phosphor-icons/react';
 import './styles.css';
 import './legal.css';
+import './locale.css';
+import { initializeLocale } from './i18n';
 import { PublicCheckout, RealDashboard, RealLogin } from './Portal';
 
 const PLATFORM_HOSTS = new Set([
@@ -197,4 +199,4 @@ function App(){
   if(path==='/cookies')return <PolicyPage kind="cookies"/>;
   return <HomePage/>;
 }
-createRoot(document.getElementById('root')).render(<App/>);
+initializeLocale().finally(() => createRoot(document.getElementById('root')).render(<App/>));
