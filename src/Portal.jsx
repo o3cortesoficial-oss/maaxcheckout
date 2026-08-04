@@ -119,6 +119,85 @@ function Button({
   );
 }
 
+const SUPPORT_KNOWLEDGE = [
+  {
+    id: "tracking",
+    keywords: ["pixel", "meta", "facebook", "instagram", "google", "analytics", "tiktok", "campanha", "utm", "rastrear", "rastreamento"],
+    answer: "Em Rastreamento, escolha Meta, Google ou TikTok, informe o ID do pixel e adicione. Você pode cadastrar mais de um por plataforma. A atribuição registra UTMs e identifica de qual campanha veio cada venda paga.",
+    detail: "Se o evento não aparecer, confirme se o pixel está ativo, abra o checkout pelo link final da campanha e faça um pagamento de teste. A Maax só notifica conversões confirmadas como pagas.",
+  },
+  {
+    id: "gateway",
+    keywords: ["gateway", "pagamaster", "api", "chave", "secret", "token", "conexao", "conexão", "pagamento", "pix", "boleto", "cartao", "cartão", "qr code"],
+    answer: "Abra Gateways, entre no card do provedor, preencha as chaves da API e use Testar conexão. Com o teste aprovado, ative o gateway no mesmo card. Não envie chaves secretas por esta conversa.",
+    detail: "Se continuar indisponível, confira se as chaves pertencem ao ambiente correto, se o gateway está ativo neste negócio e se a forma de pagamento também está habilitada no editor do checkout.",
+  },
+  {
+    id: "shipping",
+    keywords: ["frete", "entrega", "transportadora", "prazo", "endereco", "endereço", "cep"],
+    answer: "Em Frete, crie uma opção com título, descrição, prazo e valor. Depois abra Checkout e selecione quais fretes estarão visíveis. O valor escolhido pelo cliente é somado automaticamente ao pedido.",
+    detail: "O endereço de entrega aparece apenas para produtos físicos. Se ele estiver oculto, edite o produto e confirme que o tipo selecionado é Físico.",
+  },
+  {
+    id: "product",
+    keywords: ["produto", "oferta", "imagem", "foto", "preco", "preço", "estoque", "fisico", "físico", "digital", "order bump", "orderbump"],
+    answer: "Abra Produtos e escolha a oferta. Nela você pode editar nome, preço, preço comparativo, tipo físico ou digital e até dez imagens. Produtos já cadastrados também podem ser usados como order bump.",
+    detail: "Na lista de Produtos, use as ações da linha para editar, copiar o link ou excluir. A primeira imagem enviada é usada como capa da oferta.",
+  },
+  {
+    id: "checkout",
+    keywords: ["checkout", "layout", "template", "shopper", "maax", "logo", "banner", "cor", "botao", "botão", "editor", "publicar"],
+    answer: "No editor de Checkout você escolhe o template, cores, blocos, pagamentos, logo e banner. As mudanças aparecem no preview; para levá-las ao link público, finalize em Publicar.",
+    detail: "Se uma alteração não aparecer no link, confirme que ela foi publicada e atualize a página pública. Logo e banner exibem uma miniatura quando o envio foi concluído.",
+  },
+  {
+    id: "domain",
+    keywords: ["dominio", "domínio", "dns", "cname", "ssl", "url", "link personalizado"],
+    answer: "Abra Domínio, cadastre o endereço que será usado nos checkouts e copie os registros DNS apresentados para o seu provedor. Depois, volte à Maax e use Testar conexão.",
+    detail: "A propagação do DNS pode levar algum tempo. Não altere o domínio do painel: o domínio cadastrado nessa área afeta somente os links públicos dos checkouts.",
+  },
+  {
+    id: "subscription",
+    keywords: ["assinatura", "plano", "cobranca", "cobrança", "taxa", "cartao", "cartão", "bloqueada", "congelada"],
+    answer: "Em Assinaturas você confere o plano, a prévia da cobrança e o ciclo atual. O valor considera a mensalidade do plano e, quando aplicável, a taxa sobre pedidos pagos.",
+    detail: "Se uma cobrança falhar, atualize o cartão na própria área de Assinaturas. Enquanto houver pendência, recursos da conta e links públicos podem ficar temporariamente limitados.",
+  },
+  {
+    id: "account",
+    keywords: ["conta", "senha", "perfil", "foto de perfil", "email", "e-mail", "apagar cadastro", "excluir conta"],
+    answer: "Abra o app Configurações neste celular para trocar a senha, adicionar sua foto de perfil ou solicitar a exclusão da conta.",
+    detail: "Para sua segurança, a nova senha deve ter pelo menos oito caracteres. A exclusão do cadastro é definitiva e remove os dados associados à conta.",
+  },
+];
+
+const normalizeSupportText = (value = "") =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+function resolveSupportAnswer(question, previousTopic = "") {
+  const normalized = normalizeSupportText(question);
+  const scored = SUPPORT_KNOWLEDGE.map((topic) => ({
+    topic,
+    score: topic.keywords.reduce((score, keyword) =>
+      score + (normalized.includes(normalizeSupportText(keyword)) ? 1 : 0), 0),
+  })).sort((a, b) => b.score - a.score);
+  const contextualFollowUp = /^(como|onde|qual|quais|porque|por que|nao|não|ainda|deu|apareceu|e se|sim|ok|certo|entendi|continua|mas)\b/.test(normalized)
+    || normalized.split(/\s+/).length <= 5;
+  const matched = scored[0]?.score > 0
+    ? scored[0].topic
+    : contextualFollowUp
+      ? SUPPORT_KNOWLEDGE.find((topic) => topic.id === previousTopic)
+      : null;
+  if (!matched) {
+    return {
+      topic: previousTopic,
+      text: "Quero entender melhor antes de orientar você. Diga o que está tentando fazer, em qual tela está e o que apareceu. Por exemplo: ‘meu pixel da Meta não registra uma venda paga’.",
+    };
+  }
+  const reportsProblem = /nao|erro|falha|indisponivel|continua|deu|apareceu|sumiu|quebrou/.test(normalized);
+  const needsDetail = previousTopic === matched.id && (reportsProblem || (contextualFollowUp && scored[0]?.score === 0));
+  return { topic: matched.id, text: needsDetail ? matched.detail : matched.answer };
+}
+
 function CornerPhone({ orders = [], session }) {
   const [minimized, setMinimized] = useState(() =>
     window.matchMedia("(max-width: 720px)").matches,
@@ -127,8 +206,12 @@ function CornerPhone({ orders = [], session }) {
   const [now, setNow] = useState(() => new Date());
   const [supportText, setSupportText] = useState("");
   const [supportMessages, setSupportMessages] = useState([
-    { from: "maax", text: "Olá. Sou o suporte inteligente da Maax. Me conte o que você precisa configurar." },
+    { from: "maax", text: "Olá. Sou o suporte inteligente da Maax. Me conte o que você precisa configurar.", sentAt: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) },
   ]);
+  const [supportTopic, setSupportTopic] = useState("");
+  const [supportTyping, setSupportTyping] = useState(false);
+  const supportTimerRef = useRef(null);
+  const supportMessagesRef = useRef(null);
   const [campaignSpend, setCampaignSpend] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [accountNotice, setAccountNotice] = useState("");
@@ -141,6 +224,15 @@ function CornerPhone({ orders = [], session }) {
     const timer = window.setInterval(synchronizeClock, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => () => window.clearTimeout(supportTimerRef.current), []);
+
+  useEffect(() => {
+    supportMessagesRef.current?.scrollTo({
+      top: supportMessagesRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [supportMessages, supportTyping]);
 
   const currentTime = new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
@@ -161,26 +253,20 @@ function CornerPhone({ orders = [], session }) {
   const profitCents = paidRevenue - spendCents;
   const roi = spendCents > 0 ? (profitCents / spendCents) * 100 : 0;
 
-  const supportAnswer = (question) => {
-    const normalized = question.toLowerCase();
-    if (/pixel|meta|facebook|google|tiktok|rastrea/.test(normalized))
-      return "Para configurar um pixel, abra Rastreamento, escolha a plataforma, informe o ID e salve. A Maax envia eventos somente quando o gateway confirma o pagamento. Se me disser qual plataforma, eu detalho cada campo.";
-    if (/gateway|pagamaster|chave|api|pagamento/.test(normalized))
-      return "Abra Gateways, selecione o provedor, informe as chaves, teste a conexão e só depois ative o gateway. Nunca envie sua chave secreta nesta conversa.";
-    if (/frete|entrega/.test(normalized))
-      return "Em Frete você pode criar até três opções com título, descrição, prazo e valor. Depois selecione quais aparecerão no editor do checkout.";
-    if (/produto|imagem|preço|preco/.test(normalized))
-      return "Abra Produtos e edite a oferta desejada. Você pode definir preço, preço comparativo, tipo físico ou digital e até dez imagens.";
-    if (/domínio|dominio|dns/.test(normalized))
-      return "Abra Domínio, cadastre o endereço público e siga os registros DNS mostrados na tela. Use Testar conexão antes de divulgar o link.";
-    return "Entendi sua dúvida. Para eu orientar com precisão, diga em qual área você está: Checkout, Produtos, Gateways, Frete, Domínio ou Rastreamento.";
-  };
   const sendSupportMessage = (event) => {
     event.preventDefault();
     const question = supportText.trim();
-    if (!question) return;
-    setSupportMessages((messages) => [...messages, { from: "user", text: question }, { from: "maax", text: supportAnswer(question) }]);
+    if (!question || supportTyping) return;
+    const response = resolveSupportAnswer(question, supportTopic);
+    setSupportMessages((messages) => [...messages, { from: "user", text: question, sentAt: currentTime }]);
     setSupportText("");
+    setSupportTyping(true);
+    const naturalDelay = Math.min(2600, Math.max(900, 650 + response.text.length * 9));
+    supportTimerRef.current = window.setTimeout(() => {
+      setSupportMessages((messages) => [...messages, { from: "maax", text: response.text, sentAt: new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date()) }]);
+      setSupportTopic(response.topic);
+      setSupportTyping(false);
+    }, naturalDelay);
   };
   const changePassword = async (event) => {
     event.preventDefault();
@@ -288,8 +374,8 @@ function CornerPhone({ orders = [], session }) {
           ) : screen === "support" ? (
             <div className="iphone-chat-app">
               <header><button type="button" onClick={() => setScreen("home")}><CaretLeft /></button><span><i><Headset weight="fill" /></i><b>Suporte Maax<small>online agora</small></b></span></header>
-              <div className="iphone-chat-messages">{supportMessages.map((message, index) => <p key={`${message.from}-${index}`} className={message.from}>{message.text}<small>{currentTime}</small></p>)}</div>
-              <form onSubmit={sendSupportMessage}><input value={supportText} onChange={(event) => setSupportText(event.target.value)} placeholder="Digite sua dúvida" /><button type="submit"><ArrowRight weight="bold" /></button></form>
+              <div className="iphone-chat-messages" ref={supportMessagesRef}>{supportMessages.map((message, index) => <p key={`${message.from}-${index}`} className={message.from}>{message.text}<small>{message.sentAt || currentTime}</small></p>)}{supportTyping && <div className="iphone-typing" role="status" aria-label="Suporte digitando"><i/><i/><i/></div>}</div>
+              <form onSubmit={sendSupportMessage}><input value={supportText} onChange={(event) => setSupportText(event.target.value)} placeholder={supportTyping ? "Suporte está digitando..." : "Digite sua dúvida"} disabled={supportTyping} /><button type="submit" disabled={supportTyping || !supportText.trim()}><ArrowRight weight="bold" /></button></form>
             </div>
           ) : screen === "settings" ? (
             <div className="iphone-utility-app iphone-settings-app">
