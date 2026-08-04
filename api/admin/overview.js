@@ -4,6 +4,7 @@ import {
   rateLimit,
   requireSameOrigin,
 } from "../_security.js";
+import { stripeBillingClient } from "../_lib/stripeBilling.js";
 
 const adminEmail = () =>
   String(process.env.PLATFORM_ADMIN_EMAIL || "saidlabsglobal@gmail.com")
@@ -91,6 +92,22 @@ export default async function handler(request, response) {
   const controls = new Map((controlsResult.data || []).map((item) => [item.user_id, item]));
   const usersById = new Map(users.map((item) => [item.id, item]));
   const commissions = commissionsResult.data || [];
+  const billingCustomers = new Set((controlsResult.data || []).map((item) => item.stripe_customer_id).filter(Boolean));
+  let platformRevenueCents = 0;
+  let platformPaidInvoices = 0;
+  let platformRevenueAvailable = false;
+  try {
+    const { stripe } = await stripeBillingClient(admin);
+    for await (const invoice of stripe.invoices.list({ status: "paid", limit: 100 })) {
+      const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+      if (!customerId || !billingCustomers.has(customerId)) continue;
+      platformRevenueCents += Math.max(0, Number(invoice.amount_paid || 0));
+      platformPaidInvoices += 1;
+    }
+    platformRevenueAvailable = true;
+  } catch (error) {
+    console.error("Platform revenue sync failed", { name: error?.name, message: error?.message });
+  }
   const workspacesByOwner = new Map();
   workspaces.forEach((item) => {
     const existing = workspacesByOwner.get(item.owner_id) || [];
@@ -108,6 +125,9 @@ export default async function handler(request, response) {
         (total, item) => total + Number(item.total_cents || 0),
         0,
       ),
+      platform_revenue_cents: platformRevenueCents,
+      platform_paid_invoices: platformPaidInvoices,
+      platform_revenue_available: platformRevenueAvailable,
       active_products: (productsResult.data || []).filter(
         (item) => item.status === "active",
       ).length,

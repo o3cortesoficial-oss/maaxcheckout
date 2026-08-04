@@ -1886,9 +1886,9 @@ function AdminConsole({ session, section }) {
         <>
           <div className="admin-hero">
             <div>
-              <span>RECEITA APROVADA</span>
-              <strong>{money(metrics.approved_revenue_cents)}</strong>
-              <small>Somatório real dos pedidos aprovados</small>
+              <span>RECEITA DA PLATAFORMA</span>
+              <strong>{metrics.platform_revenue_available ? money(metrics.platform_revenue_cents) : "—"}</strong>
+              <small>{metrics.platform_revenue_available ? `Assinaturas e taxas percentuais pagas · ${metrics.platform_paid_invoices} cobranças` : "Não foi possível sincronizar a receita agora"}</small>
             </div>
             <div className="admin-hero-stats">
               <span><b>{metrics.users}</b><small>Usuários</small></span>
