@@ -40,6 +40,10 @@ function isCheckoutSubdomain(hostname) {
   return labels.length > apexLabelCount;
 }
 
+function checkoutHostnameFor(hostname) {
+  return isCheckoutSubdomain(hostname) ? hostname : `checkout.${hostname}`;
+}
+
 function supabaseFor(request) {
   const token = String(request.headers.authorization || "").replace(
     /^Bearer\s+/i,
@@ -249,14 +253,12 @@ export default async function handler(request, response) {
     }
 
     const action = request.body?.action;
-    const hostname = normalizeDomain(request.body?.domain || saved?.hostname);
-    if (!hostname)
+    const requestedHostname = normalizeDomain(request.body?.domain || saved?.hostname);
+    if (!requestedHostname)
       return response.status(400).json({ error: "Informe um domínio válido." });
-    if (!isCheckoutSubdomain(hostname))
-      return response.status(400).json({
-        error: "Use um subdomínio completo, por exemplo checkout.sualoja.com. Domínios raiz não são aceitos.",
-        code: "CHECKOUT_SUBDOMAIN_REQUIRED",
-      });
+    const hostname = action === "add"
+      ? checkoutHostnameFor(requestedHostname)
+      : requestedHostname;
     if (action === "add") {
       if (!process.env.SUPABASE_SECRET_KEY)
         throw Object.assign(new Error("Configuração segura indisponível."), {

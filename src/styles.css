@@ -8781,6 +8781,9 @@ html {
 .domain-input-label input:focus { border-color: #94b429; box-shadow: inset 0 0 0 1px #94b429; }
 .domain-input-label input:disabled { color: #666a61; cursor: not-allowed; }
 .domain-input-label > small { color: #969a90; font-size: 8px; font-weight: 450; }
+.domain-generated-preview { display: flex; align-items: center; gap: 7px; margin-top: 2px; padding: 10px 12px; border: 1px solid #dce5c7; border-radius: 10px; background: #f4f9e8; color: #6a7551; font-size: 8px; font-weight: 650; }
+.domain-generated-preview svg { position: static; width: 14px; height: 14px; transform: none; color: #78931f; }
+.domain-generated-preview b { color: #303628; font-size: 8.5px; }
 .domain-config-card > .btn { margin: 20px 28px 28px; }
 .domain-actions { display: flex; gap: 9px; margin: 20px 28px 25px; }
 .domain-feedback { display: flex; align-items: center; gap: 9px; margin: 0 28px 22px; padding: 12px 14px; border-radius: 11px; background: #fff3f1; color: #a33a34; font-size: 9px; }

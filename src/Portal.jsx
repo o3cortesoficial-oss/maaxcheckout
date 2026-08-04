@@ -6685,6 +6685,13 @@ function DomainPage({ workspace }) {
   const [feedback, setFeedback] = useState({ type: "", message: "" });
   const [copied, setCopied] = useState("");
   const [removeConfirm, setRemoveConfirm] = useState(false);
+  const checkoutDomainPreview = useMemo(() => {
+    const hostname = draft.trim().toLowerCase().replace(/^https?:\/\//, "").split(/[/?#]/)[0];
+    if (!hostname) return "";
+    const labels = hostname.split(".").filter(Boolean);
+    const apexLabelCount = hostname.endsWith(".com.br") ? 3 : 2;
+    return labels.length > apexLabelCount ? hostname : `checkout.${hostname}`;
+  }, [draft]);
 
   const request = async (options = {}) => {
     const { data } = await supabase.auth.getSession();
@@ -6861,22 +6868,27 @@ function DomainPage({ workspace }) {
           ) : (
             <>
               <label className="domain-input-label">
-                Subdomínio do checkout
+                Seu domínio
                 <div>
                   <GlobeSimple />
                   <input
                     value={draft}
                     disabled={Boolean(domain)}
-                    placeholder="checkout.sualoja.com"
+                    placeholder="sualoja.com"
                     autoCapitalize="none"
                     autoCorrect="off"
                     onChange={(event) => setDraft(event.target.value)}
                   />
                 </div>
                 <small>
-                  Use um endereço como checkout.sualoja.com. A Maax aceita
-                  somente subdomínios e sempre fornece um único CNAME.
+                  Informe apenas o domínio que você comprou. A Maax criará
+                  automaticamente checkout.seudominio.com e mostrará o CNAME pronto.
                 </small>
+                {!domain && checkoutDomainPreview && (
+                  <span className="domain-generated-preview">
+                    <CheckCircle /> Seu checkout ficará em <b>{checkoutDomainPreview}</b>
+                  </span>
+                )}
               </label>
               {!domain ? (
                 <Button onClick={connect} disabled={busy === "add" || !draft.trim()}>
@@ -6940,7 +6952,7 @@ function DomainPage({ workspace }) {
           <ol>
             <li>
               <i>01</i>
-              <span><b>Na Maax</b><small>Digite o subdomínio completo, como checkout.sualoja.com, e clique em “Adicionar domínio”.</small></span>
+              <span><b>Na Maax</b><small>Digite somente o domínio que você comprou, como sualoja.com. A Maax criará o prefixo checkout automaticamente.</small></span>
             </li>
             <li>
               <i>02</i>
