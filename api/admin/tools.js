@@ -51,6 +51,32 @@ async function testResend(config) {
   return true;
 }
 
+function quotaValue(header, fallbackLimit) {
+  const values = String(header || "").match(/\d+/g)?.map(Number) || [];
+  return {
+    used: Number.isFinite(values[0]) ? values[0] : null,
+    limit: Number.isFinite(values[1]) ? values[1] : fallbackLimit,
+  };
+}
+
+async function resendUsage(apiKey) {
+  if (!apiKey) return { available: false, monthly_used: 0, monthly_limit: 3000, daily_used: 0, daily_limit: 100 };
+  const result = await fetch("https://api.resend.com/emails?limit=1", {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "maax-checkout/1.0" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!result.ok) throw new Error("Não foi possível consultar o consumo da Resend.");
+  const monthly = quotaValue(result.headers.get("x-resend-monthly-quota"), 3000);
+  const daily = quotaValue(result.headers.get("x-resend-daily-quota"), 100);
+  return {
+    available: monthly.used !== null,
+    monthly_used: monthly.used || 0,
+    monthly_limit: monthly.limit,
+    daily_used: daily.used || 0,
+    daily_limit: daily.limit,
+  };
+}
+
 export default async function handler(request, response) {
   applyApiSecurityHeaders(response);
   if (!["GET", "POST"].includes(request.method))
@@ -74,7 +100,12 @@ export default async function handler(request, response) {
     if (integration?.encrypted_config)
       saved = decryptIntegrationConfig(integration.encrypted_config);
 
-    if (request.method === "GET")
+    if (request.method === "GET") {
+      let usage = { available: false, monthly_used: 0, monthly_limit: 3000, daily_used: 0, daily_limit: 100 };
+      if (saved?.api_key) {
+        try { usage = await resendUsage(saved.api_key); }
+        catch (error) { console.error("Resend usage sync failed", { name: error?.name, message: error?.message }); }
+      }
       return response.status(200).json({
         provider: "resend",
         configured: Boolean(saved?.api_key && saved?.from_email && saved?.template_id),
@@ -84,7 +115,9 @@ export default async function handler(request, response) {
         template_id: saved?.template_id || "",
         last_tested_at: integration?.last_tested_at || null,
         last_test_status: integration?.last_test_status || "never",
+        usage,
       });
+    }
 
     const action = cleanString(request.body?.action, 16);
     if (!["save", "test", "toggle"].includes(action))

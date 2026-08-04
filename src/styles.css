@@ -9315,6 +9315,23 @@ html {
 .resend-status.active { border-color: #56632e; color: #e8f8bb; }
 .resend-status.active i { background: #c9ff32; box-shadow: 0 0 0 4px rgba(201,255,50,.1); }
 .resend-tool-body { padding: 31px 32px 27px; display: grid; grid-template-columns: minmax(0,1.5fr) minmax(280px,.65fr); gap: 26px 34px; }
+.resend-usage { grid-column: 1/-1; display: grid; grid-template-columns: minmax(220px,.58fr) minmax(300px,1.42fr); gap: 28px; align-items: center; padding: 21px 23px; border: 1px solid #dfe2d8; border-radius: 19px; background: #f5f7f0; }
+.resend-usage-copy { display: grid; gap: 6px; }
+.resend-usage-copy > span { color: #788a42; font-size: 8px; font-weight: 850; letter-spacing: .15em; }
+.resend-usage-copy strong { color: #1b1d18; font-size: 29px; line-height: 1; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.resend-usage-copy strong small { color: #74796e; font-size: 11px; font-weight: 700; letter-spacing: 0; }
+.resend-usage-copy p { margin: 0; color: #797e73; font-size: 9px; }
+.resend-usage-meter { display: grid; gap: 10px; }
+.resend-usage-meter header,.resend-usage-meter footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.resend-usage-meter header span { color: #30332c; font-size: 10px; font-weight: 800; }
+.resend-usage-meter header small,.resend-usage-meter footer small { color: #7b8075; font-size: 8px; }
+.resend-usage-meter > div { height: 9px; padding: 2px; overflow: hidden; border-radius: 999px; background: #dfe3d7; }
+.resend-usage-meter > div i { display: block; height: 100%; border-radius: inherit; background: #b8ef24; transition: width .55s cubic-bezier(.16,1,.3,1), background .25s; }
+.resend-usage.warning .resend-usage-meter > div i { background: #e7b934; }
+.resend-usage.danger .resend-usage-meter > div i { background: #e45a50; }
+.resend-usage.warning { border-color: #e5d7a7; background: #fbf8ed; }
+.resend-usage.danger { border-color: #ecc3bf; background: #fff4f2; }
+.resend-usage-meter footer button { padding: 0; border-bottom: 1px solid #aeb4a5; background: transparent; color: #454a40; font-size: 8px; font-weight: 800; }
 .resend-fields { display: grid; gap: 19px; }
 .resend-fields label { display: grid; gap: 8px; }
 .resend-fields label > span { color: #252721; font-size: 11px; font-weight: 800; }
@@ -9510,6 +9527,7 @@ html {
   .admin-hero-stats { border-top: 1px solid #343630; border-left: 0; }
   .admin-hero-stats span { padding: 18px 12px 0 0; }
   .resend-tool-body { grid-template-columns: 1fr; }
+  .resend-usage { grid-template-columns: 1fr; gap: 18px; }
   .stripe-tool-body { grid-template-columns: 1fr; }
   .admin-user-list > button { grid-template-columns: 42px minmax(160px,1fr) 90px 20px; }
   .admin-user-list > button > span:nth-child(3), .admin-user-access { display: none; }

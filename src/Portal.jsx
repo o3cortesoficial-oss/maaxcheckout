@@ -2029,7 +2029,7 @@ function AdminUsersPanel({ users, session, onRefresh }) {
 }
 
 function ResendAdminTool({ session }) {
-  const [config, setConfig] = useState({ configured: false, active: false, api_key_hint: "", from_email: "", template_id: "" });
+  const [config, setConfig] = useState({ configured: false, active: false, api_key_hint: "", from_email: "", template_id: "", usage: { available: false, monthly_used: 0, monthly_limit: 3000, daily_used: 0, daily_limit: 100 } });
   const [form, setForm] = useState({ api_key: "", from_email: "", template_id: "" });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -2078,6 +2078,12 @@ function ResendAdminTool({ session }) {
     } catch (error) { setMessage({ type: "error", text: error.message }); }
     finally { setBusy(""); }
   };
+  const usage = config.usage || {};
+  const monthlyUsed = Number(usage.monthly_used || 0);
+  const monthlyLimit = Math.max(1, Number(usage.monthly_limit || 3000));
+  const usagePercent = Math.min(100, Math.max(0, monthlyUsed / monthlyLimit * 100));
+  const usageTone = usagePercent >= 90 ? "danger" : usagePercent >= 70 ? "warning" : "safe";
+  const numberLocale = getLanguage() === "en" ? "en-US" : "pt-BR";
 
   return (
     <section className="resend-tool">
@@ -2089,6 +2095,18 @@ function ResendAdminTool({ session }) {
 
       {loading ? <div className="resend-form-loading"><i /><i /><i /></div> : (
         <div className="resend-tool-body">
+          <section className={`resend-usage ${usageTone}`}>
+            <div className="resend-usage-copy">
+              <span>CONSUMO MENSAL</span>
+              <strong>{usage.available ? monthlyUsed.toLocaleString(numberLocale) : "—"}<small> / {monthlyLimit.toLocaleString(numberLocale)} e-mails</small></strong>
+              <p>{usage.available ? `${Math.max(0, monthlyLimit - monthlyUsed).toLocaleString(numberLocale)} envios restantes neste mês` : "A Resend não informou a cota para esta chave."}</p>
+            </div>
+            <div className="resend-usage-meter">
+              <header><span>{usage.available ? `${usagePercent.toLocaleString(numberLocale, { maximumFractionDigits: 1 })}% utilizado` : "Consumo indisponível"}</span><small>{usage.available ? `Hoje: ${Number(usage.daily_used || 0)} de ${Number(usage.daily_limit || 100)}` : "Atualize para tentar novamente"}</small></header>
+              <div><i style={{ width: `${usage.available ? usagePercent : 0}%` }} /></div>
+              <footer><small>{usagePercent >= 90 ? "Limite próximo. Avalie um novo plano ou outra conta." : usagePercent >= 70 ? "Atenção: o limite gratuito está se aproximando." : "Dentro do limite gratuito da conta."}</small><button type="button" onClick={load}>Atualizar uso</button></footer>
+            </div>
+          </section>
           <div className="resend-fields">
             <label><span>API Key</span><input type="password" autoComplete="new-password" value={form.api_key} placeholder={config.api_key_hint || "re_xxxxxxxxxxxxxxxxx"} onChange={(event) => setForm({ ...form, api_key: event.target.value })} /><small>{config.configured ? `Chave protegida: ${config.api_key_hint}. Preencha somente para trocar.` : "Crie uma chave com permissão de envio no painel da Resend."}</small></label>
             <label><span>Remetente verificado</span><input value={form.from_email} placeholder="Maax <contato@seudominio.com>" onChange={(event) => setForm({ ...form, from_email: event.target.value })} /><small>O domínio desse endereço precisa estar verificado na Resend.</small></label>

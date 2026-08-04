@@ -24,6 +24,7 @@ const EN = {
 };
 
 Object.assign(EN, {
+  "CONSUMO MENSAL":"MONTHLY USAGE","Consumo indisponível":"Usage unavailable","Atualize para tentar novamente":"Refresh to try again","Limite próximo. Avalie um novo plano ou outra conta.":"Limit approaching. Consider a new plan or another account.","Atenção: o limite gratuito está se aproximando.":"The free limit is approaching.","Dentro do limite gratuito da conta.":"Within the account's free limit.","Atualizar uso":"Refresh usage","A Resend não informou a cota para esta chave.":"Resend did not report a quota for this key.",
   "RECEITA DA PLATAFORMA":"PLATFORM REVENUE","Não foi possível sincronizar a receita agora":"Revenue could not be synced right now",
   "ASSINATURA ATIVA":"ACTIVE SUBSCRIPTION","CANCELAMENTO AGENDADO":"CANCELLATION SCHEDULED","Você controla a renovação do seu plano.":"You control your plan renewal.","Seu plano termina ao fim deste ciclo.":"Your plan ends after this billing cycle.","Ao cancelar, o plano permanece disponível até completar os 7 dias e as taxas percentuais acumuladas entram na cobrança final.":"After cancellation, the plan remains available until the 7-day cycle ends, and accumulated percentage fees are included in the final charge.","O acesso permanece ativo até o fechamento do ciclo. As taxas percentuais acumuladas serão cobradas no encerramento.":"Access remains active until the billing cycle closes. Accumulated percentage fees will be charged at the end.","Fim do ciclo":"Cycle ends","Em até 7 dias":"Within 7 days","Cancelar assinatura":"Cancel subscription","Manter assinatura":"Keep subscription","Cancelar ao fim do ciclo?":"Cancel at the end of the cycle?","Sua assinatura continuará ativa até completar os 7 dias. No encerramento, a cobrança final incluirá as taxas percentuais acumuladas no período e depois o plano será cancelado.":"Your subscription remains active until the 7-day cycle ends. At closing, the final charge includes accumulated percentage fees, and then the plan is canceled.","Agendar cancelamento":"Schedule cancellation","Cancelamento agendado para o fim do ciclo atual.":"Cancellation scheduled for the end of the current cycle.","Cancelamento desfeito. Sua assinatura continuará ativa.":"Cancellation reversed. Your subscription will remain active.",
   "Pendente":"Pending","Processando":"Processing","Recusado":"Declined","Reembolsado":"Refunded","Cancelado":"Canceled","Falhou":"Failed","Concluído":"Completed","Confirmado":"Confirmed","Pausado":"Paused","Agendado":"Scheduled","Parceira":"Partner","Assinante":"Subscriber","Administrador":"Administrator","Dados protegidos":"Protected data","Dados em produção":"Production data","Atualizar dados":"Refresh data",
@@ -36,6 +37,9 @@ Object.assign(EN, {
 });
 
 const DYNAMIC_EN = [
+  [/^([\d.,]+) envios restantes neste mês$/i, "$1 sends remaining this month"],
+  [/^([\d.,]+)% utilizado$/i, "$1% used"],
+  [/^Hoje: (\d+) de (\d+)$/i, "Today: $1 of $2"],
   [/^Assinaturas e taxas percentuais pagas · (\d+) cobranças$/i, "Paid subscriptions and percentage fees · $1 charges"],
   [/^O acesso permanece ativo por mais (\d+) dia\. As taxas percentuais acumuladas serão cobradas no fechamento\.$/i, "Access remains active for 1 more day. Accumulated percentage fees will be charged at closing."],
   [/^O acesso permanece ativo por mais (\d+) dias\. As taxas percentuais acumuladas serão cobradas no fechamento\.$/i, "Access remains active for $1 more days. Accumulated percentage fees will be charged at closing."],
