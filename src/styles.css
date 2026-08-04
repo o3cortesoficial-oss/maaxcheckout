@@ -8793,6 +8793,7 @@ html {
 .dns-record-title b { font-size: 11px; }
 .dns-record-title small { color: #92968c; font-size: 8px; }
 .dns-record-title em { padding: 6px 9px; border-radius: 8px; background: #171915; color: #c9ff32; font-size: 8px; font-style: normal; font-weight: 800; }
+.dns-explanation { display: block; padding: 10px 11px; border: 1px solid #dde2d2; border-radius: 9px; background: #f3f7e9; color: #65704d !important; font-size: 7.5px !important; font-weight: 650; line-height: 1.5; }
 .dns-value { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 12px 13px; border: 1px solid #dedfd9; border-radius: 11px; background: #fff; }
 .dns-value > span { display: grid; min-width: 0; gap: 4px; }
 .dns-value small { color: #94988e; font-size: 7px; }

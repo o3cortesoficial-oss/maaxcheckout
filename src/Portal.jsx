@@ -6900,7 +6900,9 @@ function DomainPage({ workspace }) {
                       <small>
                         {dns.ownershipRequired
                           ? "Validação de propriedade solicitada pela Vercel"
-                          : "Copie estes dados exatamente como aparecem"}
+                          : dns.hostnameType === "apex"
+                            ? "Domínio raiz: use somente o registro A em @"
+                            : "Subdomínio: use somente o registro CNAME indicado"}
                       </small>
                     </span>
                     <em>{dns.type}</em>
@@ -6917,6 +6919,7 @@ function DomainPage({ workspace }) {
                     ),
                   )}
                   <small className="dns-ttl">TTL recomendado: Automático ou 300 segundos.</small>
+                  {dns.explanation && <small className="dns-explanation">{dns.explanation}</small>}
                 </div>
               )}
             </>

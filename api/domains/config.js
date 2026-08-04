@@ -87,20 +87,43 @@ async function vercelRequest(path, options = {}) {
   return payload;
 }
 
-function dnsGuide(domain, verification = []) {
+function preferredDnsValue(configuration, key, fallback) {
+  const recommended = configuration?.[key];
+  if (Array.isArray(recommended)) {
+    const first = [...recommended].sort((a, b) => Number(a.rank || 0) - Number(b.rank || 0))[0];
+    return first?.value || first?.cname || first?.ip || fallback;
+  }
+  return recommended?.value || recommended || fallback;
+}
+
+function dnsGuide(domain, verification = [], configuration = null) {
   const labels = domain.split(".");
-  const looksLikeSubdomain = labels.length > 2 && !domain.endsWith(".com.br");
+  const apexLabelCount = domain.endsWith(".com.br") ? 3 : 2;
+  const looksLikeSubdomain = labels.length > apexLabelCount;
   const ownership = Array.isArray(verification)
     ? verification.find((item) => item.type === "TXT")
     : null;
+  const recordType = looksLikeSubdomain ? "CNAME" : "A";
   return {
-    type: ownership?.type || (looksLikeSubdomain ? "CNAME" : "A"),
-    name: ownership?.domain || (looksLikeSubdomain ? labels[0] : "@"),
+    type: ownership?.type || recordType,
+    name: ownership?.domain || (looksLikeSubdomain ? labels.slice(0, -apexLabelCount).join(".") : "@"),
     value:
       ownership?.value ||
-      (looksLikeSubdomain ? "cname.vercel-dns-0.com" : "76.76.21.21"),
+      (looksLikeSubdomain
+        ? preferredDnsValue(configuration, "recommendedCNAME", "cname.vercel-dns-0.com")
+        : preferredDnsValue(configuration, "recommendedIPv4", "76.76.21.21")),
     ownershipRequired: Boolean(ownership),
+    hostnameType: looksLikeSubdomain ? "subdomain" : "apex",
+    explanation: ownership
+      ? "Adicione primeiro este TXT para confirmar que o domínio pertence a você. Depois teste novamente para receber o registro de apontamento."
+      : looksLikeSubdomain
+        ? "Subdomínios usam CNAME. Não adicione um registro A no mesmo host."
+        : "Domínios raiz usam A com host @. Não adicione CNAME no domínio raiz.",
   };
+}
+
+async function getDomainConfiguration(hostname) {
+  return vercelRequest(`/v6/domains/${encodeURIComponent(hostname)}/config`).catch(() => null);
 }
 
 async function saveDomainSettings(supabase, workspaceId, customDomain) {
@@ -172,10 +195,11 @@ export default async function handler(request, response) {
         const remote = await vercelRequest(
           `/v9/projects/{project}/domains/${encodeURIComponent(saved.hostname)}`,
         );
+        const configuration = await getDomainConfiguration(saved.hostname);
         const domain = {
           ...saved,
           verified: Boolean(remote.verified),
-          dns: dnsGuide(saved.hostname, remote.verification),
+          dns: dnsGuide(saved.hostname, remote.verification, configuration),
           checked_at: new Date().toISOString(),
         };
         await saveDomainSettings(supabase, workspaceId, domain);
@@ -228,10 +252,11 @@ export default async function handler(request, response) {
         method: "POST",
         body: JSON.stringify({ name: hostname }),
       });
+      const configuration = await getDomainConfiguration(hostname);
       const domain = {
         hostname,
         verified: Boolean(remote.verified),
-        dns: dnsGuide(hostname, remote.verification),
+        dns: dnsGuide(hostname, remote.verification, configuration),
         created_at: new Date().toISOString(),
         checked_at: new Date().toISOString(),
       };
@@ -243,11 +268,12 @@ export default async function handler(request, response) {
         `/v9/projects/{project}/domains/${encodeURIComponent(hostname)}/verify`,
         { method: "POST" },
       );
+      const configuration = await getDomainConfiguration(hostname);
       const domain = {
         ...(saved || {}),
         hostname,
         verified: Boolean(remote.verified),
-        dns: dnsGuide(hostname, remote.verification),
+        dns: dnsGuide(hostname, remote.verification, configuration),
         checked_at: new Date().toISOString(),
       };
       await saveDomainSettings(supabase, workspaceId, domain);
