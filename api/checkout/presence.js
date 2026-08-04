@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { isLikelyAutomated } from "../_traffic.js";
+import { activeCheckoutProduct } from "../_lib/checkoutContext.js";
 import {
   applyApiSecurityHeaders,
   enforceJsonBodyLimit,
@@ -45,12 +46,7 @@ export default async function handler(request, response) {
     if (!humanVerified || isLikelyAutomated(request))
       return response.status(202).json({ active: false, filtered: true });
 
-    const { data: product } = await supabase
-      .from("products")
-      .select("id, workspace_id")
-      .eq("id", productId)
-      .eq("status", "active")
-      .maybeSingle();
+    const product = await activeCheckoutProduct(supabase, productId);
     if (!product)
       return response.status(404).json({ error: "Produto indisponível." });
     const { data: workspace } = await supabase.from("workspaces").select("billing_suspended").eq("id", product.workspace_id).maybeSingle();
@@ -69,11 +65,12 @@ export default async function handler(request, response) {
     );
     if (error) throw error;
 
-    await supabase
-      .from("checkout_presence")
-      .delete()
-      .eq("workspace_id", product.workspace_id)
-      .lt("last_seen_at", new Date(Date.now() - 60000).toISOString());
+    if (Math.random() < 0.05)
+      await supabase
+        .from("checkout_presence")
+        .delete()
+        .eq("workspace_id", product.workspace_id)
+        .lt("last_seen_at", new Date(Date.now() - 60000).toISOString());
     return response.status(202).json({ active: true });
   } catch (error) {
     console.error("Checkout presence update failed", error);

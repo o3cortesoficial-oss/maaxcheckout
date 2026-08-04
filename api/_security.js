@@ -115,6 +115,11 @@ export function rateLimit(request, response, options = {}) {
     for (const [key, value] of buckets) {
       if (value.resetAt <= now) buckets.delete(key);
     }
+    while (buckets.size > 5000) {
+      const oldest = buckets.keys().next().value;
+      if (!oldest) break;
+      buckets.delete(oldest);
+    }
   }
 
   response.setHeader("X-RateLimit-Limit", String(limit));

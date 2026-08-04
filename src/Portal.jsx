@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import "iconsax";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -2222,6 +2223,9 @@ export function RealDashboard({ navigate }) {
     [searchQuery, setSearchQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
     [adminMode, setAdminMode] = useState(false),
+    [realtimeVisible, setRealtimeVisible] = useState(
+      () => document.visibilityState !== "hidden",
+    ),
     [adminSection, setAdminSection] = useState("admin_overview");
   const workspaceIdRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -2311,39 +2315,40 @@ export function RealDashboard({ navigate }) {
     setWorkspace(ws);
     workspaceIdRef.current = ws.id;
     window.localStorage.setItem("maax_active_workspace", ws.id);
-    const tables = [
-      "products",
-      "customers",
-      "payment_links",
-      "orders",
-      "subscriptions",
-      "transactions",
-      "payment_gateways",
-      "product_images",
-      "payment_attempts",
-      "checkout_event_counters",
-      "checkout_presence",
-      "checkout_configs",
+    const tableQueries = [
+      ["products", 500],
+      ["customers", 1000],
+      ["payment_links", 500],
+      ["orders", 1000],
+      ["subscriptions", 500],
+      ["transactions", 1000],
+      ["payment_gateways", 100],
+      ["product_images", 1000],
+      ["payment_attempts", 1000],
+      ["checkout_event_counters", 20],
+      ["checkout_presence", 500],
+      ["checkout_configs", 10],
     ];
     const results = await Promise.all(
-      tables.map((t) =>
-        supabase
-          .from(t)
+      tableQueries.map(([table, limit]) => {
+        let query = supabase
+          .from(table)
           .select("*")
           .eq("workspace_id", ws.id)
           .order(
-            t === "checkout_event_counters"
+            table === "checkout_event_counters"
               ? "updated_at"
-              : t === "checkout_presence"
+              : table === "checkout_presence"
                 ? "last_seen_at"
                 : "created_at",
             { ascending: false },
-          )
-          .limit(1000),
-      ),
+          );
+        if (table === "checkout_presence") query = query.gte("last_seen_at", new Date(Date.now() - 60000).toISOString());
+        return query.limit(limit);
+      }),
     );
     const next = {};
-    tables.forEach((t, i) => (next[t] = results[i].data || []));
+    tableQueries.forEach(([table], index) => (next[table] = results[index].data || []));
     const failed = results.find((r) => r.error);
     if (!retried && /jwt|token|session/i.test(failed?.error?.message || "")) {
       const { data: refreshed } = await supabase.auth.refreshSession();
@@ -2370,14 +2375,34 @@ export function RealDashboard({ navigate }) {
     } = supabase.auth.onAuthStateChange((_e, s) => {
       if (!s) navigate("/login");
     });
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") load(false, true);
+    }, 300000);
+    const handleVisibility = () => {
+      const visible = document.visibilityState === "visible";
+      setRealtimeVisible(visible);
+      if (visible) load(false, true);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      subscription.unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    if (!workspace?.id || !supabaseConfigured || !realtimeVisible)
+      return undefined;
+    const workspaceFilter = `workspace_id=eq.${workspace.id}`;
     const liveCounters = supabase
-      .channel("checkout-live-counters")
+      .channel(`checkout-live-${workspace.id}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "checkout_event_counters",
+          filter: workspaceFilter,
         },
         ({ new: counter }) =>
           setData((current) =>
@@ -2396,7 +2421,7 @@ export function RealDashboard({ navigate }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "checkout_presence" },
+        { event: "*", schema: "public", table: "checkout_presence", filter: workspaceFilter },
         ({ eventType, new: presence, old }) =>
           setData((current) => {
             if (
@@ -2422,7 +2447,7 @@ export function RealDashboard({ navigate }) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
+        { event: "*", schema: "public", table: "orders", filter: workspaceFilter },
         ({ eventType, new: order, old }) =>
           setData((current) => {
             if (eventType === "DELETE") {
@@ -2446,13 +2471,10 @@ export function RealDashboard({ navigate }) {
           }),
       )
       .subscribe();
-    const refreshTimer = window.setInterval(() => load(false, true), 30000);
     return () => {
-      window.clearInterval(refreshTimer);
       supabase.removeChannel(liveCounters);
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [workspace?.id, realtimeVisible]);
   useEffect(() => {
     const shortcut = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {

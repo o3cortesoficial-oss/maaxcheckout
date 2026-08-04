@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { isLikelyAutomated } from "../_traffic.js";
+import { activeCheckoutProduct } from "../_lib/checkoutContext.js";
 import {
   applyApiSecurityHeaders,
   enforceJsonBodyLimit,
@@ -74,12 +75,7 @@ export default async function handler(request, response) {
     if (eventType !== "checkout_opened" && !humanVerified)
       return response.status(202).json({ received: false, filtered: true });
 
-    const { data: product } = await supabase
-      .from("products")
-      .select("id, workspace_id")
-      .eq("id", productId)
-      .eq("status", "active")
-      .maybeSingle();
+    const product = await activeCheckoutProduct(supabase, productId);
     if (!product)
       return response.status(404).json({ error: "Produto indisponível." });
     const { data: workspace } = await supabase.from("workspaces").select("billing_suspended").eq("id", product.workspace_id).maybeSingle();

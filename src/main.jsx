@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import 'iconsax';
 import {
   ArrowRight, ArrowUpRight, Bank, Bell, ChartLineUp, Check, CheckCircle,
   Clock, Copy, CreditCard, CurrencyDollar, Eye, EyeSlash, House, Link as LinkIcon,
@@ -11,7 +10,10 @@ import './styles.css';
 import './legal.css';
 import './locale.css';
 import { initializeLocale } from './i18n';
-import { PublicCheckout, RealDashboard, RealLogin } from './Portal';
+
+const PublicCheckout = lazy(() => import('./Portal').then((module) => ({ default: module.PublicCheckout })));
+const RealDashboard = lazy(() => import('./Portal').then((module) => ({ default: module.RealDashboard })));
+const RealLogin = lazy(() => import('./Portal').then((module) => ({ default: module.RealLogin })));
 
 const PLATFORM_HOSTS = new Set([
   'localhost',
@@ -191,9 +193,9 @@ function App(){
   useEffect(()=>{const blockContextMenu=(event)=>event.preventDefault();document.addEventListener('contextmenu',blockContextMenu);return()=>document.removeEventListener('contextmenu',blockContextMenu)},[]);
   const checkoutMatch=path.match(/^\/checkout\/([^/]+)\/?$/);
   if(!isPlatformHostname&&!checkoutMatch)return null;
-  if(checkoutMatch)return <PublicCheckout slug={decodeURIComponent(checkoutMatch[1])}/>;
-  if(path==='/login')return <RealLogin navigate={go}/>;
-  if(path==='/dashboard')return <RealDashboard navigate={go}/>;
+  if(checkoutMatch)return <Suspense fallback={<div className="route-loading" aria-label="Carregando"/>}><PublicCheckout slug={decodeURIComponent(checkoutMatch[1])}/></Suspense>;
+  if(path==='/login')return <Suspense fallback={<div className="route-loading" aria-label="Carregando"/>}><RealLogin navigate={go}/></Suspense>;
+  if(path==='/dashboard')return <Suspense fallback={<div className="route-loading" aria-label="Carregando"/>}><RealDashboard navigate={go}/></Suspense>;
   if(path==='/termos')return <PolicyPage kind="termos"/>;
   if(path==='/privacidade')return <PolicyPage kind="privacidade"/>;
   if(path==='/cookies')return <PolicyPage kind="cookies"/>;
