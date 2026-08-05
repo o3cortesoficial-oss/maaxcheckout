@@ -3464,6 +3464,7 @@ export function PublicCheckout({ slug }) {
   const [protectionSelected, setProtectionSelected] = useState(false);
   const [selectedBumpIds, setSelectedBumpIds] = useState([]);
   const [selectedShippingId, setSelectedShippingId] = useState("");
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const trackCheckoutEvent = (eventType, paymentMethod, productId) => {
     const targetProductId = productId || state.product?.id;
     if (!targetProductId) return;
@@ -4260,7 +4261,11 @@ export function PublicCheckout({ slug }) {
           </button>
         </form>
         {enabled("summary") && (
-          <aside className="public-order-summary">
+          <aside className={summaryOpen ? "public-order-summary summary-open" : "public-order-summary"}>
+            <button className="maaxfy-summary-toggle" type="button" onClick={() => setSummaryOpen((value) => !value)} aria-expanded={summaryOpen}>
+              <span>Resumo do pedido <CaretDown /></span><strong>{money(totalCents)}</strong>
+            </button>
+            <div className="maaxfy-summary-content">
             <div className="maaxfy-summary-product"><div className="public-product-image">{images[0] ? <img src={images[0].url} alt={product.name} /> : <Package />}<i>1</i></div><span><b>{product.name}</b>{product.description && <small>{product.description}</small>}</span><strong>{money(product.price_cents)}</strong></div>
             {enabled("coupon") && (
               <div className="coupon-preview">
@@ -4273,10 +4278,10 @@ export function PublicCheckout({ slug }) {
               <span>Total</span>
               <strong>{money(totalCents)}</strong>
             </div>
+            </div>
           </aside>
         )}
       </main>
-      <footer><a href="/privacidade">Política de privacidade</a><a href="/termos">Termos de uso</a></footer>
     </div>
   );
 }
@@ -5357,6 +5362,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
 }
 function CheckoutPreview({ settings, modules, products, productImages }) {
   const [device, setDevice] = useState("desktop");
+  const [previewSummaryOpen, setPreviewSummaryOpen] = useState(false);
   const [previewPayment, setPreviewPayment] = useState("pix");
   const [selectedPreviewBumpIds, setSelectedPreviewBumpIds] = useState([]);
   const previewShippingOptions = (settings.shipping_options || []).filter(
@@ -5556,7 +5562,9 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
               </button>
             </div>
             {enabled("summary") && (
-              <aside className="order-preview">
+              <aside className={previewSummaryOpen ? "order-preview summary-open" : "order-preview"}>
+                <button className="maaxfy-summary-toggle" type="button" onClick={() => setPreviewSummaryOpen((value) => !value)} aria-expanded={previewSummaryOpen}><span>Resumo do pedido <CaretDown /></span><strong>{money(19700 + previewBumpTotal + previewShippingTotal)}</strong></button>
+                <div className="maaxfy-summary-content">
                 <div className="preview-product maaxfy-preview-product">
                   <i><Package /><em>1</em></i>
                   <span>
@@ -5578,10 +5586,10 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                     {money(19700 + previewBumpTotal + previewShippingTotal)}
                   </strong>
                 </div>
+                </div>
               </aside>
             )}
           </main>
-          <footer><span>Política de privacidade</span><span>Termos de uso</span></footer>
         </div>
       </div>
     </div>
