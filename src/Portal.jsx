@@ -3318,6 +3318,8 @@ const defaultCheckout = {
   button_text: "Pagar agora",
   logo_url: "",
   banner_url: "",
+  logo_visible: true,
+  banner_visible: true,
   payment_methods: ["pix", "card", "boleto"],
   shopper_header_title: "Finalizar compra",
   shopper_shipping_estimate: "Receba em até 6 dias úteis",
@@ -3326,7 +3328,6 @@ const defaultCheckout = {
   maaxfy_delivery_title: "Entrega",
   maaxfy_payment_note: "Todas as transações são seguras e criptografadas.",
   maaxfy_discount_placeholder: "Código de desconto",
-  maaxfy_show_login: true,
   order_bump_enabled: false,
   order_bump_title: "Aproveite esta oferta",
   order_bump_description: "Adicione ao seu pedido com apenas um clique.",
@@ -3862,19 +3863,19 @@ export function PublicCheckout({ slug }) {
         "--checkout-radius": `${settings.radius}px`,
       }}
     >
-      {settings.banner_url && (
+      {settings.banner_url && settings.banner_visible !== false && (
         <div className="public-checkout-banner">
           <img src={settings.banner_url} alt="Banner da loja" />
         </div>
       )}
-      <header>
-        {settings.logo_url ? (
+      {settings.logo_visible !== false && <header>
+        {settings.logo_visible !== false && (settings.logo_url ? (
           <img src={settings.logo_url} alt={settings.brand_name} />
         ) : (
           <strong>{settings.brand_name}</strong>
-        )}
+        ))}
         {enabled("secure_badge") && <span><Storefront /></span>}
-      </header>
+      </header>}
       <main>
         <form
           className="public-checkout-form"
@@ -3895,7 +3896,7 @@ export function PublicCheckout({ slug }) {
           {enabled("contact") && (
             <section>
               <span>01</span>
-              <div className="maaxfy-section-heading"><h2>{settings.maaxfy_contact_title}</h2>{settings.maaxfy_show_login && <button type="button">Fazer login</button>}</div>
+              <div className="maaxfy-section-heading"><h2>{settings.maaxfy_contact_title}</h2></div>
               <label>
                 E-mail
                 <input
@@ -4499,15 +4500,16 @@ function ShopperCheckout({
         {enabled("secure_badge") ? <Bank /> : <i />}
       </header>
       <form onSubmit={submit} onFocusCapture={onFormFocus}>
+        {settings.banner_url && settings.banner_visible !== false && <div className="shopper-brand-banner"><img src={settings.banner_url} alt="Banner da loja" /></div>}
         <section className="shopper-store">
           <div className="shopper-store-name">
-            <span className={settings.logo_url ? "has-logo" : ""}>
+            {settings.logo_visible !== false && <span className={settings.logo_url ? "has-logo" : ""}>
               {settings.logo_url ? (
                 <img src={settings.logo_url} alt={settings.brand_name} />
               ) : (
                 <b>M</b>
               )}
-            </span>
+            </span>}
             <strong>{settings.brand_name}</strong>
           </div>
           <div className="shopper-product">
@@ -4893,7 +4895,11 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
       .from("checkout-assets")
       .getPublicUrl(path);
     const previousUrl = settings[`${kind}_url`];
-    change(`${kind}_url`, data.publicUrl);
+    setSettings((current) => ({
+      ...current,
+      [`${kind}_url`]: data.publicUrl,
+      [`${kind}_visible`]: true,
+    }));
     if (previousUrl && previousUrl !== data.publicUrl) {
       const marker = "/storage/v1/object/public/checkout-assets/";
       const previousPath = previousUrl.includes(marker)
@@ -5051,7 +5057,6 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                 <label>Título de entrega<input value={settings.maaxfy_delivery_title} onChange={(event) => change("maaxfy_delivery_title", event.target.value)} /></label>
                 <label>Texto de segurança do pagamento<textarea value={settings.maaxfy_payment_note} onChange={(event) => change("maaxfy_payment_note", event.target.value)} /></label>
                 <label>Texto do cupom<input value={settings.maaxfy_discount_placeholder} onChange={(event) => change("maaxfy_discount_placeholder", event.target.value)} /></label>
-                <button type="button" className={settings.maaxfy_show_login ? "template-option-toggle active" : "template-option-toggle"} onClick={() => change("maaxfy_show_login", !settings.maaxfy_show_login)}><span><b>Exibir “Fazer login”</b><small>Atalho visual ao lado do contato</small></span><i /></button>
                 <small>Esses campos pertencem somente ao template Maaxfy.</small>
               </div>
             )}
@@ -5070,6 +5075,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                 <span><b>Logo do checkout</b><small>{settings.logo_url ? "Imagem adicionada" : "Nenhuma imagem"}</small></span>
               </div>
               {settings.logo_url ? <div className="asset-media-card logo"><div className="asset-media-preview"><img src={settings.logo_url} alt="Logo enviada"/></div><div className="asset-media-info"><span><CheckCircle weight="fill"/> Pronta para uso</span><b>Logo da marca</b><small>PNG, JPEG ou SVG</small></div><div className="asset-media-actions"><label title="Substituir logo"><PencilSimple/><span>Substituir</span><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={uploading === "logo"} onChange={(e) => uploadAsset("logo", e.target.files?.[0])}/></label><button type="button" onClick={() => removeAsset("logo")} disabled={uploading === "logo"} title="Excluir logo"><Trash/><span>Excluir</span></button></div></div> : <label className={`upload-drop${uploading === "logo" ? " uploading" : ""}`}><span className="upload-drop-icon"><Camera/></span><span><b>{uploading === "logo" ? "Enviando logo..." : "Adicionar logo"}</b><small>Clique para escolher uma imagem</small></span><Plus/><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" onChange={(e) => uploadAsset("logo", e.target.files?.[0])}/></label>}
+              <button type="button" className={settings.logo_visible !== false ? "template-option-toggle asset-visibility-toggle active" : "template-option-toggle asset-visibility-toggle"} onClick={() => change("logo_visible", settings.logo_visible === false)}><span><b>Exibir logo</b><small>A imagem continua salva quando estiver oculta</small></span><i /></button>
               <small>
                 Recomendado: <b>600 × 200 px</b> (proporção 3:1), PNG ou SVG com
                 fundo transparente. Máximo de 2 MB.
@@ -5080,6 +5086,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                 <span><b>Banner do checkout</b><small>{settings.banner_url ? "Imagem adicionada" : "Nenhuma imagem"}</small></span>
               </div>
               {settings.banner_url ? <div className="asset-media-card banner"><div className="asset-media-preview"><img src={settings.banner_url} alt="Banner enviado"/></div><div className="asset-media-info"><span><CheckCircle weight="fill"/> Pronto para uso</span><b>Banner principal</b><small>Imagem exibida no topo</small></div><div className="asset-media-actions"><label title="Substituir banner"><PencilSimple/><span>Substituir</span><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" disabled={uploading === "banner"} onChange={(e) => uploadAsset("banner", e.target.files?.[0])}/></label><button type="button" onClick={() => removeAsset("banner")} disabled={uploading === "banner"} title="Excluir banner"><Trash/><span>Excluir</span></button></div></div> : <label className={`upload-drop${uploading === "banner" ? " uploading" : ""}`}><span className="upload-drop-icon"><Camera/></span><span><b>{uploading === "banner" ? "Enviando banner..." : "Adicionar banner"}</b><small>Clique para escolher uma imagem</small></span><Plus/><input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" onChange={(e) => uploadAsset("banner", e.target.files?.[0])}/></label>}
+              <button type="button" className={settings.banner_visible !== false ? "template-option-toggle asset-visibility-toggle active" : "template-option-toggle asset-visibility-toggle"} onClick={() => change("banner_visible", settings.banner_visible === false)}><span><b>Exibir banner</b><small>A imagem continua salva quando estiver oculta</small></span><i /></button>
               <small>
                 Recomendado: <b>1600 × 500 px</b>. Mantenha textos e elementos
                 importantes nos 70% centrais. Máximo de 5 MB.
@@ -5447,13 +5454,13 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
       </div>
       <div className="preview-viewport">
         <div className="checkout-canvas maaxfy-canvas">
-          {settings.banner_url && (
+          {settings.banner_url && settings.banner_visible !== false && (
             <div className="checkout-banner">
               <img src={settings.banner_url} alt="Banner do checkout" />
             </div>
           )}
-          <header>
-            {settings.logo_url ? (
+          {settings.logo_visible !== false && <header>
+            {settings.logo_visible !== false && (settings.logo_url ? (
               <img
                 className="checkout-logo"
                 src={settings.logo_url}
@@ -5461,15 +5468,15 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
               />
             ) : (
               <strong>{settings.brand_name}</strong>
-            )}
+            ))}
             {enabled("secure_badge") && <span><Storefront /></span>}
-          </header>
+          </header>}
           <main>
             <div className="checkout-form">
               {enabled("contact") && (
                 <section>
                   <small>01</small>
-                  <div className="maaxfy-section-heading"><h3>{settings.maaxfy_contact_title}</h3>{settings.maaxfy_show_login && <button type="button">Fazer login</button>}</div>
+                  <div className="maaxfy-section-heading"><h3>{settings.maaxfy_contact_title}</h3></div>
                   <label>
                     E-mail
                     <input placeholder="voce@email.com" />
@@ -5741,11 +5748,12 @@ function ShopperPreview({
             <b>{settings.shopper_header_title}</b>
             {enabled("secure_badge") ? <Bank /> : <i />}
           </header>
+          {settings.banner_url && settings.banner_visible !== false && <div className="shopper-brand-banner"><img src={settings.banner_url} alt="Banner da loja" /></div>}
           <section>
             <div className="shopper-store-name">
-              <span>
-                <b>M</b>
-              </span>
+              {settings.logo_visible !== false && <span className={settings.logo_url ? "has-logo" : ""}>
+                {settings.logo_url ? <img src={settings.logo_url} alt={settings.brand_name} /> : <b>M</b>}
+              </span>}
               <strong>{settings.brand_name}</strong>
             </div>
             <div className="shopper-product">
