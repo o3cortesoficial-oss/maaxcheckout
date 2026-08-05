@@ -8954,7 +8954,8 @@ html {
   }
   .dashboard > aside .admin-mode-toggle {
     min-height: 42px;
-    margin-bottom: 3px;
+    margin-top: 4px;
+    margin-bottom: 12px;
     padding: 7px 9px;
   }
   .dashboard > aside .side-nav {
@@ -9220,7 +9221,7 @@ html {
 .admin-mode-toggle {
   width: 100%;
   min-height: 62px;
-  margin: -10px 0 10px;
+  margin: 2px 0 18px;
   padding: 9px 10px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 32px;
@@ -9604,6 +9605,10 @@ html {
     min-height: 42px;
     padding-top: 14px;
     padding-bottom: 10px;
+  }
+  .dashboard > aside .admin-mode-toggle {
+    margin-top: 4px;
+    margin-bottom: 12px;
   }
   .dashboard > aside .side-nav > span {
     margin: 5px 12px 3px;
