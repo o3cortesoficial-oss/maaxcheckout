@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "iconsax";
 import "./store.css";
+import "./fresh-store.css";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -7947,61 +7948,82 @@ function ShippingPage({ workspace }) {
 }
 
 const defaultStorefront = {
-  theme: "maax-commerce",
+  theme: "fresh-editorial",
   published: false,
   announcement_visible: true,
-  announcement_text: "Frete grátis para compras selecionadas",
+  announcement_text: "Novidades selecionadas para você",
   store_name: "Minha loja",
   logo_url: "",
   hero_visible: true,
   hero_image_url: "",
-  hero_kicker: "NOVA COLEÇÃO",
-  hero_title: "Produtos escolhidos para você.",
-  hero_text: "Uma vitrine rápida, clara e pronta para vender.",
-  hero_button: "Ver produtos",
-  products_title: "Destaques da loja",
-  footer_text: "Compra segura e atendimento próximo.",
-  accent: "#c9ff32",
-  background: "#f5f5f1",
+  hero_kicker: "EDIÇÃO EM DESTAQUE",
+  hero_title: "Produtos que merecem ser vistos.",
+  hero_text: "Uma seleção feita para transformar descoberta em desejo.",
+  hero_button: "Comprar agora",
+  products_title: "Escolhas da semana",
+  footer_text: "Produtos marcantes, compra simples e atendimento próximo.",
+  accent: "#b7ff54",
+  background: "#faf7ef",
   surface: "#ffffff",
-  text: "#171915",
+  text: "#153b10",
   product_columns: 3,
 };
 
 function StorefrontPreview({ settings, products, productImages, compact = false }) {
   const activeProducts = products.filter((product) => product.status === "active").slice(0, 6);
   const coverFor = (productId) => productImages.find((image) => image.product_id === productId)?.url;
+  const featured = activeProducts[0];
+  const heroImage = settings.hero_image_url || (featured && coverFor(featured.id));
+  const editorialImage = activeProducts[1] && coverFor(activeProducts[1].id);
+  const storyImage = activeProducts[2] && coverFor(activeProducts[2].id);
   return (
     <div
       className={`storefront-preview${compact ? " compact" : ""}`}
       style={{ "--store-accent": settings.accent, "--store-bg": settings.background, "--store-surface": settings.surface, "--store-text": settings.text }}
     >
-      {settings.announcement_visible && <div className="store-preview-announcement">{settings.announcement_text}</div>}
-      <header className="store-preview-header">
-        <span className={settings.logo_url ? "has-image" : ""}>{settings.logo_url ? <img src={settings.logo_url} alt="" /> : settings.store_name.slice(0, 1)}</span>
-        <b>{settings.store_name}</b>
-        <nav><span>Início</span><span>Catálogo</span><span>Contato</span></nav>
-        <Storefront />
-      </header>
-      {settings.hero_visible && <section className={`store-preview-hero${settings.hero_image_url ? " has-image" : ""}`} style={settings.hero_image_url ? { backgroundImage: `linear-gradient(90deg, rgba(18,19,16,.86), rgba(18,19,16,.18)), url(${settings.hero_image_url})` } : undefined}>
-        <small>{settings.hero_kicker}</small><h2>{settings.hero_title}</h2><p>{settings.hero_text}</p><button type="button">{settings.hero_button} <ArrowRight /></button>
-      </section>}
+      <section className="fresh-store-hero">
+        {settings.announcement_visible && <div className="store-preview-announcement">{settings.announcement_text}</div>}
+        <header className="store-preview-header">
+          <b>{settings.logo_url ? <img src={settings.logo_url} alt={settings.store_name} /> : settings.store_name}</b>
+          <nav><span>Início</span><span>Novidades</span><span>Catálogo</span><span>Sobre</span></nav>
+          <div><Storefront /><span>Loja</span></div>
+        </header>
+        {settings.hero_visible && <div className="store-preview-hero">
+          <span className="fresh-hero-word" aria-hidden="true">{settings.store_name}</span>
+          <div className="fresh-hero-copy"><small>{settings.hero_kicker}</small><p>{settings.hero_text}</p><button type="button">Saiba mais <ArrowRight /></button></div>
+          <div className={`fresh-hero-product${heroImage ? " has-image" : ""}`}>{heroImage ? <img src={heroImage} alt={featured?.name || settings.store_name} /> : <Package />}</div>
+          <div className="fresh-hero-actions"><button type="button">{settings.hero_button} <Storefront /></button><button type="button">Ver tudo <ArrowRight /></button></div>
+        </div>}
+      </section>
+      <section className="fresh-store-intro"><h2>{settings.hero_title}</h2><span>{settings.products_title}</span></section>
       <section className="store-preview-products">
-        <div><small>CATÁLOGO</small><h3>{settings.products_title}</h3></div>
+        <div><small>SELEÇÃO DA LOJA</small><h3>Encontre seu próximo favorito.</h3></div>
         {activeProducts.length ? <div className="store-product-grid" style={{ "--store-columns": settings.product_columns }}>
           {activeProducts.map((product) => <article key={product.id}>
             <div>{coverFor(product.id) ? <img src={coverFor(product.id)} alt="" /> : <Package />}</div>
-            <b>{product.name}</b><span>{money(product.price_cents)}</span>
+            <small>DESTAQUE</small><b>{product.name}</b><span>{money(product.price_cents)}</span><p>{product.description || "Escolhido para fazer parte desta coleção."}</p><button type="button">Comprar <ArrowRight /></button>
           </article>)}
         </div> : <div className="store-preview-empty"><Package /><b>Sua vitrine começa com um produto</b><span>Produtos ativos aparecerão aqui automaticamente.</span></div>}
       </section>
-      <footer className="store-preview-footer"><b>{settings.store_name}</b><span>{settings.footer_text}</span></footer>
+      <section className="fresh-store-statement"><small>POR QUE ESCOLHER</small><h2>Descubra o que torna cada escolha <b>especial.</b></h2></section>
+      <section className="fresh-store-story"><article><small>O QUE DIZEM SOBRE NÓS</small><h3>“Uma experiência de compra direta, bonita e fácil de entender.”</h3><p>Produtos bem apresentados ajudam você a escolher com confiança e tranquilidade.</p><span>Cliente verificado</span></article><div>{editorialImage ? <img src={editorialImage} alt="Produto em destaque" /> : <Package />}</div></section>
+      <section className="fresh-store-statement alternate"><small>NOSSA HISTÓRIA</small><h2>Não é apenas um produto. É algo feito para <b>marcar.</b></h2></section>
+      <section className="fresh-store-wide-media">{storyImage ? <img src={storyImage} alt="Coleção da loja" /> : <div><Package /><span>Sua imagem editorial aparecerá aqui</span></div>}</section>
+      <section className="fresh-store-statement promise"><small>NOSSA PROMESSA</small><h2>Não entregamos apenas produtos. Entregamos uma experiência <b>extraordinária.</b></h2></section>
+      <section className="fresh-store-promises">{activeProducts.slice(0,3).map((product,index)=><article key={product.id}><small>PRODUTO {String(index+1).padStart(2,"0")}</small><h3>{product.name}</h3><p>{product.description || "Detalhes que tornam esta escolha especial."}</p><div>{coverFor(product.id)?<img src={coverFor(product.id)} alt={product.name}/>:<Package/>}</div></article>)}</section>
+      <footer className="store-preview-footer"><div><b>{settings.store_name}</b><p>{settings.footer_text}</p><label><span>Seu melhor e-mail</span><button type="button">Enviar</button></label></div><nav><b>Links rápidos</b><span>Catálogo</span><span>Novidades</span><span>Sobre nós</span></nav><nav><b>Ajuda</b><span>Contato</span><span>Entregas</span><span>Privacidade</span></nav></footer>
     </div>
   );
 }
 
+function normalizedStorefront(config) {
+  const stored = config?.settings?.storefront || {};
+  if (stored.theme !== "maax-commerce") return stored;
+  return { published: stored.published, store_name: stored.store_name, logo_url: stored.logo_url, hero_image_url: stored.hero_image_url };
+}
+
 function StorePage({ workspace, products = [], productImages = [], checkoutConfig, onReload }) {
-  const original = checkoutConfig?.settings?.storefront || {};
+  const original = normalizedStorefront(checkoutConfig);
   const [settings, setSettings] = useState({ ...defaultStorefront, ...original });
   const [editorOpen, setEditorOpen] = useState(false);
   const [section, setSection] = useState("hero");
@@ -8010,7 +8032,7 @@ function StorePage({ workspace, products = [], productImages = [], checkoutConfi
   const [uploading, setUploading] = useState("");
   const [message, setMessage] = useState("");
   useEffect(() => {
-    setSettings({ ...defaultStorefront, ...(checkoutConfig?.settings?.storefront || {}) });
+    setSettings({ ...defaultStorefront, ...normalizedStorefront(checkoutConfig) });
   }, [workspace.id, checkoutConfig?.id]);
   const change = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
   const save = async (override) => {
@@ -8052,7 +8074,7 @@ function StorePage({ workspace, products = [], productImages = [], checkoutConfi
     {message && <p className={`store-save-message${message.includes("sucesso") ? " success" : ""}`}>{message}</p>}
   </div>;
   const togglePublication = async () => { const next = { ...settings, published: !settings.published }; setSettings(next); await save(next); };
-  return <div className="store-page page-enter"><PageTitle kicker="CANAL DE VENDA" title="Loja" description="Crie sua vitrine, organize o catálogo e publique sua marca" /><section className="store-theme-card"><header><div><span>TEMA ATUAL</span><h2>Maax Commerce</h2><p>Uma loja rápida e responsiva, conectada aos produtos deste negócio.</p></div><span className={settings.published ? "published" : "draft"}>{settings.published ? "Publicada" : "Rascunho"}</span></header><div className="store-theme-body"><div className="store-theme-preview"><div className="store-browser-bar"><i /><i /><i /><span>{settings.store_name.toLowerCase().replace(/\s+/g, "-")}.maaxcheckout.lat</span></div><StorefrontPreview settings={settings} products={products} productImages={productImages} compact /></div><aside><span>MAAX COMMERCE</span><h3>Sua marca, seus produtos.</h3><p>Edite cada seção com prévia instantânea em desktop e mobile.</p><div><Button onClick={() => setEditorOpen(true)}>Personalizar</Button><button type="button" className="store-publish-button" onClick={togglePublication} disabled={saving}>{settings.published ? "Despublicar" : "Publicar"}</button></div><dl><div><dt>Produtos ativos</dt><dd>{products.filter((item) => item.status === "active").length}</dd></div><div><dt>Última atualização</dt><dd>{checkoutConfig?.updated_at ? date(checkoutConfig.updated_at) : "Ainda não salva"}</dd></div></dl></aside></div></section><section className="store-theme-library"><div><small>BIBLIOTECA DE TEMAS</small><h2>Temas da Maax</h2><p>Novos estilos poderão ser instalados aqui sem alterar seus produtos.</p></div><article><div className="store-theme-mini"><Storefront /></div><span><b>Maax Commerce</b><small>Tema instalado</small></span><CheckCircle weight="fill" /></article></section></div>;
+  return <div className="store-page page-enter"><PageTitle kicker="CANAL DE VENDA" title="Loja" description="Crie sua vitrine, organize o catálogo e publique sua marca" /><section className="store-theme-card"><header><div><span>TEMA ATUAL</span><h2>Fresh Editorial</h2><p>Uma experiência visual expressiva, conectada aos produtos deste negócio.</p></div><span className={settings.published ? "published" : "draft"}>{settings.published ? "Publicada" : "Rascunho"}</span></header><div className="store-theme-body"><div className="store-theme-preview"><div className="store-browser-bar"><i /><i /><i /><span>{settings.store_name.toLowerCase().replace(/\s+/g, "-")}.maaxcheckout.lat</span></div><StorefrontPreview settings={settings} products={products} productImages={productImages} compact /></div><aside><span>FRESH EDITORIAL</span><h3>Produto grande. Marca memorável.</h3><p>Edite cada seção com prévia instantânea em desktop e mobile.</p><div><Button onClick={() => setEditorOpen(true)}>Personalizar</Button><button type="button" className="store-publish-button" onClick={togglePublication} disabled={saving}>{settings.published ? "Despublicar" : "Publicar"}</button></div><dl><div><dt>Produtos ativos</dt><dd>{products.filter((item) => item.status === "active").length}</dd></div><div><dt>Última atualização</dt><dd>{checkoutConfig?.updated_at ? date(checkoutConfig.updated_at) : "Ainda não salva"}</dd></div></dl></aside></div></section><section className="store-theme-library"><div><small>BIBLIOTECA DE TEMAS</small><h2>Temas da Maax</h2><p>Novos estilos poderão ser instalados aqui sem alterar seus produtos.</p></div><article><div className="store-theme-mini"><Storefront /></div><span><b>Fresh Editorial</b><small>Tema instalado</small></span><CheckCircle weight="fill" /></article></section></div>;
 }
 
 function DataView({
