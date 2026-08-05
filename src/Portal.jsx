@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "iconsax";
+import "./store.css";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -748,9 +749,10 @@ export function RealLogin({ navigate }) {
 
 const nav = [
   ["home", "Início", House],
-  ["produtos", "Produtos", Package],
+  ["store", "Loja", Storefront],
   ["checkout", "Checkout", CreditCard],
   ["domains", "Domínio", GlobeSimple],
+  ["produtos", "Produtos", Package],
   ["links", "Links de pagamento", LinkIcon],
   ["gateways", "Gateways", Bank],
   ["shipping", "Frete", Truck],
@@ -5869,7 +5871,7 @@ function ProductEditor({
           requires_shipping: false,
           continue_selling: false,
           weight_unit: "kg",
-          sales_channels: ["checkout"],
+          sales_channels: ["checkout", "store"],
           product_options: [],
         },
   );
@@ -6213,7 +6215,7 @@ function ProductEditor({
               </select>
             </label>
           </section>
-          <section className="product-panel"><b>Publicação</b><p className="panel-help product-panel-intro">Escolha onde este produto poderá aparecer.</p><label className="product-check"><input type="checkbox" checked={(form.sales_channels || ["checkout"]).includes("checkout")} onChange={() => toggleSalesChannel("checkout")} />Checkout público</label><label className="product-check"><input type="checkbox" checked={(form.sales_channels || []).includes("payment_links")} onChange={() => toggleSalesChannel("payment_links")} />Links de pagamento</label></section>
+          <section className="product-panel"><b>Publicação</b><p className="panel-help product-panel-intro">Escolha onde este produto poderá aparecer.</p><label className="product-check"><input type="checkbox" checked={(form.sales_channels || ["checkout"]).includes("checkout")} onChange={() => toggleSalesChannel("checkout")} />Checkout público</label><label className="product-check"><input type="checkbox" checked={(form.sales_channels || []).includes("store")} onChange={() => toggleSalesChannel("store")} />Loja virtual</label><label className="product-check"><input type="checkbox" checked={(form.sales_channels || []).includes("payment_links")} onChange={() => toggleSalesChannel("payment_links")} />Links de pagamento</label></section>
           <section className="product-panel">
             <b>Organização</b>
             <Field label="Categoria" placeholder="Ex.: Cursos e treinamentos" value={form.category || ""} onChange={(e) => set("category", e.target.value)} />
@@ -7944,6 +7946,115 @@ function ShippingPage({ workspace }) {
   );
 }
 
+const defaultStorefront = {
+  theme: "maax-commerce",
+  published: false,
+  announcement_visible: true,
+  announcement_text: "Frete grátis para compras selecionadas",
+  store_name: "Minha loja",
+  logo_url: "",
+  hero_visible: true,
+  hero_image_url: "",
+  hero_kicker: "NOVA COLEÇÃO",
+  hero_title: "Produtos escolhidos para você.",
+  hero_text: "Uma vitrine rápida, clara e pronta para vender.",
+  hero_button: "Ver produtos",
+  products_title: "Destaques da loja",
+  footer_text: "Compra segura e atendimento próximo.",
+  accent: "#c9ff32",
+  background: "#f5f5f1",
+  surface: "#ffffff",
+  text: "#171915",
+  product_columns: 3,
+};
+
+function StorefrontPreview({ settings, products, productImages, compact = false }) {
+  const activeProducts = products.filter((product) => product.status === "active").slice(0, 6);
+  const coverFor = (productId) => productImages.find((image) => image.product_id === productId)?.url;
+  return (
+    <div
+      className={`storefront-preview${compact ? " compact" : ""}`}
+      style={{ "--store-accent": settings.accent, "--store-bg": settings.background, "--store-surface": settings.surface, "--store-text": settings.text }}
+    >
+      {settings.announcement_visible && <div className="store-preview-announcement">{settings.announcement_text}</div>}
+      <header className="store-preview-header">
+        <span className={settings.logo_url ? "has-image" : ""}>{settings.logo_url ? <img src={settings.logo_url} alt="" /> : settings.store_name.slice(0, 1)}</span>
+        <b>{settings.store_name}</b>
+        <nav><span>Início</span><span>Catálogo</span><span>Contato</span></nav>
+        <Storefront />
+      </header>
+      {settings.hero_visible && <section className={`store-preview-hero${settings.hero_image_url ? " has-image" : ""}`} style={settings.hero_image_url ? { backgroundImage: `linear-gradient(90deg, rgba(18,19,16,.86), rgba(18,19,16,.18)), url(${settings.hero_image_url})` } : undefined}>
+        <small>{settings.hero_kicker}</small><h2>{settings.hero_title}</h2><p>{settings.hero_text}</p><button type="button">{settings.hero_button} <ArrowRight /></button>
+      </section>}
+      <section className="store-preview-products">
+        <div><small>CATÁLOGO</small><h3>{settings.products_title}</h3></div>
+        {activeProducts.length ? <div className="store-product-grid" style={{ "--store-columns": settings.product_columns }}>
+          {activeProducts.map((product) => <article key={product.id}>
+            <div>{coverFor(product.id) ? <img src={coverFor(product.id)} alt="" /> : <Package />}</div>
+            <b>{product.name}</b><span>{money(product.price_cents)}</span>
+          </article>)}
+        </div> : <div className="store-preview-empty"><Package /><b>Sua vitrine começa com um produto</b><span>Produtos ativos aparecerão aqui automaticamente.</span></div>}
+      </section>
+      <footer className="store-preview-footer"><b>{settings.store_name}</b><span>{settings.footer_text}</span></footer>
+    </div>
+  );
+}
+
+function StorePage({ workspace, products = [], productImages = [], checkoutConfig, onReload }) {
+  const original = checkoutConfig?.settings?.storefront || {};
+  const [settings, setSettings] = useState({ ...defaultStorefront, ...original });
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [section, setSection] = useState("hero");
+  const [device, setDevice] = useState("desktop");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState("");
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    setSettings({ ...defaultStorefront, ...(checkoutConfig?.settings?.storefront || {}) });
+  }, [workspace.id, checkoutConfig?.id]);
+  const change = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
+  const save = async (override) => {
+    const values = override && override.theme ? override : settings;
+    setSaving(true); setMessage("");
+    const nextSettings = { ...(checkoutConfig?.settings || defaultCheckout), storefront: values };
+    const payload = { workspace_id: workspace.id, name: checkoutConfig?.name || "Checkout principal", settings: nextSettings, modules: checkoutConfig?.modules || defaultModules, status: checkoutConfig?.status || "draft", updated_at: new Date().toISOString() };
+    const result = checkoutConfig?.id
+      ? await supabase.from("checkout_configs").update(payload).eq("id", checkoutConfig.id)
+      : await supabase.from("checkout_configs").insert(payload);
+    setSaving(false);
+    setMessage(result.error ? result.error.message : "Loja salva com sucesso.");
+    if (!result.error) onReload?.();
+  };
+  const upload = async (kind, file) => {
+    if (!file) return;
+    setUploading(kind); setMessage("");
+    try {
+      const safeFile = await validatedImageFile(file, { allowSvg: kind === "logo" });
+      const extension = safeFile.type === "image/svg+xml" ? "svg" : safeFile.type === "image/png" ? "png" : safeFile.type === "image/webp" ? "webp" : "jpg";
+      const path = `${workspace.id}/store-${kind}-${Date.now()}.${extension}`;
+      const { error } = await supabase.storage.from("checkout-assets").upload(path, safeFile, { upsert: true, contentType: safeFile.type });
+      if (error) throw error;
+      change(kind === "logo" ? "logo_url" : "hero_image_url", supabase.storage.from("checkout-assets").getPublicUrl(path).data.publicUrl);
+    } catch (error) { setMessage(error.message); }
+    setUploading("");
+  };
+  const sectionFields = {
+    announcement: <><label className="store-toggle-row"><span><b>Barra de anúncio</b><small>Mensagem curta exibida no topo.</small></span><input type="checkbox" checked={settings.announcement_visible} onChange={(e) => change("announcement_visible", e.target.checked)} /></label><Field label="Texto do anúncio" value={settings.announcement_text} onChange={(e) => change("announcement_text", e.target.value)} /></>,
+    header: <><Field label="Nome da loja" value={settings.store_name} onChange={(e) => change("store_name", e.target.value)} /><div className="store-upload-field"><span><b>Logo</b><small>PNG, JPEG, WebP ou SVG. Recomendado: 400 × 160 px.</small></span>{settings.logo_url && <img src={settings.logo_url} alt="Logo atual" />}<label>{uploading === "logo" ? "Enviando..." : settings.logo_url ? "Substituir logo" : "Adicionar logo"}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(e) => upload("logo", e.target.files?.[0])} /></label>{settings.logo_url && <button type="button" onClick={() => change("logo_url", "")}><Trash /> Remover</button>}</div></>,
+    hero: <><label className="store-toggle-row"><span><b>Banner principal</b><small>Ocultar remove também todo o espaço da seção.</small></span><input type="checkbox" checked={settings.hero_visible} onChange={(e) => change("hero_visible", e.target.checked)} /></label><Field label="Chamada superior" value={settings.hero_kicker} onChange={(e) => change("hero_kicker", e.target.value)} /><Field label="Título" value={settings.hero_title} onChange={(e) => change("hero_title", e.target.value)} /><label className="data-field">Descrição<textarea rows="3" value={settings.hero_text} onChange={(e) => change("hero_text", e.target.value)} /></label><Field label="Texto do botão" value={settings.hero_button} onChange={(e) => change("hero_button", e.target.value)} /><div className="store-upload-field"><span><b>Imagem do banner</b><small>Recomendado: 1800 × 900 px, até 5 MB.</small></span>{settings.hero_image_url && <img className="wide" src={settings.hero_image_url} alt="Banner atual" />}<label>{uploading === "hero" ? "Enviando..." : settings.hero_image_url ? "Substituir imagem" : "Adicionar imagem"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => upload("hero", e.target.files?.[0])} /></label>{settings.hero_image_url && <button type="button" onClick={() => change("hero_image_url", "")}><Trash /> Remover</button>}</div></>,
+    products: <><Field label="Título da seção" value={settings.products_title} onChange={(e) => change("products_title", e.target.value)} /><label className="data-field">Produtos por linha<select value={settings.product_columns} onChange={(e) => change("product_columns", Number(e.target.value))}><option value="2">2 produtos</option><option value="3">3 produtos</option><option value="4">4 produtos</option></select></label><p className="store-field-help">A loja usa os produtos ativos deste negócio. A ordem segue o catálogo.</p></>,
+    footer: <><Field label="Nome da marca" value={settings.store_name} onChange={(e) => change("store_name", e.target.value)} /><Field label="Texto institucional" value={settings.footer_text} onChange={(e) => change("footer_text", e.target.value)} /></>,
+    theme: <><div className="store-color-grid"><label>Cor principal<input type="color" value={settings.accent} onChange={(e) => change("accent", e.target.value)} /></label><label>Fundo<input type="color" value={settings.background} onChange={(e) => change("background", e.target.value)} /></label><label>Superfícies<input type="color" value={settings.surface} onChange={(e) => change("surface", e.target.value)} /></label><label>Textos<input type="color" value={settings.text} onChange={(e) => change("text", e.target.value)} /></label></div></>,
+  };
+  if (editorOpen) return <div className="store-theme-editor page-enter">
+    <header><button type="button" onClick={() => setEditorOpen(false)}><CaretLeft /></button><div><small>EDITOR DA LOJA</small><b>{settings.store_name}</b></div><div className="store-device-toggle"><button className={device === "desktop" ? "active" : ""} onClick={() => setDevice("desktop")}><List /></button><button className={device === "mobile" ? "active" : ""} onClick={() => setDevice("mobile")}><DeviceMobile /></button></div><Button onClick={() => save()} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button></header>
+    <div className="store-editor-shell"><aside><div className="store-editor-nav"><span>SEÇÕES</span>{[["announcement","Barra de anúncio",Megaphone],["header","Cabeçalho",Storefront],["hero","Banner",Camera],["products","Catálogo",Package],["footer","Rodapé",List],["theme","Configurações do tema",GearSix]].map(([id,label,Icon]) => <button key={id} className={section === id ? "active" : ""} onClick={() => setSection(id)}><Icon /><span>{label}</span><CaretRight /></button>)}</div><div className="store-editor-fields"><div><button type="button" onClick={() => setSection("")}><CaretLeft /></button><b>{[["announcement","Barra de anúncio"],["header","Cabeçalho"],["hero","Banner"],["products","Catálogo"],["footer","Rodapé"],["theme","Configurações do tema"]].find(([id]) => id === section)?.[1]}</b></div>{sectionFields[section]}</div></aside><main className={device}><StorefrontPreview settings={settings} products={products} productImages={productImages} /></main></div>
+    {message && <p className={`store-save-message${message.includes("sucesso") ? " success" : ""}`}>{message}</p>}
+  </div>;
+  const togglePublication = async () => { const next = { ...settings, published: !settings.published }; setSettings(next); await save(next); };
+  return <div className="store-page page-enter"><PageTitle kicker="CANAL DE VENDA" title="Loja" description="Crie sua vitrine, organize o catálogo e publique sua marca" /><section className="store-theme-card"><header><div><span>TEMA ATUAL</span><h2>Maax Commerce</h2><p>Uma loja rápida e responsiva, conectada aos produtos deste negócio.</p></div><span className={settings.published ? "published" : "draft"}>{settings.published ? "Publicada" : "Rascunho"}</span></header><div className="store-theme-body"><div className="store-theme-preview"><div className="store-browser-bar"><i /><i /><i /><span>{settings.store_name.toLowerCase().replace(/\s+/g, "-")}.maaxcheckout.lat</span></div><StorefrontPreview settings={settings} products={products} productImages={productImages} compact /></div><aside><span>MAAX COMMERCE</span><h3>Sua marca, seus produtos.</h3><p>Edite cada seção com prévia instantânea em desktop e mobile.</p><div><Button onClick={() => setEditorOpen(true)}>Personalizar</Button><button type="button" className="store-publish-button" onClick={togglePublication} disabled={saving}>{settings.published ? "Despublicar" : "Publicar"}</button></div><dl><div><dt>Produtos ativos</dt><dd>{products.filter((item) => item.status === "active").length}</dd></div><div><dt>Última atualização</dt><dd>{checkoutConfig?.updated_at ? date(checkoutConfig.updated_at) : "Ainda não salva"}</dd></div></dl></aside></div></section><section className="store-theme-library"><div><small>BIBLIOTECA DE TEMAS</small><h2>Temas da Maax</h2><p>Novos estilos poderão ser instalados aqui sem alterar seus produtos.</p></div><article><div className="store-theme-mini"><Storefront /></div><span><b>Maax Commerce</b><small>Tema instalado</small></span><CheckCircle weight="fill" /></article></section></div>;
+}
+
 function DataView({
   type,
   data,
@@ -7953,6 +8064,16 @@ function DataView({
   onNavigate,
   onReload,
 }) {
+  if (type === "store")
+    return (
+      <StorePage
+        workspace={workspace}
+        products={data.products}
+        productImages={data.product_images}
+        checkoutConfig={data.checkout_configs?.[0]}
+        onReload={onReload}
+      />
+    );
   if (type === "product_new")
     return (
       <ProductEditor
