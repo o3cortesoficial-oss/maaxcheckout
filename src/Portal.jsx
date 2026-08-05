@@ -3302,26 +3302,31 @@ function OrderRows({ rows }) {
 }
 
 const defaultCheckout = {
-  template: "maax",
+  template: "maaxfy",
   brand_name: "Minha loja",
-  accent: "#cbff35",
-  background: "#f5f5f2",
+  accent: "#0866d9",
+  background: "#ffffff",
   surface: "#ffffff",
-  secondary_surface: "#f4f5f1",
+  secondary_surface: "#f6f6f4",
   text_color: "#20211e",
   muted_color: "#74776f",
   input_background: "#ffffff",
   card_color: "#242520",
   card_text_color: "#ffffff",
-  radius: 12,
+  radius: 9,
   layout: "split",
-  button_text: "Finalizar pagamento",
+  button_text: "Pagar agora",
   logo_url: "",
   banner_url: "",
   payment_methods: ["pix", "card", "boleto"],
   shopper_header_title: "Finalizar compra",
   shopper_shipping_estimate: "Receba em até 6 dias úteis",
   shopper_protection_price: "12,90",
+  maaxfy_contact_title: "Contato",
+  maaxfy_delivery_title: "Entrega",
+  maaxfy_payment_note: "Todas as transações são seguras e criptografadas.",
+  maaxfy_discount_placeholder: "Código de desconto",
+  maaxfy_show_login: true,
   order_bump_enabled: false,
   order_bump_title: "Aproveite esta oferta",
   order_bump_description: "Adicione ao seu pedido com apenas um clique.",
@@ -3519,6 +3524,7 @@ export function PublicCheckout({ slug }) {
         ...defaultCheckout,
         ...(configResult.data?.settings || {}),
       };
+      if (checkoutSettings.template === "maax") Object.assign(checkoutSettings, { template: "maaxfy", accent: "#0866d9", background: "#ffffff", surface: "#ffffff", secondary_surface: "#f6f6f4", radius: 9, button_text: "Pagar agora" });
       const currentHost = window.location.hostname.toLowerCase();
       const platformHost =
         currentHost === "localhost" ||
@@ -3838,7 +3844,7 @@ export function PublicCheckout({ slug }) {
   }
   return (
     <div
-      className="public-checkout"
+      className="public-checkout maaxfy-checkout"
       style={{
         "--checkout-accent": settings.accent,
         "--checkout-bg": settings.background,
@@ -3867,13 +3873,9 @@ export function PublicCheckout({ slug }) {
         ) : (
           <strong>{settings.brand_name}</strong>
         )}
-        {enabled("secure_badge") && (
-          <span>
-            <Bank /> Ambiente seguro
-          </span>
-        )}
+        {enabled("secure_badge") && <span><Storefront /></span>}
       </header>
-      <main className={settings.layout === "compact" ? "compact" : ""}>
+      <main>
         <form
           className="public-checkout-form"
           onSubmit={submit}
@@ -3893,7 +3895,7 @@ export function PublicCheckout({ slug }) {
           {enabled("contact") && (
             <section>
               <span>01</span>
-              <h2>Seus dados</h2>
+              <div className="maaxfy-section-heading"><h2>{settings.maaxfy_contact_title}</h2>{settings.maaxfy_show_login && <button type="button">Fazer login</button>}</div>
               <label>
                 E-mail
                 <input
@@ -3933,7 +3935,7 @@ export function PublicCheckout({ slug }) {
           {!isPhysical && (
             <section className="shipping-section">
               <span>02</span>
-              <h2>Endereço de cobrança</h2>
+              <h2>{settings.maaxfy_delivery_title}</h2>
               <div className="field-pair">
                 <label>
                   CEP
@@ -3985,7 +3987,7 @@ export function PublicCheckout({ slug }) {
           {isPhysical && (
             <section className="shipping-section">
               <span>02</span>
-              <h2>Endereço de entrega</h2>
+              <h2>{settings.maaxfy_delivery_title}</h2>
               <label>
                 CEP
                 <input
@@ -4105,6 +4107,7 @@ export function PublicCheckout({ slug }) {
             <section>
               <span>{isPhysical ? "03" : "02"}</span>
               <h2>Pagamento</h2>
+              <p className="maaxfy-payment-note">{settings.maaxfy_payment_note}</p>
               <div className="payment-choice">
                 <button
                   type="button"
@@ -4257,37 +4260,22 @@ export function PublicCheckout({ slug }) {
         </form>
         {enabled("summary") && (
           <aside className="public-order-summary">
-            <small>SEU PEDIDO</small>
-            <div className="public-product-image">
-              {images[0] ? (
-                <img src={images[0].url} alt={product.name} />
-              ) : (
-                <Package />
-              )}
-            </div>
-            <h1>{product.name}</h1>
-            {product.description && <p>{product.description}</p>}
-            {product.compare_at_price_cents && (
-              <del>{money(product.compare_at_price_cents)}</del>
-            )}
-            <strong>{money(product.price_cents)}</strong>
+            <div className="maaxfy-summary-product"><div className="public-product-image">{images[0] ? <img src={images[0].url} alt={product.name} /> : <Package />}<i>1</i></div><span><b>{product.name}</b>{product.description && <small>{product.description}</small>}</span><strong>{money(product.price_cents)}</strong></div>
             {enabled("coupon") && (
               <div className="coupon-preview">
-                <input placeholder="Cupom de desconto" />
+                <input placeholder={settings.maaxfy_discount_placeholder} />
                 <button type="button">Aplicar</button>
               </div>
             )}
+            <div className="maaxfy-summary-lines"><span><small>Subtotal</small><b>{money(product.price_cents)}</b></span><span><small>Frete</small><b>{selectedShipping ? money(selectedShipping.price_cents) : "—"}</b></span></div>
             <div className="preview-total">
               <span>Total</span>
               <strong>{money(totalCents)}</strong>
             </div>
-            <p className="public-guarantee">
-              <CheckCircle /> Compra protegida
-            </p>
           </aside>
         )}
       </main>
-      <footer>Pagamento processado com segurança por Maax</footer>
+      <footer><a href="/privacidade">Política de privacidade</a><a href="/termos">Termos de uso</a></footer>
     </div>
   );
 }
@@ -4804,7 +4792,8 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
       .then(({ data }) => {
         if (data) {
           setConfigId(data.id);
-          setSettings({ ...defaultCheckout, ...data.settings });
+          const legacyMaax = data.settings?.template === "maax";
+          setSettings({ ...defaultCheckout, ...data.settings, ...(legacyMaax ? { template: "maaxfy", accent: "#0866d9", background: "#ffffff", surface: "#ffffff", secondary_surface: "#f6f6f4", radius: 9, button_text: "Pagar agora" } : { template: data.settings?.template || defaultCheckout.template }) });
           setModules(mergeCheckoutModules(data.modules || []));
           setStatus(data.status);
         }
@@ -4841,6 +4830,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
     return () => clearTimeout(timer);
   }, [settings, modules]);
   const change = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const selectTemplate = (template) => setSettings((current) => template === "maaxfy" ? { ...current, template, accent: "#0866d9", background: "#ffffff", surface: "#ffffff", secondary_surface: "#f6f6f4", input_background: "#ffffff", radius: 9, layout: "split", button_text: "Pagar agora" } : { ...current, template });
   const selectedOrderBumpIds = settings.order_bump_product_ids || [];
   const activeOrderBumpProducts = products.filter(
     (product) => product.status === "active",
@@ -4999,7 +4989,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
             <small>Escolha a estrutura principal do checkout.</small>
             <div className="template-picker">
               {[
-                ["maax", "Maax", "Checkout em etapas com resumo lateral"],
+                ["maaxfy", "Maaxfy", "Checkout em duas colunas inspirado em grandes lojas"],
                 [
                   "shopper",
                   "Shopper",
@@ -5010,7 +5000,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                   type="button"
                   key={id}
                   className={settings.template === id ? "active" : ""}
-                  onClick={() => change("template", id)}
+                  onClick={() => selectTemplate(id)}
                 >
                   <span className={`template-thumb ${id}`}>
                     <i />
@@ -5053,6 +5043,16 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                   A visibilidade das seções Shopper fica em “Blocos do
                   checkout”.
                 </small>
+              </div>
+            )}
+            {settings.template === "maaxfy" && (
+              <div className="shopper-template-settings maaxfy-template-settings">
+                <label>Título de contato<input value={settings.maaxfy_contact_title} onChange={(event) => change("maaxfy_contact_title", event.target.value)} /></label>
+                <label>Título de entrega<input value={settings.maaxfy_delivery_title} onChange={(event) => change("maaxfy_delivery_title", event.target.value)} /></label>
+                <label>Texto de segurança do pagamento<textarea value={settings.maaxfy_payment_note} onChange={(event) => change("maaxfy_payment_note", event.target.value)} /></label>
+                <label>Texto do cupom<input value={settings.maaxfy_discount_placeholder} onChange={(event) => change("maaxfy_discount_placeholder", event.target.value)} /></label>
+                <button type="button" className={settings.maaxfy_show_login ? "template-option-toggle active" : "template-option-toggle"} onClick={() => change("maaxfy_show_login", !settings.maaxfy_show_login)}><span><b>Exibir “Fazer login”</b><small>Atalho visual ao lado do contato</small></span><i /></button>
+                <small>Esses campos pertencem somente ao template Maaxfy.</small>
               </div>
             )}
           </section>
@@ -5140,16 +5140,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
                 onChange={(e) => change("button_text", e.target.value)}
               />
             </label>
-            <label>
-              Layout
-              <select
-                value={settings.layout}
-                onChange={(e) => change("layout", e.target.value)}
-              >
-                <option value="split">Resumo lateral</option>
-                <option value="compact">Coluna única</option>
-              </select>
-            </label>
+            {settings.template === "maaxfy" && <small className="template-layout-note">O Maaxfy usa duas colunas no desktop e uma coluna otimizada no celular.</small>}
           </section>
           <section className="order-bump-editor">
             <div className="order-bump-editor-head">
@@ -5329,7 +5320,7 @@ function CheckoutEditor({ workspace, products = [], productImages = [] }) {
             <b>Blocos do checkout</b>
             <small>Ative e organize os módulos.</small>
             <div className="module-list">
-              {modules.map((m, i) => (
+              {modules.map((m, i) => ({ m, i })).filter(({ m }) => settings.template === "shopper" ? m.id.startsWith("shopper_") || ["secure_badge", "payment", "coupon"].includes(m.id) : !m.id.startsWith("shopper_")).map(({ m, i }) => (
                 <div className="module-item" key={m.id}>
                   <span>
                     <button onClick={() => move(i, -1)}>↑</button>
@@ -5421,7 +5412,7 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
     );
   return (
     <div
-      className={`preview-stage preview-${device}`}
+      className={`preview-stage maaxfy-preview-stage preview-${device}`}
       style={{
         "--checkout-accent": settings.accent,
         "--checkout-bg": settings.background,
@@ -5455,7 +5446,7 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
         </div>
       </div>
       <div className="preview-viewport">
-        <div className={`checkout-canvas ${settings.layout}`}>
+        <div className="checkout-canvas maaxfy-canvas">
           {settings.banner_url && (
             <div className="checkout-banner">
               <img src={settings.banner_url} alt="Banner do checkout" />
@@ -5471,18 +5462,14 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
             ) : (
               <strong>{settings.brand_name}</strong>
             )}
-            {enabled("secure_badge") && (
-              <span>
-                <Bank /> Compra segura
-              </span>
-            )}
+            {enabled("secure_badge") && <span><Storefront /></span>}
           </header>
           <main>
             <div className="checkout-form">
               {enabled("contact") && (
                 <section>
                   <small>01</small>
-                  <h3>Seus dados</h3>
+                  <div className="maaxfy-section-heading"><h3>{settings.maaxfy_contact_title}</h3>{settings.maaxfy_show_login && <button type="button">Fazer login</button>}</div>
                   <label>
                     E-mail
                     <input placeholder="voce@email.com" />
@@ -5499,6 +5486,12 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                   </div>
                 </section>
               )}
+              <section className="shipping-section maaxfy-preview-delivery">
+                <h3>{settings.maaxfy_delivery_title}</h3>
+                <label>CEP<input placeholder="00000-000" /></label>
+                <label>Endereço<input placeholder="Rua ou avenida" /></label>
+                <div className="field-pair"><label>Cidade<input placeholder="Sua cidade" /></label><label>Estado<input placeholder="UF" /></label></div>
+              </section>
               <ShippingSelector
                 options={previewShippingOptions}
                 selectedId={selectedPreviewShippingId}
@@ -5514,6 +5507,7 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                 <section>
                   <small>02</small>
                   <h3>Pagamento</h3>
+                  <p className="maaxfy-payment-note">{settings.maaxfy_payment_note}</p>
                   <div className="payment-choice">
                     {previewMethods.map((method) => (
                       <button
@@ -5556,11 +5550,8 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
             </div>
             {enabled("summary") && (
               <aside className="order-preview">
-                <small>SEU PEDIDO</small>
-                <div className="preview-product">
-                  <i>
-                    <Package />
-                  </i>
+                <div className="preview-product maaxfy-preview-product">
+                  <i><Package /><em>1</em></i>
                   <span>
                     <b>Produto digital</b>
                     <small>Acesso imediato</small>
@@ -5569,23 +5560,21 @@ function CheckoutPreview({ settings, modules, products, productImages }) {
                 </div>
                 {enabled("coupon") && (
                   <div className="coupon-preview">
-                    <input placeholder="Cupom de desconto" />
+                    <input placeholder={settings.maaxfy_discount_placeholder} />
                     <button>Aplicar</button>
                   </div>
                 )}
+                <div className="maaxfy-summary-lines"><span><small>Subtotal</small><b>R$ 197,00</b></span><span><small>Frete</small><b>{previewShippingTotal ? money(previewShippingTotal) : "—"}</b></span></div>
                 <div className="preview-total">
                   <span>Total</span>
                   <strong>
                     {money(19700 + previewBumpTotal + previewShippingTotal)}
                   </strong>
                 </div>
-                <p>
-                  <CheckCircle /> Garantia de 7 dias
-                </p>
               </aside>
             )}
           </main>
-          <footer>Pagamento processado com segurança por Maax</footer>
+          <footer><span>Política de privacidade</span><span>Termos de uso</span></footer>
         </div>
       </div>
     </div>
