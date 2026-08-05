@@ -2210,6 +2210,7 @@ export function RealDashboard({ navigate }) {
       checkout_event_counters: [],
       checkout_presence: [],
       checkout_configs: [],
+      product_collections: [],
     }),
     [active, setActive] = useState("home"),
     [loading, setLoading] = useState(true),
@@ -2330,6 +2331,7 @@ export function RealDashboard({ navigate }) {
       ["checkout_event_counters", 20],
       ["checkout_presence", 500],
       ["checkout_configs", 10],
+      ["product_collections", 500],
     ];
     const results = await Promise.all(
       tableQueries.map(([table, limit]) => {
@@ -2698,9 +2700,8 @@ export function RealDashboard({ navigate }) {
         <nav className="side-nav">
           <span>{adminMode ? "ADMINISTRAÇÃO" : "PLATAFORMA"}</span>
           {(adminMode ? adminNav : nav).map(([id, label, Icon]) => (
-            <a
-              key={id}
-              className={`${(adminMode ? adminSection : active) === id ? "active" : ""} ${!adminMode && needsBilling && id !== "assinaturas" ? "locked" : ""}`}
+            <React.Fragment key={id}><a
+              className={`${(adminMode ? adminSection : active) === id || (!adminMode && id === "produtos" && (active === "collections" || active === "product_new" || active.startsWith("product_edit:"))) ? "active" : ""} ${!adminMode && needsBilling && id !== "assinaturas" ? "locked" : ""}`}
               aria-disabled={!adminMode && needsBilling && id !== "assinaturas"}
               onClick={() => {
                 if (adminMode) setAdminSection(id);
@@ -2714,6 +2715,8 @@ export function RealDashboard({ navigate }) {
                 <b>{data.orders.length}</b>
               ) : null}
             </a>
+            {!adminMode && id === "produtos" && ["produtos", "collections", "product_new"].some((section) => active === section || active.startsWith("product_edit:")) && <div className="side-subnav"><button type="button" className={active === "produtos" ? "active" : ""} onClick={() => { setActive("produtos"); setMenu(false); }}>Todos os produtos</button><button type="button" className={active === "collections" ? "active" : ""} onClick={() => { setActive("collections"); setMenu(false); }}>Coleções</button></div>}
+            </React.Fragment>
           ))}
         </nav>
         {adminMode ? <div className="side-help admin-help"><Sparkle /><b>Acesso exclusivo</b><small>Visão protegida de toda a plataforma.</small></div> : needsBilling ? <div className="side-help billing-required-help"><Lock /><b>Assinatura necessária</b><small>Ative um plano para liberar o painel.</small></div> : <BillingCycleCard workspace={workspace} orders={data.orders} onOpen={() => { setActive("assinaturas"); setMenu(false); }} />}
@@ -5821,10 +5824,26 @@ function ShopperPreview({
   );
 }
 
+function productMatchesCollection(product, collection) {
+  if (collection.collection_type === "manual") return (collection.product_ids || []).includes(product.id);
+  const conditions = Array.isArray(collection.conditions) ? collection.conditions.filter((condition) => condition.value?.trim()) : [];
+  if (!conditions.length) return false;
+  const tags = (Array.isArray(product.tags) ? product.tags : []).map((tag) => String(tag).trim().toLowerCase());
+  const matches = conditions.map((condition) => {
+    const expected = String(condition.value || "").trim().toLowerCase();
+    if (condition.field === "category") return String(product.category || "").toLowerCase().includes(expected);
+    if (condition.field === "vendor") return String(product.vendor || "").toLowerCase().includes(expected);
+    if (condition.operator === "contains") return tags.some((tag) => tag.includes(expected));
+    return tags.includes(expected);
+  });
+  return collection.match_type === "all" ? matches.every(Boolean) : matches.some(Boolean);
+}
+
 function ProductEditor({
   workspace,
   product,
   productImages = [],
+  collections = [],
   onBack,
   onSaved,
 }) {
@@ -5846,6 +5865,12 @@ function ProductEditor({
           billing_type: "one_time",
           track_inventory: false,
           product_type: "digital",
+          taxable: true,
+          requires_shipping: false,
+          continue_selling: false,
+          weight_unit: "kg",
+          sales_channels: ["checkout"],
+          product_options: [],
         },
   );
   const [images, setImages] = useState([]);
@@ -5862,6 +5887,17 @@ function ProductEditor({
   );
   const set = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
+  const toggleSalesChannel = (channel) =>
+    setForm((current) => {
+      const channels = Array.isArray(current.sales_channels) ? current.sales_channels : ["checkout"];
+      return { ...current, sales_channels: channels.includes(channel) ? channels.filter((item) => item !== channel) : [...channels, channel] };
+    });
+  const addProductOption = () =>
+    setForm((current) => ({ ...current, product_options: [...(current.product_options || []), { id: crypto.randomUUID(), name: "", values: "" }].slice(0, 3) }));
+  const updateProductOption = (id, key, value) =>
+    setForm((current) => ({ ...current, product_options: (current.product_options || []).map((option) => option.id === id ? { ...option, [key]: value } : option) }));
+  const removeProductOption = (id) =>
+    setForm((current) => ({ ...current, product_options: (current.product_options || []).filter((option) => option.id !== id) }));
   const addImages = async (files) => {
     const checked = await Promise.all(Array.from(files || []).map((file) => validatedImageFile(file).catch(() => null)));
     const incoming = checked.filter(Boolean);
@@ -5903,6 +5939,15 @@ function ProductEditor({
         ? Number(form.inventory_quantity || 0)
         : 0,
       product_type: form.product_type === "physical" ? "physical" : "digital",
+      category: form.category || null,
+      vendor: form.vendor || null,
+      taxable: form.taxable !== false,
+      requires_shipping: form.product_type === "physical" && form.requires_shipping !== false,
+      weight_value: form.product_type === "physical" && form.weight_value !== "" ? Number(form.weight_value || 0) : null,
+      weight_unit: form.weight_unit || "kg",
+      continue_selling: Boolean(form.continue_selling),
+      sales_channels: Array.isArray(form.sales_channels) && form.sales_channels.length ? form.sales_channels : ["checkout"],
+      product_options: Array.isArray(form.product_options) ? form.product_options : [],
       tags: form.tags
         ? form.tags
             .split(",")
@@ -6106,6 +6151,7 @@ function ProductEditor({
               O preço comparativo aparece riscado no checkout e deve ser maior
               que o preço atual.
             </p>
+            <label className="product-check"><input type="checkbox" checked={form.taxable !== false} onChange={(e) => set("taxable", e.target.checked)} />Cobrar tributos quando aplicável</label>
           </section>
           <section className="product-panel">
             <b>Estoque e identificação</b>
@@ -6130,15 +6176,11 @@ function ProductEditor({
               Controlar quantidade disponível
             </label>
             {form.track_inventory && (
-              <Field
-                label="Quantidade"
-                type="number"
-                min="0"
-                value={form.inventory_quantity || 0}
-                onChange={(e) => set("inventory_quantity", e.target.value)}
-              />
+              <><Field label="Quantidade" type="number" min="0" value={form.inventory_quantity || 0} onChange={(e) => set("inventory_quantity", e.target.value)} /><label className="product-check"><input type="checkbox" checked={Boolean(form.continue_selling)} onChange={(e) => set("continue_selling", e.target.checked)} />Continuar vendendo mesmo sem estoque</label></>
             )}
           </section>
+          {form.product_type === "physical" && <section className="product-panel"><b>Frete</b><label className="product-check"><input type="checkbox" checked={form.requires_shipping !== false} onChange={(e) => set("requires_shipping", e.target.checked)} />Este produto exige entrega</label>{form.requires_shipping !== false && <div className="product-field-grid product-weight-grid"><Field label="Peso" type="number" min="0" step="0.001" value={form.weight_value ?? ""} onChange={(e) => set("weight_value", e.target.value)} /><label className="data-field">Unidade<select value={form.weight_unit || "kg"} onChange={(e) => set("weight_unit", e.target.value)}><option value="kg">kg</option><option value="g">g</option><option value="lb">lb</option><option value="oz">oz</option></select></label></div>}<p className="panel-help">O peso ajuda a manter as informações de entrega organizadas.</p></section>}
+          <section className="product-panel product-options-panel"><div className="product-section-title"><b>Variantes</b><button type="button" className="product-inline-action" onClick={addProductOption} disabled={(form.product_options || []).length >= 3}><Plus /> Adicionar opção</button></div>{(form.product_options || []).length ? <div className="product-option-list">{form.product_options.map((option, index) => <article key={option.id || index}><div><Field label="Nome da opção" placeholder="Ex.: Tamanho" value={option.name || ""} onChange={(e) => updateProductOption(option.id, "name", e.target.value)} /><Field label="Valores separados por vírgula" placeholder="P, M, G" value={option.values || ""} onChange={(e) => updateProductOption(option.id, "values", e.target.value)} /></div><button type="button" onClick={() => removeProductOption(option.id)} aria-label="Remover opção"><Trash /></button></article>)}</div> : <div className="product-inline-empty"><Package /><span><b>Produto sem variantes</b><small>Adicione tamanho, cor, material ou outra opção.</small></span></div>}</section>
           <section className="product-panel">
             <b>Listagem nos buscadores</b>
             <Field
@@ -6171,8 +6213,11 @@ function ProductEditor({
               </select>
             </label>
           </section>
+          <section className="product-panel"><b>Publicação</b><p className="panel-help product-panel-intro">Escolha onde este produto poderá aparecer.</p><label className="product-check"><input type="checkbox" checked={(form.sales_channels || ["checkout"]).includes("checkout")} onChange={() => toggleSalesChannel("checkout")} />Checkout público</label><label className="product-check"><input type="checkbox" checked={(form.sales_channels || []).includes("payment_links")} onChange={() => toggleSalesChannel("payment_links")} />Links de pagamento</label></section>
           <section className="product-panel">
             <b>Organização</b>
+            <Field label="Categoria" placeholder="Ex.: Cursos e treinamentos" value={form.category || ""} onChange={(e) => set("category", e.target.value)} />
+            <Field label="Fornecedor" placeholder="Nome da marca ou produtor" value={form.vendor || ""} onChange={(e) => set("vendor", e.target.value)} />
             <label className="data-field">
               Tipo de produto
               <select
@@ -6198,6 +6243,7 @@ function ProductEditor({
               value={form.tags || ""}
               onChange={(e) => set("tags", e.target.value)}
             />
+            <div className="product-collection-membership"><small>COLEÇÕES AUTOMÁTICAS</small>{collections.filter((collection) => collection.collection_type === "automated" && productMatchesCollection({ ...form, tags: String(form.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean) }, collection)).map((collection) => <span key={collection.id}>{collection.title}</span>)}{!collections.some((collection) => collection.collection_type === "automated" && productMatchesCollection({ ...form, tags: String(form.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean) }, collection)) && <p>Nenhuma regra corresponde às tags atuais.</p>}</div>
           </section>
           <section className="product-panel">
             <b>Link do produto</b>
@@ -6215,6 +6261,480 @@ function ProductEditor({
       </div>
       {error && <div className="product-error">{error}</div>}
     </form>
+  );
+}
+
+function CollectionsPage({
+  workspace,
+  products,
+  collections,
+  onReload,
+  onNavigate,
+}) {
+  const blank = () => ({
+    title: "",
+    description: "",
+    status: "active",
+    collection_type: "automated",
+    match_type: "any",
+    conditions: [
+      { id: crypto.randomUUID(), field: "tag", operator: "equals", value: "" },
+    ],
+    product_ids: [],
+  });
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(blank);
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const openNew = () => {
+    setForm(blank());
+    setEditing("new");
+    setMessage("");
+  };
+  const openEdit = (collection) => {
+    setForm({
+      ...blank(),
+      ...collection,
+      conditions:
+        Array.isArray(collection.conditions) && collection.conditions.length
+          ? collection.conditions
+          : blank().conditions,
+      product_ids: collection.product_ids || [],
+    });
+    setEditing(collection.id);
+    setMessage("");
+  };
+  const set = (key, value) =>
+    setForm((current) => ({ ...current, [key]: value }));
+  const updateCondition = (id, key, value) =>
+    setForm((current) => ({
+      ...current,
+      conditions: current.conditions.map((condition) =>
+        condition.id === id ? { ...condition, [key]: value } : condition,
+      ),
+    }));
+  const addCondition = () =>
+    setForm((current) => ({
+      ...current,
+      conditions: [
+        ...current.conditions,
+        {
+          id: crypto.randomUUID(),
+          field: "tag",
+          operator: "equals",
+          value: "",
+        },
+      ].slice(0, 5),
+    }));
+  const toggleProduct = (id) =>
+    setForm((current) => ({
+      ...current,
+      product_ids: current.product_ids.includes(id)
+        ? current.product_ids.filter((item) => item !== id)
+        : [...current.product_ids, id],
+    }));
+  const save = async (event) => {
+    event.preventDefault();
+    if (!form.title.trim()) return setMessage("Informe o nome da coleção.");
+    if (
+      form.collection_type === "automated" &&
+      !form.conditions.some((condition) => condition.value.trim())
+    )
+      return setMessage("Adicione ao menos uma condição válida.");
+    setSaving(true);
+    setMessage("");
+    const handle = form.title
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const payload = {
+      workspace_id: workspace.id,
+      title: form.title.trim(),
+      handle,
+      description: form.description || null,
+      status: form.status,
+      collection_type: form.collection_type,
+      match_type: form.match_type,
+      conditions:
+        form.collection_type === "automated"
+          ? form.conditions.filter((condition) => condition.value.trim())
+          : [],
+      product_ids: form.collection_type === "manual" ? form.product_ids : [],
+    };
+    const result =
+      editing === "new"
+        ? await supabase.from("product_collections").insert(payload)
+        : await supabase
+            .from("product_collections")
+            .update(payload)
+            .eq("id", editing);
+    setSaving(false);
+    if (result.error) return setMessage(result.error.message);
+    await onReload();
+    setEditing(null);
+  };
+  const remove = async () => {
+    if (!deleting) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("product_collections")
+      .delete()
+      .eq("id", deleting.id);
+    setSaving(false);
+    if (error) return setMessage(error.message);
+    setDeleting(null);
+    await onReload();
+  };
+  const visible = collections.filter((collection) =>
+    collection.title.toLowerCase().includes(query.toLowerCase()),
+  );
+  if (editing)
+    return (
+      <form className="collection-editor page-enter" onSubmit={save}>
+        <div className="collection-editor-top">
+          <div>
+            <button type="button" onClick={() => setEditing(null)}>
+              ← Coleções
+            </button>
+            <h1>
+              {editing === "new" ? "Criar coleção" : "Editar coleção"}
+              <i />
+            </h1>
+          </div>
+          <div>
+            <Button secondary onClick={() => setEditing(null)}>
+              Descartar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Salvando..." : "Salvar coleção"}
+            </Button>
+          </div>
+        </div>
+        <div className="collection-editor-grid">
+          <main>
+            <section className="product-panel">
+              <Field
+                label="Título"
+                value={form.title}
+                onChange={(event) => set("title", event.target.value)}
+                required
+              />
+              <label className="data-field">
+                Descrição
+                <textarea
+                  rows="5"
+                  value={form.description || ""}
+                  onChange={(event) => set("description", event.target.value)}
+                  placeholder="Explique o propósito desta coleção"
+                />
+              </label>
+            </section>
+            <section className="product-panel">
+              <div className="product-section-title">
+                <b>Produtos</b>
+                <span>
+                  {form.collection_type === "automated"
+                    ? "Seleção automática"
+                    : `${form.product_ids.length} selecionados`}
+                </span>
+              </div>
+              <div className="collection-type-switch">
+                <button
+                  type="button"
+                  className={
+                    form.collection_type === "automated" ? "active" : ""
+                  }
+                  onClick={() => set("collection_type", "automated")}
+                >
+                  Automática<small>Produtos entram por regras</small>
+                </button>
+                <button
+                  type="button"
+                  className={form.collection_type === "manual" ? "active" : ""}
+                  onClick={() => set("collection_type", "manual")}
+                >
+                  Manual<small>Escolha cada produto</small>
+                </button>
+              </div>
+              {form.collection_type === "automated" ? (
+                <div className="collection-rules">
+                  <label>
+                    Corresponder a
+                    <select
+                      value={form.match_type}
+                      onChange={(event) =>
+                        set("match_type", event.target.value)
+                      }
+                    >
+                      <option value="any">qualquer condição</option>
+                      <option value="all">todas as condições</option>
+                    </select>
+                  </label>
+                  {form.conditions.map((condition) => (
+                    <div className="collection-rule" key={condition.id}>
+                      <select
+                        value={condition.field}
+                        onChange={(event) =>
+                          updateCondition(
+                            condition.id,
+                            "field",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="tag">Tag do produto</option>
+                        <option value="category">Categoria</option>
+                        <option value="vendor">Fornecedor</option>
+                      </select>
+                      <select
+                        value={condition.operator}
+                        onChange={(event) =>
+                          updateCondition(
+                            condition.id,
+                            "operator",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        <option value="equals">é igual a</option>
+                        <option value="contains">contém</option>
+                      </select>
+                      <input
+                        value={condition.value}
+                        placeholder="Digite o valor"
+                        onChange={(event) =>
+                          updateCondition(
+                            condition.id,
+                            "value",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          set(
+                            "conditions",
+                            form.conditions.filter(
+                              (item) => item.id !== condition.id,
+                            ),
+                          )
+                        }
+                        disabled={form.conditions.length === 1}
+                      >
+                        <X />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="product-inline-action"
+                    onClick={addCondition}
+                    disabled={form.conditions.length >= 5}
+                  >
+                    <Plus /> Adicionar condição
+                  </button>
+                  <div className="collection-preview">
+                    <span>
+                      <b>
+                        {
+                          products.filter((product) =>
+                            productMatchesCollection(product, form),
+                          ).length
+                        }
+                      </b>{" "}
+                      produtos correspondem agora
+                    </span>
+                    {products
+                      .filter((product) =>
+                        productMatchesCollection(product, form),
+                      )
+                      .slice(0, 5)
+                      .map((product) => (
+                        <small key={product.id}>{product.name}</small>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="collection-product-picker">
+                  {products.map((product) => (
+                    <label key={product.id}>
+                      <input
+                        type="checkbox"
+                        checked={form.product_ids.includes(product.id)}
+                        onChange={() => toggleProduct(product.id)}
+                      />
+                      <span>
+                        <b>{product.name}</b>
+                        <small>
+                          {(product.tags || []).join(", ") || "Sem tags"}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </section>
+          </main>
+          <aside className="product-side-column">
+            <section className="product-panel">
+              <label className="data-field">
+                Status
+                <select
+                  value={form.status}
+                  onChange={(event) => set("status", event.target.value)}
+                >
+                  <option value="active">Ativa</option>
+                  <option value="draft">Rascunho</option>
+                </select>
+              </label>
+            </section>
+            <section className="product-panel">
+              <b>Resumo</b>
+              <div className="collection-editor-summary">
+                <span>
+                  <small>TIPO</small>
+                  <b>
+                    {form.collection_type === "automated"
+                      ? "Automática"
+                      : "Manual"}
+                  </b>
+                </span>
+                <span>
+                  <small>PRODUTOS</small>
+                  <b>
+                    {form.collection_type === "automated"
+                      ? products.filter((product) =>
+                          productMatchesCollection(product, form),
+                        ).length
+                      : form.product_ids.length}
+                  </b>
+                </span>
+              </div>
+            </section>
+          </aside>
+        </div>
+        {message && <div className="product-error">{message}</div>}
+      </form>
+    );
+  return (
+    <div className="collections-page page-enter">
+      <PageTitle
+        kicker="CATÁLOGO"
+        title="Coleções"
+        description="Agrupe produtos manualmente ou por regras automáticas de tags"
+        action="Criar coleção"
+        onAction={openNew}
+      />
+      <div className="catalog-tabs">
+        <button type="button" onClick={() => onNavigate("produtos")}>
+          Produtos
+        </button>
+        <button type="button" className="active">
+          Coleções
+        </button>
+      </div>
+      <section className="resource-table">
+        <div className="resource-head">
+          <div>
+            <span>ORGANIZAÇÃO</span>
+            <h2>{collections.length} coleções</h2>
+          </div>
+          <label className="collection-search">
+            <MagnifyingGlass />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar coleção"
+            />
+          </label>
+        </div>
+        {visible.length ? (
+          <div className="collection-list">
+            <div className="collection-row collection-labels">
+              <span>Coleção</span>
+              <span>Tipo</span>
+              <span>Produtos</span>
+              <span>Status</span>
+              <span>Ações</span>
+            </div>
+            {visible.map((collection) => (
+              <div className="collection-row" key={collection.id}>
+                <span>
+                  <b>{collection.title}</b>
+                  <small>/{collection.handle}</small>
+                </span>
+                <span>
+                  {collection.collection_type === "automated"
+                    ? "Automática"
+                    : "Manual"}
+                </span>
+                <span>
+                  {
+                    products.filter((product) =>
+                      productMatchesCollection(product, collection),
+                    ).length
+                  }
+                </span>
+                <span>
+                  <em>
+                    {collection.status === "active" ? "Ativa" : "Rascunho"}
+                  </em>
+                </span>
+                <span>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(collection)}
+                    aria-label={`Editar ${collection.title}`}
+                  >
+                    <PencilSimple />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleting(collection)}
+                    aria-label={`Excluir ${collection.title}`}
+                  >
+                    <Trash />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="collection-empty">
+            <Package />
+            <h3>
+              {query
+                ? "Nenhuma coleção encontrada"
+                : "Crie sua primeira coleção"}
+            </h3>
+            <p>Use tags para organizar automaticamente grandes catálogos.</p>
+            {!query && (
+              <Button onClick={openNew}>
+                <Plus /> Criar coleção
+              </Button>
+            )}
+          </div>
+        )}
+      </section>
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title="Excluir coleção?"
+        description={
+          deleting
+            ? `“${deleting.title}” será removida. Os produtos continuarão cadastrados.`
+            : ""
+        }
+        confirmLabel="Excluir coleção"
+        busy={saving}
+        onClose={() => setDeleting(null)}
+        onConfirm={remove}
+      />
+    </div>
   );
 }
 
@@ -7437,6 +7957,7 @@ function DataView({
     return (
       <ProductEditor
         workspace={workspace}
+        collections={data.product_collections}
         onBack={() => onNavigate("produtos")}
         onSaved={onReload}
       />
@@ -7449,6 +7970,7 @@ function DataView({
       <ProductEditor
         workspace={workspace}
         product={product}
+        collections={data.product_collections}
         productImages={data.product_images.filter(
           (image) => image.product_id === product.id,
         )}
@@ -7457,6 +7979,8 @@ function DataView({
       />
     );
   }
+  if (type === "collections")
+    return <CollectionsPage workspace={workspace} products={data.products} collections={data.product_collections || []} onReload={onReload} onNavigate={onNavigate} />;
   if (type === "checkout")
     return (
       <CheckoutEditor
@@ -7598,6 +8122,7 @@ function DataView({
         action={config[3]}
         onAction={onAction}
       />
+      {type === "produtos" && <div className="catalog-tabs"><button type="button" className="active">Produtos</button><button type="button" onClick={() => onNavigate("collections")}>Coleções</button></div>}
       <section className="resource-table">
         <div className="resource-head">
           <div>
